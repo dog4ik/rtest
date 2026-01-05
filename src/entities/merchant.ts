@@ -1,0 +1,179 @@
+import * as vitest from "vitest";
+import { z } from "zod";
+import type { Merchant } from "@/db/core";
+import { err_bad_status, parse_json } from "@/fetch_utils";
+import type { SharedState } from "@/state";
+import { BusinessStatusSchema } from "@/db/business";
+import tracing from "@/tracing";
+import {
+  extendNotification,
+  NOTIFICATION_SCHEMA,
+  type Notification,
+} from "./merchant_notification";
+import type { HttpContext } from "@/mock_server/api";
+import type { CreateRuleFormData } from "@/driver/flexy_commission";
+
+export type NotificationHandler = (
+  notification: Notification,
+  req: HttpContext,
+) =>
+  | Response
+  | Promise<Response>
+  | undefined
+  | Promise<undefined>
+  | void
+  | Promise<void>;
+
+export function extendMerchant(
+  {
+    core_db,
+    settings_db,
+    core_harness,
+    settings_service,
+    business_url,
+    mock_servers,
+    commission_service,
+  }: SharedState,
+  merchant: Merchant,
+) {
+  async function wallets() {
+    return core_db.merchantWallets(merchant.id);
+  }
+
+  async function cashin(currency: string, amount: number) {
+    return core_harness.cashin(merchant.id, currency, amount);
+  }
+
+  async function set_settings(settings: {}) {
+    let current = await settings_db.merchant_settings(merchant.id);
+    await settings_service.edit(current.id, current.external_id, settings);
+  }
+
+  function callbackUrl() {
+    return `http://host.docker.internal:6767/${merchant.id}`;
+  }
+
+  type PaymentRequest = {
+    currency: string;
+    amount: number;
+    customer: {
+      email: string;
+      ip: string;
+    };
+    order_number: string;
+    callbackUrl?: string;
+    product: string;
+  };
+  async function create_payment<
+    T extends Record<string, any> & {
+      callbackUrl?: string;
+    } = PaymentRequest,
+  >(request: T) {
+    let nestedPayment = z.object({
+      amount: z.int(),
+      commission: z.int().optional(),
+      currency: z.string(),
+      gateway_amount: z.int(),
+      status: BusinessStatusSchema,
+      two_stage_mode: z.boolean(),
+    });
+
+    let paymentResponse = z.object({
+      payment: nestedPayment,
+      processingUrl: z.array(z.record(z.string(), z.url())).or(z.url()),
+      result: z.int(),
+      selectorUrl: z.url().optional(),
+      status: z.int(),
+      success: z.boolean(),
+      token: z.string().length(32),
+    });
+
+    if (request["callbackUrl"] === undefined) {
+      let url = callbackUrl();
+      console.log("Overriding merchant callback url to", url);
+      request["callbackUrl"] = url;
+    }
+
+    let url = business_url + "/api/v1/payments";
+    tracing.debug({ body: request, url }, "Creating merchant payment");
+    console.log({ body: request, url }, "Creating merchant payment");
+    let res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer " + merchant.merchant_private_key,
+      },
+      body: JSON.stringify(request),
+    })
+      .then(err_bad_status)
+      .then(parse_json(paymentResponse));
+
+    return {
+      ...res,
+      firstProcessingUrl() {
+        if (!Array.isArray(this.processingUrl)) {
+          return vitest.assert.fail("Processing url is not an array");
+        } else if (this.processingUrl.length === 0) {
+          return vitest.assert.fail("Processing url is empty");
+        }
+        let object = this.processingUrl[0];
+        return Object.values(object)[0];
+      },
+      async followFirstProcessingUrl() {
+        console.log("Fetching processing url");
+        // TODO: add helper methods on fetch result
+        return await fetch(this.firstProcessingUrl(), {
+          method: "GET",
+          redirect: "follow",
+        });
+      },
+    };
+  }
+
+  /**
+   * Setup notification handler.
+   * @returns {Promise<undefined>} that will be resolved when the handler is done.
+   **/
+  async function notification_handler(
+    handler: NotificationHandler,
+  ): Promise<undefined> {
+    let { promise, resolve, reject } = Promise.withResolvers<undefined>();
+    mock_servers.registerMerchant(merchant.id, async (c) => {
+      try {
+        let callback = extendNotification(
+          NOTIFICATION_SCHEMA.parse(await c.req.json()),
+        );
+        callback.verifySignature(merchant.merchant_private_key);
+        let res = await handler(callback, c);
+        resolve(undefined);
+        return res || c.json({ message: "OK (fallback response)" });
+      } catch (error) {
+        reject(error);
+        return c.json({ message: "Notification handler error", error });
+      }
+    });
+    return promise;
+  }
+
+  async function set_commission(rule?: Partial<CreateRuleFormData>) {
+    await commission_service.add({
+      to_profile: merchant.id.toString(),
+      comment: `Test commission rule`,
+      self_rate: "10",
+      provider_rate: "5",
+      status: "1",
+      ...rule,
+    });
+  }
+
+  return {
+    ...merchant,
+    wallets,
+    cashin,
+    set_settings,
+    create_payment,
+    notification_handler,
+    callbackUrl,
+    set_commission,
+  };
+}

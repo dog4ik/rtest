@@ -1,0 +1,95 @@
+import type { HttpContext } from "./mock_server/api";
+
+export type PaymentRequest = {
+  amount: number;
+  currency: string;
+  customer: {
+    email: string;
+    ip?: string;
+  };
+  product?: string;
+  order_number?: string;
+};
+
+export type CardObject = {
+  pan: string;
+  cvv: string;
+  holder: string;
+  expires: string;
+};
+
+export type HandlerResponse = {
+  status: number;
+  body?: string;
+  set_header(name: string, value: string): void;
+};
+
+export const visaCard = "4242424242424242";
+export const mastercardCard = "5555555555554444";
+export const phoneNumber = "88005553535";
+export const redirectPayUrl = "https://google.com";
+
+export function paymentRequest(
+  currency: string,
+  override?: Partial<PaymentRequest>,
+): PaymentRequest {
+  let payload: PaymentRequest = {
+    amount: 123456,
+    currency,
+    customer: {
+      email: "test@email.com",
+    },
+    product: "test product",
+  };
+
+  return override ? { ...payload, ...override } : payload;
+}
+
+export function nginx500(c: HttpContext): Response {
+  c.status(500);
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>500 Internal Server Error</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+    h1 { color: #cc0000; }
+  </style>
+</head>
+<body>
+  <h1>500 Internal Server Error</h1>
+  <p>Oops! Something went wrong on our server. We are working to fix it.</p>
+  <p>Please try again later.</p>
+</body>
+</html>`);
+}
+
+export function cardObject(override?: Partial<CardObject>): CardObject {
+  let payload: CardObject = {
+    cvv: "123",
+    pan: visaCard,
+    holder: "Test holder",
+    expires: "02/2077",
+  };
+
+  return override ? { ...payload, ...override } : payload;
+}
+
+export function payoutRequest(
+  currency: string,
+  override?: Partial<PaymentRequest>,
+): PaymentRequest {
+  let payload: PaymentRequest = {
+    amount: 123456,
+    currency,
+    order_number: crypto.randomUUID(),
+    customer: {
+      email: "test@email.com",
+      ip: "8.8.8.8",
+    },
+  };
+
+  return override ? { ...payload, ...override } : payload;
+}

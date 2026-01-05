@@ -1,0 +1,12 @@
+diff --git a/services/core/config/application.rb b/services/core/config/application.rb
+index 3a77a7a56..e11ae636e 100644
+--- a/services/core/config/application.rb
++++ b/services/core/config/application.rb
+@@ -10,6 +10,7 @@ module ReactivePay
+   class Application < Rails::Application
+     # Initialize configuration defaults for originally generated Rails version.
+     config.load_defaults 5.0
++    config.action_controller.allow_forgery_protection = false
+ 
+     # Settings in config/environments/* take precedence over those specified here.
+     # Application configuration should go into files in config/initializers

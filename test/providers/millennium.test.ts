@@ -1,0 +1,153 @@
+import * as vitest from "vitest";
+import * as common from "@/common";
+import * as playwright from "playwright/test";
+import { CONFIG, test } from "@/test_context";
+import { providers } from "@/settings_builder";
+import { MillenniumPayment } from "@/provider_mocks/millennium/payin";
+import type { Context } from "@/test_context/context";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+
+const CURRENCY = "RUB";
+const CALLBACK_DELAY = 11 * 1000;
+
+async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
+  let uuid = crypto.randomUUID();
+  let merchant = await ctx.create_random_merchant();
+  await merchant.set_settings(
+    providers(CURRENCY, {
+      ...MillenniumPayment.settings(uuid),
+      wrapped_to_json_response,
+    }),
+  );
+  let millennium = ctx.mock_server(MillenniumPayment.mock_params(uuid));
+  let payment = new MillenniumPayment();
+  return { merchant, millennium, payment, uuid };
+}
+
+let cases = [
+  ["ACCEPTED", "approved"],
+  ["CANCELLED", "declined"],
+] as const;
+
+for (let [mil_status, rp_status] of cases) {
+  test.concurrent(`callback finalization to ${rp_status}`, async ({ ctx }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, millennium, payment, uuid } = await setupMerchant(
+        ctx,
+        true,
+      );
+      millennium.queue(async (c) => {
+        setTimeout(() => {
+          payment.send_callback(mil_status, uuid);
+        }, CALLBACK_DELAY);
+        return c.json(payment.create_response("WAIT", await c.req.json()));
+      });
+      let result = await merchant.create_payment(
+        common.paymentRequest(CURRENCY),
+      );
+      await result.followFirstProcessingUrl();
+      await merchant.notification_handler(async (notification) => {
+        vitest.assert(
+          notification.status === rp_status,
+          "merchant notification status",
+        );
+      });
+    });
+  });
+
+  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, millennium, payment } = await setupMerchant(ctx, true);
+      millennium.queue(async (c) => {
+        return c.json(payment.create_response("WAIT", await c.req.json()));
+      });
+
+      millennium.queue((c) => c.json(payment.status_response(mil_status)));
+
+      let result = await merchant.create_payment(
+        common.paymentRequest(CURRENCY),
+      );
+      await result.followFirstProcessingUrl();
+      await merchant.notification_handler(async (notification) => {
+        vitest.assert(
+          notification.status === rp_status,
+          "merchant notification status",
+        );
+      });
+    });
+  });
+}
+
+test
+  .skipIf(CONFIG.project !== "8pay")
+  .concurrent("millennium sbp payform", async ({ ctx, browser }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, millennium, payment } = await setupMerchant(ctx, false);
+      millennium.queue(async (c) =>
+        c.json(payment.create_response("WAIT", await c.req.json())),
+      );
+      millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
+
+      let result = await merchant.create_payment(
+        common.paymentRequest(CURRENCY),
+      );
+
+      let page = await browser.newPage();
+      await page.goto(result.firstProcessingUrl());
+
+      let pf = new EightpayRequisitesPage(page);
+      await Promise.all([
+        playwright.expect(pf.pageTitle()).toBeVisible(),
+        playwright.expect(pf.pageTitle()).toHaveText("Оплата по СБП"),
+        playwright.expect(pf.amountSpan()).toBeVisible(),
+        playwright.expect(pf.amountSpan()).toHaveText("1 234.56 Р"),
+        playwright.expect(pf.paymentPhone()).toBeVisible(),
+        playwright.expect(pf.paymentPhone()).toHaveText("+8 800 555 35 35"),
+      ]);
+
+      await merchant.notification_handler(async (notification) => {
+        vitest.assert(
+          notification.status === "approved",
+          "merchant notification status",
+        );
+      });
+    });
+  });
+
+test
+  .skipIf(CONFIG.project !== "8pay")
+  .concurrent("millennium qr payform", async ({ ctx, browser }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, millennium, payment } = await setupMerchant(ctx, false);
+      millennium.queue(async (c) =>
+        c.json(payment.create_response("WAIT", await c.req.json())),
+      );
+      millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
+
+      let result = await merchant.create_payment({
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "SBP_aquiring",
+      });
+
+      let page = await browser.newPage();
+      await page.goto(result.firstProcessingUrl());
+
+      let pf = new EightpayRequisitesPage(page);
+      await Promise.all([
+        playwright.expect(pf.amountSpan()).toBeVisible(),
+        playwright.expect(pf.amountSpan()).toHaveText("1 234.56 Р"),
+        playwright.expect(pf.qrPayLink()).toBeVisible(),
+        playwright.expect(pf.qrPayLink()).toHaveText("Оплатить"),
+        playwright
+          .expect(pf.qrPayLink())
+          .toHaveAttribute("href", common.redirectPayUrl),
+      ]);
+
+      await merchant.notification_handler(async (notification) => {
+        vitest.assert(
+          notification.status === "approved",
+          "merchant notification status",
+        );
+      });
+    });
+  });

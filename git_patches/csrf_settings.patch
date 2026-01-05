@@ -1,0 +1,10 @@
+diff --git a/services/settings/config/initializers/rails_admin.rb b/services/settings/config/initializers/rails_admin.rb
+index fc4f2bd0f..e5241c877 100644
+--- a/services/settings/config/initializers/rails_admin.rb
++++ b/services/settings/config/initializers/rails_admin.rb
+@@ -1,4 +1,5 @@
+ RailsAdmin.config do |config|
++  config.forgery_protection_settings = {with: :null_session}
+   config.authorize_with do
+     authenticate_or_request_with_http_basic('Site Message') do |email, password|
+       manager = Manager.find_by(email: email)

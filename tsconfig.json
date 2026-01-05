@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "dist",
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext"],
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "baseUrl": ".",
+    "types": [
+      "vitest/importMeta"
+    ],
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "test", "patch"],
+  "exclude": ["node_modules"]
+}
