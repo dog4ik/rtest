@@ -21,7 +21,7 @@ export const NOTIFICATION_SCHEMA = z.object({
     pending_url_request: z.any(),
     decline_reason: z.string().optional(),
   }),
-  sanitizedMask: z.string(),
+  sanitizedMask: z.string().optional().nullable(),
   walletToken: z.string(),
   signature: z.string(),
 });
@@ -39,7 +39,9 @@ export function extendNotification(
     add_s(notification.token);
     add_s(notification.type);
     add_s(notification.status);
-    add_s(notification.extraReturnParam);
+    if (notification.extraReturnParam) {
+      add_s(notification.extraReturnParam);
+    }
     if (notification.orderNumber) {
       add_s(notification.orderNumber);
     }

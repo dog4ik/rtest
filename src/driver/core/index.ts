@@ -41,7 +41,6 @@ export class CoreDriver {
     if (cookie !== null) {
       this.cookies = cookie;
     }
-    console.log(res.status, res.headers.get("set-cookie"));
   }
 
   async login(credentials: Credentials) {

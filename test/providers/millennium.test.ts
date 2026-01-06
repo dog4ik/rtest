@@ -8,7 +8,8 @@ import type { Context } from "@/test_context/context";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
-const CALLBACK_DELAY = 11 * 1000;
+// FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
+const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   let uuid = crypto.randomUUID();
@@ -24,12 +25,12 @@ async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   return { merchant, millennium, payment, uuid };
 }
 
-let cases = [
+const CASES = [
   ["ACCEPTED", "approved"],
   ["CANCELLED", "declined"],
 ] as const;
 
-for (let [mil_status, rp_status] of cases) {
+for (let [mil_status, rp_status] of CASES) {
   test.concurrent(`callback finalization to ${rp_status}`, async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
       let { merchant, millennium, payment, uuid } = await setupMerchant(

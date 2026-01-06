@@ -4,7 +4,7 @@ import { Hono, type Context, type HonoRequest } from "hono";
 export type HttpContext = Context;
 export type HttpRequest = HonoRequest;
 
-export type FilterFunction = (req: HttpRequest) => boolean;
+export type FilterFunction = (req: HttpRequest) => boolean | Promise<boolean>;
 
 export type MockProviderParams = {
   alias: string;
@@ -26,10 +26,10 @@ export function spawn_provider_server(port: number): ProviderServerInstance {
   const api = new Hono();
   let handlers: ProviderHandler[] = [];
 
-  api.all("*", (c) => {
+  api.all("*", async (c) => {
     for (let { handler, filter } of handlers) {
-      if (filter(c.req)) {
-        return handler(c);
+      if (await filter(c.req)) {
+        return await handler(c);
       }
     }
     return c.json({ message: "unregistered server handler" });

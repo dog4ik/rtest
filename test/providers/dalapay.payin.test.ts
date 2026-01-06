@@ -1,0 +1,123 @@
+import * as vitest from "vitest";
+import * as common from "@/common";
+import { CONFIG, test } from "@/test_context";
+import { defaultSettings } from "@/settings_builder";
+import { DalapayTransaction, OperationStatus } from "@/provider_mocks/dalapay";
+import type { Context } from "@/test_context/context";
+
+const CURRENCY = "CDF";
+// FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
+const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
+
+async function setupMerchant(ctx: Context) {
+  let uuid = crypto.randomUUID();
+  let merchant = await ctx.create_random_merchant();
+  let settings = defaultSettings(CURRENCY, DalapayTransaction.settings(uuid));
+  settings.gateways["allow_h2h_payin_without_card"] = true;
+  await merchant.set_settings(settings);
+  let dalapay = ctx.mock_server(DalapayTransaction.mock_params(uuid));
+  let payment = new DalapayTransaction();
+  return { merchant, dalapay, payment, uuid };
+}
+
+const CASES = [
+  [2, "approved"],
+  [3, "declined"],
+] as const;
+
+for (let [dalapay_status, rp_status] of CASES) {
+  test.concurrent(
+    `callback finalization to ${rp_status}`,
+    { timeout: 30_000 },
+    async ({ ctx }) => {
+      await ctx.track_bg_rejections(async () => {
+        let { merchant, dalapay, payment } = await setupMerchant(ctx);
+        dalapay.queue(async (c) => {
+          setTimeout(() => {
+            payment.send_callback(dalapay_status);
+          }, CALLBACK_DELAY);
+          return c.json(
+            payment.status_response(
+              OperationStatus.IN_PROGRESS,
+              await c.req.json(),
+            ),
+          );
+        });
+        dalapay.queue(async (c) => {
+          return c.json(payment.status_response(OperationStatus.IN_PROGRESS));
+        });
+        let result = await merchant.create_payment({
+          ...common.paymentRequest(CURRENCY),
+          card: common.cardObject(),
+          customer: {
+            email: "test@email.com",
+            country: "EU",
+            first_name: "test",
+            last_name: "testov",
+            phone: common.phoneNumber,
+          },
+        });
+        vitest.assert(
+          result.payment.status == "pending",
+          "merchant response payment status",
+        );
+        await merchant.notification_handler(async (notification) => {
+          if (notification.status == "declined") {
+            vitest.assert(
+              notification.gatewayDetails.decline_reason ==
+                "gateway response error: My fancy error",
+            );
+          }
+          vitest.assert(
+            notification.status === rp_status,
+            "merchant notification status",
+          );
+        });
+      });
+    },
+  );
+
+  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, dalapay, payment } = await setupMerchant(ctx);
+      dalapay.queue(async (c) => {
+        return c.json(
+          payment.status_response(
+            OperationStatus.IN_PROGRESS,
+            await c.req.json(),
+          ),
+        );
+      });
+
+      dalapay.queue((c) => c.json(payment.status_response(dalapay_status)));
+
+      let result = await merchant.create_payment({
+        ...common.paymentRequest(CURRENCY),
+        card: common.cardObject(),
+        customer: {
+          email: "test@email.com",
+          country: "EU",
+          first_name: "test",
+          last_name: "testov",
+          phone: common.phoneNumber,
+        },
+      });
+      vitest.assert(
+        result.payment.status == "pending",
+        "merchant response payment status",
+      );
+      await merchant.notification_handler(async (notification) => {
+        if (notification.status == "declined") {
+          vitest.assert(
+            notification.gatewayDetails.decline_reason ==
+              "gateway response error: My fancy error",
+          );
+        }
+        vitest.assert(
+          notification.status === rp_status,
+          "merchant notification status",
+        );
+      });
+    });
+  });
+}

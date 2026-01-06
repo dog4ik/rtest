@@ -20,16 +20,6 @@ export class SettingsDriver {
       form.append(k, v);
     }
     let auth_string = `${this.credentials.login}:${this.credentials.password}`;
-    let url = this.base_url + path;
-    console.log(
-      "Dispatching settings action to url: ",
-      url,
-      payload,
-      this.credentials,
-      auth_string,
-      encoding.encodeBase64(auth_string),
-      form,
-    );
     let res = await fetch(this.base_url + path, {
       method: "POST",
       body: form,
@@ -40,9 +30,7 @@ export class SettingsDriver {
       },
     }).then(err_bad_status);
     let cookie = res.headers.get("set-cookie");
-    console.log(res.status, res.headers.get("set-cookie"));
     if (cookie !== null) {
-      console.log("setting cookie to", cookie);
       this.cookies = cookie;
     }
   }

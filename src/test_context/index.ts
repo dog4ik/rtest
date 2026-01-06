@@ -19,9 +19,7 @@ export const test = base
   .extend<TestContext>({
     ctx: async ({}, use) => {
       let context = new Context(await state);
-      console.log("BEFORE TEST");
       await use(context).then(() => context.testBackgroundResolve(undefined));
-      console.log("AFTER TEST");
       // We can't use Promise.all([use(), context.testBackgroundPromise]) to catch background failures, vitest will not allow it.
       // TODO: try to switch to playwright test runner
       await context.testBackgroundPromise;

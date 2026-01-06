@@ -16,6 +16,7 @@ export default defineConfig({
     environment: "node",
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
+    maxConcurrency: 10,
   },
   resolve: {
     alias: {

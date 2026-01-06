@@ -103,7 +103,7 @@ export class MillenniumPayment {
 
   callback(status: MillenniumStatus) {
     return {
-      amount: this.request_data!.amount,
+      amount: this.request_data!.amount.toFixed(2),
       amountUSDT: Number(
         (this.request_data!.amount * RUB_USDT_RATE).toFixed(2),
       ),
