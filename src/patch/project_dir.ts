@@ -22,6 +22,8 @@ function resolveProjectDir(project: Project) {
       return "rpay-engine-pcidss"
     } else if (project == "8pay") {
       return "rpay-engine-8pay"
+    } else if (project == "spinpay") {
+      return "rpay-engine-spinpay"
     }
     throw Error(`Unsupported project: ${project}`)
   }

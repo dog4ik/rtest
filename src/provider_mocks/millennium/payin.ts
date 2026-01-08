@@ -5,6 +5,8 @@ import type { HttpContext, MockProviderParams } from "@/mock_server/api";
 import { callbackSignature } from ".";
 import { err_bad_status } from "@/fetch_utils";
 import { CoreStatusMap, type CoreStatus } from "@/db/core";
+import type { Callback, Status } from "@/suite_interfaces";
+import type { PrimeBusinessStatus } from "@/db/business";
 
 const RUB_USDT_RATE = 1 / 60;
 
@@ -20,10 +22,10 @@ export const MillenniumStatusVariants = [
   "ERROR",
 ] as const;
 
-const StatusMapping: Record<CoreStatus, MillenniumStatus> = {
-  [CoreStatusMap.pending]: "WAIT",
-  [CoreStatusMap.approved]: "ACCEPTED",
-  [CoreStatusMap.declined]: "CANCELLED",
+const StatusMapping: Record<PrimeBusinessStatus, MillenniumStatus> = {
+  pending: "WAIT",
+  approved: "ACCEPTED",
+  declined: "CANCELLED",
 } as const;
 
 const MillenniumStatusSchema = z.enum(MillenniumStatusVariants);
@@ -129,12 +131,12 @@ export class MillenniumPayment {
     }).then(err_bad_status);
   }
 
-  status_handler(status: CoreStatus) {
+  status_handler(status: PrimeBusinessStatus) {
     return async (c: HttpContext) =>
       c.json(this.status_response(StatusMapping[status]));
   }
 
-  create_handler(status: CoreStatus) {
+  create_handler(status: PrimeBusinessStatus) {
     return async (c: HttpContext) =>
       c.json(this.create_response(StatusMapping[status], await c.req.json()));
   }

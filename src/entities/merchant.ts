@@ -12,6 +12,8 @@ import {
 } from "./merchant_notification";
 import type { HttpContext } from "@/mock_server/api";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
+import { basic_healthcheck } from "@/healthcheck";
+import type { PaymentRequest, PayoutRequest } from "@/common";
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -32,6 +34,7 @@ export function extendMerchant(
   {
     core_db,
     settings_db,
+    business_db,
     core_harness,
     settings_service,
     business_url,
@@ -41,7 +44,7 @@ export function extendMerchant(
   merchant: Merchant,
 ) {
   async function wallets() {
-    return core_db.merchantWallets(merchant.id);
+    return core_db.profileWallets(merchant.id);
   }
 
   async function cashin(currency: string, amount: number) {
@@ -57,17 +60,6 @@ export function extendMerchant(
     return `http://host.docker.internal:6767/${merchant.id}`;
   }
 
-  type PaymentRequest = {
-    currency: string;
-    amount: number;
-    customer: {
-      email: string;
-      ip: string;
-    };
-    order_number: string;
-    callbackUrl?: string;
-    product: string;
-  };
   async function create_payment<T extends MerchantRequest = PaymentRequest>(
     request: T,
   ) {
@@ -132,17 +124,6 @@ export function extendMerchant(
     };
   }
 
-  type PayoutRequest = {
-    currency: string;
-    amount: number;
-    customer: {
-      email: string;
-      ip: string;
-    };
-    order_number: string;
-    callbackUrl?: string;
-    product: string;
-  };
   async function create_payout<T extends MerchantRequest = PayoutRequest>(
     request: T,
   ) {
@@ -152,7 +133,7 @@ export function extendMerchant(
     });
 
     let payoutResponse = z.object({
-      payout: nestedPayout,
+      payout: nestedPayout.optional(),
       processingUrl: z
         .array(z.record(z.string(), z.url()))
         .or(z.url())
@@ -206,20 +187,32 @@ export function extendMerchant(
     };
   }
 
+  type NotificationHandlerOptions = {
+    skip_healthcheck?: boolean;
+    skip_signature_check?: boolean;
+  };
   /**
    * Setup notification handler.
-   * @returns {Promise<undefined>} that will be resolved when the handler is done.
+   * @returns {Promise<unknown>} that will be resolved when the handler is done.
    **/
   async function notification_handler(
     handler: NotificationHandler,
-  ): Promise<undefined> {
-    let { promise, resolve, reject } = Promise.withResolvers<undefined>();
+    options?: NotificationHandlerOptions,
+  ): Promise<unknown> {
+    let { promise, resolve, reject } = Promise.withResolvers();
     mock_servers.registerMerchant(merchant.id, async (c) => {
       try {
         let callback = extendNotification(
           NOTIFICATION_SCHEMA.parse(await c.req.json()),
         );
-        callback.verifySignature(merchant.merchant_private_key);
+        if (!options?.skip_signature_check) {
+          callback.verifySignature(merchant.merchant_private_key);
+        }
+        if (!options?.skip_healthcheck) {
+          (
+            await basic_healthcheck({ business_db, core_db }, callback.token)
+          ).assert();
+        }
         let res = await handler(callback, c);
         resolve(undefined);
         return res || c.json({ message: "OK (fallback response)" });

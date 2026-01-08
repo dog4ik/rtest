@@ -83,4 +83,8 @@ export class Context {
     });
     return instance;
   }
+
+  async get_payment(token: string) {
+    return await this.state.business_db.paymentByToken(token);
+  }
 }

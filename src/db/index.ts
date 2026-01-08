@@ -10,7 +10,7 @@ function selectColumns<T extends Entity>(
   schema: z.ZodObject<T>,
 ) {
   return Object.keys(schema.shape)
-    .map((key) => `${table}.${key}`)
+    .map((key) => `${table}."${key}"`)
     .join(", ");
 }
 

@@ -11,7 +11,7 @@ export async function applyGitPatch(project_dir: string, patch: string) {
   let { resolve, promise } = Promise.withResolvers();
   let child = process.spawn("git", ["apply", "-"], { cwd: project_dir });
   child.on("exit", async (code) => {
-    console.log("git process existed with status", code);
+    console.log("git process exit status", code);
     let res = await child.stderr.toArray();
     console.log(String(res));
 

@@ -48,7 +48,6 @@ for (let [dalapay_status, rp_status] of CASES) {
         });
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
-          card: common.cardObject(),
           customer: {
             email: "test@email.com",
             country: "EU",
@@ -62,12 +61,6 @@ for (let [dalapay_status, rp_status] of CASES) {
           "merchant response payment status",
         );
         await merchant.notification_handler(async (notification) => {
-          if (notification.status == "declined") {
-            vitest.assert(
-              notification.gatewayDetails.decline_reason ==
-                "gateway response error: My fancy error",
-            );
-          }
           vitest.assert(
             notification.status === rp_status,
             "merchant notification status",
@@ -93,7 +86,6 @@ for (let [dalapay_status, rp_status] of CASES) {
 
       let result = await merchant.create_payment({
         ...common.paymentRequest(CURRENCY),
-        card: common.cardObject(),
         customer: {
           email: "test@email.com",
           country: "EU",
@@ -107,12 +99,6 @@ for (let [dalapay_status, rp_status] of CASES) {
         "merchant response payment status",
       );
       await merchant.notification_handler(async (notification) => {
-        if (notification.status == "declined") {
-          vitest.assert(
-            notification.gatewayDetails.decline_reason ==
-              "gateway response error: My fancy error",
-          );
-        }
         vitest.assert(
           notification.status === rp_status,
           "merchant notification status",

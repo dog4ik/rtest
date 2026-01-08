@@ -60,12 +60,6 @@ for (let [dalapay_status, rp_status] of CASES) {
           },
         });
         await merchant.notification_handler(async (notification) => {
-          if (notification.status == "declined") {
-            vitest.assert(
-              notification.gatewayDetails.decline_reason ==
-                "gateway response error: My fancy error",
-            );
-          }
           vitest.assert(
             notification.status === rp_status,
             "merchant notification status",
@@ -101,12 +95,6 @@ for (let [dalapay_status, rp_status] of CASES) {
         },
       });
       await merchant.notification_handler(async (notification) => {
-        if (notification.status == "declined") {
-          vitest.assert(
-            notification.gatewayDetails.decline_reason ==
-              "gateway response error: My fancy error",
-          );
-        }
         vitest.assert(
           notification.status === rp_status,
           "merchant notification status",

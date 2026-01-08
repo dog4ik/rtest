@@ -1,14 +1,27 @@
 import type { HttpContext } from "./mock_server/api";
 
-export type PaymentRequest = {
-  amount: number;
+export type PayoutRequest = {
   currency: string;
+  amount: number;
+  customer: {
+    email: string;
+    ip: string;
+  };
+  order_number: string;
+  callbackUrl?: string;
+  product: string;
+};
+
+export type PaymentRequest = {
+  currency: string;
+  amount: number;
   customer: {
     email: string;
     ip?: string;
   };
-  product?: string;
   order_number?: string;
+  callbackUrl?: string;
+  product?: string;
 };
 
 export type CardObject = {
