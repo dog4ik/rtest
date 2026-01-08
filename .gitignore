@@ -1,3 +1,5 @@
 node_modules
 /dist
 configuration.toml
+allure-results
+allure-report

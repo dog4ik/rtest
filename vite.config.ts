@@ -3,12 +3,11 @@
 // Configure Vitest (https://vitest.dev/config/)
 
 import { defineConfig } from "vite";
+import "allure-vitest/reporter";
 
 export default defineConfig({
-  optimizeDeps: {
-    exclude: ["playwright", "chromium-bidi"],
-  },
   test: {
+    setupFiles: ["allure-vitest/setup"],
     // We need to share singletons like database connections between all tests.
     maxWorkers: 1,
     includeSource: ["src/**/*.ts"],
@@ -17,6 +16,15 @@ export default defineConfig({
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
     maxConcurrency: 10,
+    reporters: [
+      "verbose",
+      [
+        "allure-vitest/reporter",
+        {
+          resultsDir: "allure-results",
+        },
+      ],
+    ],
   },
   resolve: {
     alias: {
