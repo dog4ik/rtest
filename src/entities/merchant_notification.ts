@@ -15,12 +15,14 @@ export const NOTIFICATION_SCHEMA = z.object({
   gatewayAmount: z.int(),
   gatewayCurrency: z.string(),
   cardHolder: z.string().nullable(),
-  gatewayDetails: z.object({
-    merchant: z.object({ ip: z.string() }),
-    filtered_traders: z.array(z.number()).nullish(),
-    pending_url_request: z.any(),
-    decline_reason: z.string().optional(),
-  }),
+  gatewayDetails: z
+    .object({
+      merchant: z.object({ ip: z.string() }),
+      filtered_traders: z.array(z.number()).nullish(),
+      pending_url_request: z.any(),
+      decline_reason: z.string().optional(),
+    })
+    .optional(),
   sanitizedMask: z.string().optional().nullable(),
   walletToken: z.string(),
   signature: z.string(),
