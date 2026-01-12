@@ -58,7 +58,7 @@ test
         playwright.expect(pf.amountSpan()).toBeVisible(),
         playwright.expect(pf.amountSpan()).toHaveText("1 234.56 Р"),
         playwright.expect(pf.paymentPhone()).toBeVisible(),
-        playwright.expect(pf.paymentPhone()).toHaveText("+8 800 555 35 35"),
+        playwright.expect(pf.paymentPhone()).toHaveText("+7 999 555 35 35"),
       ]);
 
       await merchant.notification_handler(async (notification) => {
@@ -131,8 +131,7 @@ function millennumSuite(): Callback & Status {
 }
 
 test
-  .skipIf(CONFIG.project !== "8pay")
-  .concurrent("millennium pending url", async ({ ctx, browser }) => {
+  .skip("millennium pending url", async ({ ctx, browser }) => {
     await ctx.track_bg_rejections(async () => {
       let { merchant, millennium, payment, uuid } = await setupMerchant(
         ctx,

@@ -105,7 +105,7 @@ function cardInfo(method: MadsolutionMethod) {
     return {
       bank,
       cardNumber: null,
-      phoneNumber: 79507466564,
+      phoneNumber: common.phoneNumber,
       holderName: "Николай Олегович С",
     };
   } else {

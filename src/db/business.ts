@@ -82,4 +82,9 @@ export class BusinessDb extends Db {
     let query = `select ${BusinessPaymentProjection.select(this.project)} from payments where token = '${token}'`;
     return await this.fetch_one(BusinessPaymentSchema, query);
   }
+
+  async paymentByGwToken(token: string) {
+    let query = `select ${BusinessPaymentProjection.select(this.project)} from payments where gateway_token = '${token}'`;
+    return await this.fetch_one(BusinessPaymentSchema, query);
+  }
 }

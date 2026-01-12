@@ -1,5 +1,5 @@
 import type { TaskMeta } from "vitest";
-type ContentType = string | Record<string, string>;
+type ContentType = string | Record<string, any>;
 export type Chapter = {
   name: string;
   content: ContentType;

@@ -15,6 +15,7 @@ import { basic_healthcheck } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest } from "@/story/curl";
+import { ProcessingUrlResponse } from "./payment";
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -30,6 +31,8 @@ export type NotificationHandler = (
   | Promise<undefined>
   | void
   | Promise<void>;
+
+export type ExtendedMecrhant = ReturnType<typeof extendMerchant>;
 
 export function extendMerchant(ctx: Context, merchant: Merchant) {
   let {
@@ -105,6 +108,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     })
       .then(err_bad_status)
       .then(parse_json(paymentResponse));
+    ctx.annotate(`Created payment: ${res.token}`);
 
     return {
       ...res,
@@ -123,7 +127,9 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         return await fetch(this.firstProcessingUrl(), {
           method: "GET",
           redirect: "follow",
-        }).then(err_bad_status);
+        })
+          .then(err_bad_status)
+          .then((r) => new ProcessingUrlResponse(ctx, r));
       },
     };
   }
@@ -172,6 +178,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     })
       .then(err_bad_status)
       .then(parse_json(payoutResponse));
+    ctx.annotate(`Created payout: ${res.token}`);
 
     return {
       ...res,

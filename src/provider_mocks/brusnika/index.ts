@@ -6,6 +6,7 @@ import type {
   MockProviderParams,
 } from "@/mock_server/api";
 import * as vitest from "vitest";
+import * as common from "@/common";
 
 const PAYMENT_METHOD_SCHEMA = z.enum([
   "toCard",
@@ -54,7 +55,7 @@ function requisite(method: BrusnikaPaymentMethod): string {
     case "toCard":
       return "4242424242424242";
     case "sbp":
-      return "+79344242420411";
+      return `+${common.phoneNumber}`;
     case "toAccount":
       return "7355608";
     case "transgran":
@@ -101,14 +102,15 @@ export class BrusnikaPayment {
 
   payment_response(status: BrusnikaPaymentStatus, request: any) {
     this.request_data = PAYIN_REQUEST_SCHEMA.parse(request);
+    console.log(this.request_data);
 
     const operationData = this.operation_data(status);
 
     let paymentDetailsData = {
       nameMediator: "",
-      paymentMethod: "toCard",
+      paymentMethod: this.request_data.paymentMethod,
       bankName: "Ipak Bank",
-      number: requisite(request.paymentMethod),
+      number: requisite(this.request_data.paymentMethod),
       numberAdditional: null,
       qRcode: null,
     };
@@ -146,6 +148,21 @@ export class BrusnikaPayment {
     };
   }
 
+  static no_requisites_handler(): Handler {
+    return (c) =>
+      c.json({
+        result: {
+          status: "warning",
+          "x-request-id": crypto.randomUUID(),
+          codeError: "none",
+          codeErrorExt: "noPaymentDetailsAvailable",
+          message: "Not found available payment details",
+        },
+        data: null,
+        totalNumberRecords: 0,
+      });
+  }
+
   /**
    * Brusnika callback payload
    *
@@ -172,7 +189,6 @@ export class BrusnikaPayment {
     return {
       api_token: secret,
       class: "brusnikapay",
-      method: "sbp",
       webhook_token: WEBHOOK_TOKEN,
       wrapped_to_json_response: true,
     };

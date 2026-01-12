@@ -1,9 +1,11 @@
 import { extendMerchant } from "@/entities/merchant";
+import { RoutingBuilder } from "@/flexy_guard_builder";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
+import * as vitest from "vitest";
 
 export class Context {
   uuid: string;
@@ -13,7 +15,11 @@ export class Context {
   testBackgroundPromise: Promise<unknown>;
   testBackgroundReject: (reason: unknown) => void;
   testBackgroundResolve: (reason: unknown) => void;
-  constructor(private state: SharedState) {
+  constructor(
+    private state: SharedState,
+    public annotate: vitest.TestContext["annotate"],
+    public task: vitest.TestContext["task"],
+  ) {
     this.story = new Story();
     this.uuid = crypto.randomUUID();
     this.project = state.project;
@@ -95,7 +101,19 @@ export class Context {
     return this.state.mock_servers.getMockServerUrl(alias);
   }
 
+  local_mock_server_url(alias: string) {
+    return this.state.mock_servers.getLocalServerUrl(alias);
+  }
+
   async get_payment(token: string) {
     return await this.state.business_db.paymentByToken(token);
+  }
+
+  async get_payment_by_gw_token(token: string) {
+    return await this.state.business_db.paymentByGwToken(token);
+  }
+
+  routing_builder(mid: number, start: string): RoutingBuilder {
+    return new RoutingBuilder(this, mid, start);
   }
 }

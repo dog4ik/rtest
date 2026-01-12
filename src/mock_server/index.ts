@@ -27,6 +27,11 @@ export class MockServerState {
     return `http://host.docker.internal:${port}`;
   }
 
+  getLocalServerUrl(alias: string) {
+    let port = this.mapping.get(alias);
+    return `http://localhost:${port}`;
+  }
+
   /**
    * Each test should register only one single instance of provider.
    */

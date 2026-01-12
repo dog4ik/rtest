@@ -1,6 +1,6 @@
-import type { FlexyGuardHarness } from "./driver/flexy_guard";
+import type { Context } from "./test_context/context";
 
-type AnyRecord = Record<string, any>;
+type AnyRecord = Record<string, {}>;
 
 type Rule = {
   header: AnyRecord;
@@ -50,7 +50,11 @@ export class RoutingBuilder {
    * @param mid acq_alias of the first gateway
    * @param start starting gateway alias
    */
-  constructor(mid: number, start: string) {
+  constructor(
+    private ctx: Context,
+    mid: number,
+    start: string,
+  ) {
     this.mid = mid.toString();
     this.last_gateway = start;
   }
@@ -78,15 +82,19 @@ export class RoutingBuilder {
 
     this.last_gateway = dest;
     this.rules.push(rule);
+    return this;
   }
 
   /**
    * Create all prepared rules in flexy-guard service
    */
-  async save(flexy_guard: FlexyGuardHarness) {
+  async save() {
     await Promise.all(
       this.rules.map((rule, index) => {
-        flexy_guard.add_rule(rule, `Routing rule #${index + 1}`);
+        this.ctx.story.add_chapter("Create flexy guard rule", rule);
+        this.ctx
+          .shared_state()
+          .guard_service.add_rule(rule, `Routing rule #${index + 1}`);
       }),
     );
   }

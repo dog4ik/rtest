@@ -66,10 +66,6 @@ export class SettingsBuilder {
     },
   };
 
-  static new(): SettingsBuilder {
-    return new SettingsBuilder();
-  }
-
   /**
    * Add p2p provider to specified currency
    */

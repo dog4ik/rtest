@@ -113,7 +113,7 @@ export class MillenniumPayment {
     };
   }
 
-  static no_rquisites_handler(): Handler {
+  static no_requisites_handler(): Handler {
     return (c) => c.json(this.no_requisites_response(), 404);
   }
 

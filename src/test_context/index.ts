@@ -23,8 +23,8 @@ declare module "vitest" {
 
 export const test = base
   .extend<TestContext>({
-    ctx: async ({ task }, use) => {
-      let context = new Context(await state);
+    ctx: async ({ task, annotate }, use) => {
+      let context = new Context(await state, annotate, task);
       try {
         await use(context).then(() => context.testBackgroundResolve(undefined));
         context.story.writeToMeta(task.meta);

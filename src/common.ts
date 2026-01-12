@@ -39,7 +39,7 @@ export type HandlerResponse = {
 
 export const visaCard = "4242424242424242";
 export const mastercardCard = "5555555555554444";
-export const phoneNumber = "88005553535";
+export const phoneNumber = "79995553535";
 export const redirectPayUrl = "https://google.com";
 export const amount = 123456;
 export const rrn = "601115349038";
