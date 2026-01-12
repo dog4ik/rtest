@@ -1,4 +1,5 @@
 import type { Project } from "@/project";
+import { CONFIG } from "@/test_context";
 import path from "node:path";
 
 export class ProjectDir {
@@ -7,26 +8,33 @@ export class ProjectDir {
     this.path = resolveProjectDir(project);
   }
 
-  dockerComposePath()  {
-    return path.resolve(this.path, "docker-compose.yml")
+  dockerComposePath() {
+    return path.resolve(this.path, "docker-compose.yml");
   }
 
-  businessProductionRbPath()  {
-    return path.resolve(this.path, "services", "business", "config", "environments", "production.rb")
+  businessProductionRbPath() {
+    return path.resolve(
+      this.path,
+      "services",
+      "business",
+      "config",
+      "environments",
+      "production.rb",
+    );
   }
 }
 
 function resolveProjectDir(project: Project) {
   let repoName = (project: Project) => {
     if (project == "reactivepay" || project === "reactivepaystage") {
-      return "rpay-engine-pcidss"
+      return "rpay-engine-pcidss";
     } else if (project == "8pay") {
-      return "rpay-engine-8pay"
+      return "rpay-engine-8pay";
     } else if (project == "spinpay") {
-      return "rpay-engine-spinpay"
+      return "rpay-engine-spinpay";
     }
-    throw Error(`Unsupported project: ${project}`)
-  }
+    throw Error(`Unsupported project: ${project}`);
+  };
 
-  return path.resolve("..", repoName(project))
+  return path.resolve(CONFIG.projects_dir, repoName(project));
 }

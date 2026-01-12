@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: RecursiveNonNullable<
 > = {
   project: "reactivepay",
   debug: false,
+  projects_dir: "..",
   browser: {
     headless: true,
   },
@@ -59,6 +60,7 @@ const CONFIG_SCHEMA = z.strictObject({
   spinpay: CREDENTIALS_OBJECT.optional(),
   browser: BROWSER_OBJECT.optional(),
   debug: z.boolean().default(false),
+  projects_dir: z.string().default(".."),
 });
 
 export type Config = z.infer<typeof CONFIG_SCHEMA>;
