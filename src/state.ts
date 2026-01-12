@@ -21,7 +21,7 @@ export async function initState(config: Config) {
   let business_url = "http://localhost:4000";
   let core_harness = new CoreDriver("http://localhost:3000");
 
-  let project_dir = new ProjectDir(p);
+  let project_dir = new ProjectDir(config);
 
   let credentials = projectCredentials(config);
 

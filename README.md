@@ -9,12 +9,24 @@
 - **Project patching** for test environment setup
 - **Browser automation** with Playwright
 
+## Get started
+
+Необходимые системные зависимости: Node.js
+
+1. Установить зависимости проекта: `npm i`
+2. Выполнить команду `npm run init` - будет создан конфигурационный файл `configuration.toml` с настройками по умолчанию.
+3. В конфигурационном файле указать параметр `projects_dir`, задав путь к каталогу с проектами, например: `~/work`, поменять пароли сервисам, если нужно.
+4. Повторно выполнить `npm run patch` - в клиентском проекте должны появиться изменения.
+5. После успешного применения патча запустить проект стандартным способом.
+6. Запустить тесты командой: `npm run test:ui`.
+
 ## Available Scripts
 
 - `npm test` - Run tests with Vitest
 - `npm run test:ui` - Run tests with Vitest UI
 - `npm run test:run` - Run tests once
 - `npm run patch` - Apply project patches
+- `npm run init` - Init configuration file
 
 ### Core Components
 
@@ -26,8 +38,6 @@
 - **Patch System** (`src/patch/`) - Project patching for test environment setup
 
 ## Project Patching
-
-The framework can automatically patch projects for testing:
 
 ```bash
 npm run patch

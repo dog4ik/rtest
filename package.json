@@ -16,7 +16,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui --watch",
     "test:run": "vitest run",
-    "patch": "tsx ./patch/index.ts"
+    "patch": "tsx ./patch/index.ts",
+    "init": "tsx ./init/index.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.7",

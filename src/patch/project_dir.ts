@@ -1,11 +1,12 @@
+import type { Config } from "@/config";
 import type { Project } from "@/project";
-import { CONFIG } from "@/test_context";
 import path from "node:path";
 
 export class ProjectDir {
   path: string;
-  constructor(project: Project) {
-    this.path = resolveProjectDir(project);
+  constructor(config: Config) {
+    console.log(config);
+    this.path = resolveProjectDir(config);
   }
 
   dockerComposePath() {
@@ -24,7 +25,7 @@ export class ProjectDir {
   }
 }
 
-function resolveProjectDir(project: Project) {
+function resolveProjectDir(config: Config) {
   let repoName = (project: Project) => {
     if (project == "reactivepay" || project === "reactivepaystage") {
       return "rpay-engine-pcidss";
@@ -36,5 +37,5 @@ function resolveProjectDir(project: Project) {
     throw Error(`Unsupported project: ${project}`);
   };
 
-  return path.resolve(CONFIG.projects_dir, repoName(project));
+  return path.resolve(config.projects_dir, repoName(config.project));
 }

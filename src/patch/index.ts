@@ -3,12 +3,12 @@ import tracing from "@/tracing";
 import { patchedDockerCompose } from "./docker_compose";
 import { patchProductionRb } from "./production_file";
 import { ProjectDir } from "./project_dir";
-import type { Project } from "@/project";
 import { applyGitPatch } from "./git_patch";
+import type { Config } from "@/config";
 
 // todo: handle io errors
-export async function patchProject(project: Project) {
-  let project_dir = new ProjectDir(project);
+export async function patchProject(config: Config) {
+  let project_dir = new ProjectDir(config);
   tracing.info(`Resolved project dir path: ${project_dir.path}`);
 
   let docker_compose_path = project_dir.dockerComposePath();
