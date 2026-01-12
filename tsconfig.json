@@ -13,12 +13,12 @@
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,
     "baseUrl": ".",
-    "types": [
-      "vitest/importMeta"
-    ],
+    "types": ["vitest/importMeta"],
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx"
   },
   "include": ["src", "test", "patch"],
   "exclude": ["node_modules"]

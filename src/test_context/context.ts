@@ -3,15 +3,18 @@ import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
 import type { SharedState } from "@/state";
+import { Story } from "@/story";
 
 export class Context {
   uuid: string;
   project: Project;
+  story: Story;
 
   testBackgroundPromise: Promise<unknown>;
   testBackgroundReject: (reason: unknown) => void;
   testBackgroundResolve: (reason: unknown) => void;
   constructor(private state: SharedState) {
+    this.story = new Story();
     this.uuid = crypto.randomUUID();
     this.project = state.project;
     let { promise, reject, resolve } = Promise.withResolvers();
@@ -21,11 +24,15 @@ export class Context {
   }
 
   /**
-   * Helper function to bind state as the first argument
+   * Helper function to bind context as the first argument
    * TODO: Less type masturbation
    */
-  private with_state<T, R>(fn: (state: SharedState, v: T) => R): (v: T) => R {
-    return (v) => fn(this.state, v);
+  private with_context<T, R>(fn: (state: Context, v: T) => R): (v: T) => R {
+    return (v) => fn(this, v);
+  }
+
+  shared_state() {
+    return this.state;
   }
 
   /**
@@ -43,7 +50,7 @@ export class Context {
     let merchant = await this.state.core_harness.create_random_merchant();
     return await this.state.core_db
       .merchantByEmail(merchant.email)
-      .then(this.with_state(extendMerchant));
+      .then(this.with_context(extendMerchant));
   }
 
   /**
@@ -54,7 +61,7 @@ export class Context {
    *
    * Think of it as creating a real-world provider instance.
    *
-   * Note that defaultHandler will propagate errors only if the test is wrapped in `track_external_rejections`
+   * Note that defaultHandler will propagate errors only if the test is wrapped in `track_bg_rejections`
    */
   mock_server(
     params: MockProviderParams,
@@ -71,10 +78,10 @@ export class Context {
         }
       } else {
         this.testBackgroundReject(
-          `Unhandled request on test handler: ${params.alias}`,
+          `Unexpected request on test handler: ${params.alias}`,
         );
         c.status(500);
-        return c.text("Unhandled request on test handler");
+        return c.text("Unexpected request on test handler");
       }
     }, this.testBackgroundReject);
     this.state.mock_servers.registerProviderServer(params.alias, {
@@ -82,6 +89,10 @@ export class Context {
       handler: instance._handler.bind(instance),
     });
     return instance;
+  }
+
+  mock_server_url(alias: string) {
+    return this.state.mock_servers.getMockServerUrl(alias);
   }
 
   async get_payment(token: string) {

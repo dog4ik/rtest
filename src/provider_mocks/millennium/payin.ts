@@ -1,11 +1,13 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { z } from "zod";
-import type { HttpContext, MockProviderParams } from "@/mock_server/api";
+import type {
+  Handler,
+  HttpContext,
+  MockProviderParams,
+} from "@/mock_server/api";
 import { callbackSignature } from ".";
 import { err_bad_status } from "@/fetch_utils";
-import { CoreStatusMap, type CoreStatus } from "@/db/core";
-import type { Callback, Status } from "@/suite_interfaces";
 import type { PrimeBusinessStatus } from "@/db/business";
 
 const RUB_USDT_RATE = 1 / 60;
@@ -101,6 +103,18 @@ export class MillenniumPayment {
     }
 
     throw new Error(`Unknown millennium status: ${status}`);
+  }
+
+  static no_requisites_response() {
+    return {
+      data: { message: "Реквизиты не найдены" },
+      error: "Реквизиты не найдены",
+      status: "NOT_FOUND",
+    };
+  }
+
+  static no_rquisites_handler(): Handler {
+    return (c) => c.json(this.no_requisites_response(), 404);
   }
 
   callback(status: MillenniumStatus) {

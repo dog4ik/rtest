@@ -22,4 +22,12 @@ export class EightpayRequisitesPage {
   qrPayLink() {
     return this.p.locator("#qr_pay_button");
   }
+
+  paidButton() {
+    return this.p.locator("button.btn_submit");
+  }
+
+  cancelButton() {
+    return this.p.locator("button.btn_cancel_pay");
+  }
 }

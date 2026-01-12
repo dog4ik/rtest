@@ -2,7 +2,6 @@ import * as vitest from "vitest";
 import { z } from "zod";
 import type { Merchant } from "@/db/core";
 import { err_bad_status, parse_json } from "@/fetch_utils";
-import type { SharedState } from "@/state";
 import { BusinessStatusSchema } from "@/db/business";
 import tracing from "@/tracing";
 import {
@@ -14,6 +13,8 @@ import type { HttpContext } from "@/mock_server/api";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
 import { basic_healthcheck } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest } from "@/common";
+import type { Context } from "@/test_context/context";
+import { constructCurlRequest } from "@/story/curl";
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -30,8 +31,8 @@ export type NotificationHandler = (
   | void
   | Promise<void>;
 
-export function extendMerchant(
-  {
+export function extendMerchant(ctx: Context, merchant: Merchant) {
+  let {
     core_db,
     settings_db,
     business_db,
@@ -40,9 +41,7 @@ export function extendMerchant(
     business_url,
     mock_servers,
     commission_service,
-  }: SharedState,
-  merchant: Merchant,
-) {
+  } = ctx.shared_state();
   async function wallets() {
     return core_db.profileWallets(merchant.id);
   }
@@ -51,8 +50,9 @@ export function extendMerchant(
     return core_harness.cashin(merchant.id, currency, amount);
   }
 
-  async function set_settings(settings: {}) {
+  async function set_settings(settings: Record<string, any>) {
     let current = await settings_db.merchant_settings(merchant.id);
+    ctx.story.add_chapter("Set merchant settings", settings);
     await settings_service.edit(current.id, current.external_id, settings);
   }
 
@@ -91,6 +91,10 @@ export function extendMerchant(
     let url = business_url + "/api/v1/payments";
     tracing.debug({ body: request, url }, "Creating merchant payment");
     console.log({ body: request, url }, "Creating merchant payment");
+    ctx.story.add_chapter(
+      "Create payment",
+      constructCurlRequest(request, merchant.merchant_private_key, "pay"),
+    );
     let res = await fetch(url, {
       method: "POST",
       headers: {
@@ -119,7 +123,7 @@ export function extendMerchant(
         return await fetch(this.firstProcessingUrl(), {
           method: "GET",
           redirect: "follow",
-        });
+        }).then(err_bad_status);
       },
     };
   }
@@ -154,6 +158,10 @@ export function extendMerchant(
     let url = business_url + "/api/v1/payouts";
     tracing.debug({ body: request, url }, "Creating merchant payout");
     console.log({ body: request, url }, "Creating merchant payout");
+    ctx.story.add_chapter(
+      "Create payout",
+      constructCurlRequest(request, merchant.merchant_private_key, "payout"),
+    );
     let res = await fetch(url, {
       method: "POST",
       headers: {
@@ -182,7 +190,7 @@ export function extendMerchant(
         return await fetch(this.firstProcessingUrl(), {
           method: "GET",
           redirect: "follow",
-        });
+        }).then(err_bad_status);
       },
     };
   }
@@ -225,14 +233,16 @@ export function extendMerchant(
   }
 
   async function set_commission(rule?: Partial<CreateRuleFormData>) {
-    await commission_service.add({
+    let payload = {
       to_profile: merchant.id.toString(),
       comment: `Test commission rule`,
       self_rate: "10",
       provider_rate: "5",
       status: "1",
       ...rule,
-    });
+    };
+    ctx.story.add_chapter("Set commission rule", payload);
+    await commission_service.add(payload);
   }
 
   return {

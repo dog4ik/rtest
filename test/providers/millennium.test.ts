@@ -18,7 +18,6 @@ import {
 import type { PrimeBusinessStatus } from "@/db/business";
 
 const CURRENCY = "RUB";
-// FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
@@ -34,60 +33,6 @@ async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   let payment = new MillenniumPayment();
   return { merchant, millennium, payment, uuid };
 }
-
-// const CASES = [
-//   ["ACCEPTED", "approved"],
-//   ["CANCELLED", "declined"],
-// ] as const;
-//
-// for (let [mil_status, rp_status] of CASES) {
-//   test.concurrent(`callback finalization to ${rp_status}`, async ({ ctx }) => {
-//     await ctx.track_bg_rejections(async () => {
-//       let { merchant, millennium, payment, uuid } = await setupMerchant(
-//         ctx,
-//         true,
-//       );
-//       millennium.queue(async (c) => {
-//         setTimeout(() => {
-//           payment.send_callback(mil_status, uuid);
-//         }, CALLBACK_DELAY);
-//         return c.json(payment.create_response("WAIT", await c.req.json()));
-//       });
-//       let result = await merchant.create_payment(
-//         common.paymentRequest(CURRENCY),
-//       );
-//       await result.followFirstProcessingUrl();
-//       await merchant.notification_handler(async (notification) => {
-//         vitest.assert(
-//           notification.status === rp_status,
-//           "merchant notification status",
-//         );
-//       });
-//     });
-//   });
-//
-//   test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
-//     await ctx.track_bg_rejections(async () => {
-//       let { merchant, millennium, payment } = await setupMerchant(ctx, true);
-//       millennium.queue(async (c) => {
-//         return c.json(payment.create_response("WAIT", await c.req.json()));
-//       });
-//
-//       millennium.queue((c) => c.json(payment.status_response(mil_status)));
-//
-//       let result = await merchant.create_payment(
-//         common.paymentRequest(CURRENCY),
-//       );
-//       await result.followFirstProcessingUrl();
-//       await merchant.notification_handler(async (notification) => {
-//         vitest.assert(
-//           notification.status === rp_status,
-//           "merchant notification status",
-//         );
-//       });
-//     });
-//   });
-// }
 
 test
   .skipIf(CONFIG.project !== "8pay")
@@ -184,6 +129,46 @@ function millennumSuite(): Callback & Status {
     suite_status_handler: gw.status_handler.bind(gw),
   };
 }
+
+test
+  .skipIf(CONFIG.project !== "8pay")
+  .concurrent("millennium pending url", async ({ ctx, browser }) => {
+    await ctx.track_bg_rejections(async () => {
+      let { merchant, millennium, payment, uuid } = await setupMerchant(
+        ctx,
+        false,
+      );
+      millennium.queue(async (c) => {
+        setTimeout(() => {
+          payment.send_callback("CANCELLED", uuid);
+        }, CALLBACK_DELAY);
+
+        return c.json(payment.create_response("WAIT", await c.req.json()));
+      });
+      millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
+
+      let result = await merchant.create_payment({
+        ...common.paymentRequest(CURRENCY),
+        redirect_success_url: "https://google.com/success",
+        redirect_fail_url: "https://google.com/fail",
+        pending_url: "https://google.com/pending",
+      });
+
+      console.log(result);
+      let page = await browser.newPage();
+      // await page.goto(result.firstProcessingUrl());
+
+      let pf = new EightpayRequisitesPage(page);
+      await Promise.all([]);
+
+      await merchant.notification_handler(async (notification) => {
+        vitest.assert(
+          notification.status === "approved",
+          "merchant notification status",
+        );
+      });
+    });
+  });
 
 callbackFinalizationSuite(millennumSuite);
 statusFinalizationSuite(millennumSuite);

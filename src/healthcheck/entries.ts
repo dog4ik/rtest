@@ -1,6 +1,5 @@
 import { EntryCodes, type Entry } from "@/db/core/entry";
 import { Match } from ".";
-import * as vitest from "vitest";
 import type { OperationType } from "@/db/business";
 import { CoreStatusMap, type CoreStatus } from "@/db/core";
 
@@ -109,7 +108,7 @@ export class EntryValidator {
         );
     }
 
-    console.trace(
+    console.log(
       {
         created_at: entry.created_at,
         amount: entry.amount,
@@ -134,7 +133,7 @@ export class EntryValidator {
     operation_type: OperationType,
     status: CoreStatus,
   ): ValidationSummary {
-    console.trace({ wallet_id: this.wallet_id }, "Validating merchant entries");
+    console.log({ wallet_id: this.wallet_id }, "Validating merchant entries");
 
     if (operation_type === "pay") {
       let available_match =
@@ -168,7 +167,7 @@ export class EntryValidator {
     operation_type: OperationType,
     status: CoreStatus,
   ): ValidationSummary {
-    console.trace({ wallet_id: this.wallet_id }, "Validating trader entries");
+    console.log({ wallet_id: this.wallet_id }, "Validating trader entries");
 
     if (operation_type === "pay") {
       let available_match =

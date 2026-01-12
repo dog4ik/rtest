@@ -95,7 +95,7 @@ export class JusanPayment {
     };
   }
 
-  recieveCReq(req: any) {
+  receiveCReq(req: any) {
     let data = z.object({ creq: z.string() }).parse(req);
     let bytes = encoding.decodeBase64Url(data.creq);
     let creq = CREQ_SCHEMA.parse(JSON.parse(new TextDecoder().decode(bytes)));
@@ -109,7 +109,7 @@ export class JusanPayment {
         "POST",
         "creq delivered using POST method",
       );
-      this.recieveCReq(await c.req.parseBody());
+      this.receiveCReq(await c.req.parseBody());
       vitest.assert(this.request_data, "request data should be defined");
       // this is bad, use browser to send post via form
       // content type likely needs to be form-data
@@ -265,11 +265,11 @@ export class JusanPayment {
   static settings(secret: string) {
     return {
       MID: secret,
-      TID: "11301377",
+      TID: "11111111",
       class: "jusan",
       // TODO: do something about assets
       public_key: "sJwokM6wprvueFfXHdavDYKA",
-      shared_secret: "9654665862569256325656",
+      shared_secret: "1111111111111111111111",
     };
   }
 

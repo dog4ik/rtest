@@ -24,14 +24,15 @@ export interface Status extends ProviderBase {
 }
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
+// FIX(pcidss): Brusnika does not allow sending callback 5s after creation.
+const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 7_000;
 
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
 export function callbackFinalizationSuite<T extends Callback>(
   suiteFactory: () => T,
 ) {
-  vitest.describe("callback finalization", () => {
+  vitest.describe.concurrent("callback finalization", () => {
     for (let target_status of CASES) {
       let target = suiteFactory();
       test.concurrent(`finalization to ${target_status}`, async ({ ctx }) => {
@@ -67,7 +68,7 @@ export function callbackFinalizationSuite<T extends Callback>(
 export function statusFinalizationSuite<T extends Status>(
   suite_factory: () => T,
 ) {
-  vitest.describe("status finalization", () => {
+  vitest.describe.concurrent("status finalization", () => {
     for (let target_status of CASES) {
       let target = suite_factory();
       test.concurrent(`finalization to ${target_status}`, async ({ ctx }) => {

@@ -2,7 +2,7 @@ import * as vitest from "vitest";
 import * as common from "@/common";
 import { CONFIG, test } from "@/test_context";
 import { providers } from "@/settings_builder";
-import { FlintpayOperation } from "@/provider_mocks/flintpays/payout";
+import { FlintpayOperation } from "@/provider_mocks/flintpays";
 import type { Context } from "@/test_context/context";
 import type { FlintpayStatus } from "@/provider_mocks/flintpays";
 import { delay } from "@std/async";

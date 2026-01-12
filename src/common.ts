@@ -41,21 +41,18 @@ export const visaCard = "4242424242424242";
 export const mastercardCard = "5555555555554444";
 export const phoneNumber = "88005553535";
 export const redirectPayUrl = "https://google.com";
+export const amount = 123456;
+export const rrn = "601115349038";
 
-export function paymentRequest(
-  currency: string,
-  override?: Partial<PaymentRequest>,
-): PaymentRequest {
-  let payload: PaymentRequest = {
-    amount: 123456,
+export function paymentRequest(currency: string): PaymentRequest {
+  return {
+    amount,
     currency,
     customer: {
       email: "test@email.com",
     },
     product: "test product",
   };
-
-  return override ? { ...payload, ...override } : payload;
 }
 
 export function nginx500(c: HttpContext): Response {
@@ -79,23 +76,18 @@ export function nginx500(c: HttpContext): Response {
 </html>`);
 }
 
-export function cardObject(override?: Partial<CardObject>): CardObject {
-  let payload: CardObject = {
+export function cardObject(): CardObject {
+  return {
     cvv: "123",
     pan: visaCard,
     holder: "Test holder",
     expires: "02/2077",
   };
-
-  return override ? { ...payload, ...override } : payload;
 }
 
-export function payoutRequest(
-  currency: string,
-  override?: Partial<PaymentRequest>,
-): PaymentRequest {
-  let payload: PaymentRequest = {
-    amount: 123456,
+export function payoutRequest(currency: string): PaymentRequest {
+  return {
+    amount,
     currency,
     order_number: crypto.randomUUID(),
     customer: {
@@ -103,6 +95,4 @@ export function payoutRequest(
       ip: "8.8.8.8",
     },
   };
-
-  return override ? { ...payload, ...override } : payload;
 }

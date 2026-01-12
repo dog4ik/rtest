@@ -6,7 +6,6 @@ import { DalapayTransaction, OperationStatus } from "@/provider_mocks/dalapay";
 import type { Context } from "@/test_context/context";
 
 const CURRENCY = "CDF";
-// FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context) {

@@ -98,10 +98,10 @@ function parseRubyConfigLine(line: string): RubyConfigLine | undefined {
   // Case 1: ENV.fetch("VAR", "url")
   if (rest.startsWith("ENV.fetch(") && rest.endsWith(")")) {
     let inner = rest.slice("ENV.fetch(".length, -1);
-    let commaIndex = inner.indexOf(", ");
+    let commaIndex = inner.indexOf(",");
     if (commaIndex !== -1) {
       let envName = inner.slice(0, commaIndex);
-      let quotedUrl = inner.slice(commaIndex + 2);
+      let quotedUrl = inner.slice(commaIndex + 1).trim();
       return new RubyConfigLine(
         configName,
         { kind: "EnvCall", envName },
