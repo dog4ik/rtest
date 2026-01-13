@@ -11,11 +11,13 @@
 
 ## Get started
 
+Перед началом тестов лучше работать с чистой веткой.
+
 Необходимые системные зависимости: Node.js >= 24.0.0
 
 1. Установить зависимости проекта: `npm i` && `npx playwright install`
 2. Выполнить команду `npm run init` - будет создан конфигурационный файл `configuration.toml` с настройками по умолчанию.
-3. В конфигурационном файле указать параметр `projects_dir`, задав путь к каталогу с проектами, например: `~/work`, поменять пароли сервисам, если нужно.
+3. В конфигурационном файле указать параметр `projects_dir`, задав путь к каталогу с проектами, например: `~/work` если проект находится в `~/work/rpay-engine-pcidss`.
 4. Повторно выполнить `npm run patch` - в клиентском проекте должны появиться изменения.
 5. После успешного применения патча запустить проект стандартным способом.
 6. Запустить тесты командой: `npm run test:ui`.
@@ -24,7 +26,7 @@
 
 - `npm test` - Run tests with Vitest
 - `npm run test:ui` - Run tests with Vitest UI
-- `npm run test:run` - Run tests once
+- `npm run test:all` - Run all tests concurrently
 - `npm run patch` - Apply project patches
 - `npm run init` - Init configuration file
 

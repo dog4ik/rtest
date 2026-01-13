@@ -38,7 +38,7 @@ function payoutRequest() {
 
 vitest.describe
   .skipIf(CONFIG.project === "8pay")
-  .concurrent("flintpays gateway", () => {
+  .concurrent("flintpays payout gateway", () => {
     const CASES = [
       ["rejected" as FlintpayStatus, "declined"],
       ["confirmed" as FlintpayStatus, "approved"],
@@ -66,8 +66,9 @@ vitest.describe
             let res = await merchant.create_payout(payoutRequest());
             await res.followFirstProcessingUrl();
             await merchant.notification_handler(async (notification) => {
-              vitest.assert(
-                notification.status === rp_status,
+              vitest.assert.strictEqual(
+                notification.status,
+                rp_status,
                 "merchant notification status",
               );
             });
@@ -93,8 +94,9 @@ vitest.describe
             let res = await merchant.create_payout(payoutRequest());
             await res.followFirstProcessingUrl();
             await merchant.notification_handler(async (notification) => {
-              vitest.assert(
-                notification.status === rp_status,
+              vitest.assert.strictEqual(
+                notification.status,
+                rp_status,
                 "merchant notification status",
               );
             });
@@ -114,13 +116,15 @@ vitest.describe
         .then((r) => r.json());
       console.log(processingUrlRespnose);
       let businessPayment = await ctx.get_payment(res.token);
-      vitest.assert(
-        businessPayment.status === "declined",
+      vitest.assert.strictEqual(
+        businessPayment.status,
+        "declined",
         "payout should be insta declined",
       );
       merchant.notification_handler((notifciation) => {
-        vitest.assert(
-          notifciation.status === "declined",
+        vitest.assert.strictEqual(
+          notifciation.status,
+          "declined",
           "merchant should get declined callback",
         );
       });
@@ -133,15 +137,17 @@ vitest.describe
       let res = await merchant.create_payout(payoutRequest());
       console.log(res);
       let processingUrlResponse = await res.followFirstProcessingUrl();
-      vitest.assert(
-        processingUrlResponse.status !== 500,
+      vitest.assert.notStrictEqual(
+        processingUrlResponse.status,
+        500,
         "merchant should see a proper error",
       );
       let json = await processingUrlResponse.json();
       console.log("processing url response: ", json);
       let businessPayment = await ctx.get_payment(res.token);
-      vitest.assert(
-        businessPayment.status === "pending",
+      vitest.assert.strictEqual(
+        businessPayment.status,
+        "pending",
         "payout should stay in pending",
       );
     });
@@ -157,13 +163,15 @@ vitest.describe
       let res = await merchant.create_payout(payoutRequest());
       console.log(res);
       let processingUrlResponse = await res.followFirstProcessingUrl();
-      vitest.assert(
-        processingUrlResponse.status !== 500,
+      vitest.assert.notStrictEqual(
+        processingUrlResponse.status,
+        500,
         "merchant should see a proper error",
       );
       let businessPayment = await ctx.get_payment(res.token);
-      vitest.assert(
-        businessPayment.status === "pending",
+      vitest.assert.strictEqual(
+        businessPayment.status,
+        "pending",
         "payout should stay in pending",
       );
     });

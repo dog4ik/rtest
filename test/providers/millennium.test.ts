@@ -62,8 +62,9 @@ test
       ]);
 
       await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === "approved",
+        vitest.assert.strictEqual(
+          notification.status,
+          "approved",
           "merchant notification status",
         );
       });
@@ -100,8 +101,8 @@ test
       ]);
 
       await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === "approved",
+        vitest.assert.strictEqual(
+          notification.status, "approved",
           "merchant notification status",
         );
       });
@@ -130,44 +131,43 @@ function millennumSuite(): Callback & Status {
   };
 }
 
-test
-  .skip("millennium pending url", async ({ ctx, browser }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, millennium, payment, uuid } = await setupMerchant(
-        ctx,
-        false,
+test.skip("millennium pending url", async ({ ctx, browser }) => {
+  await ctx.track_bg_rejections(async () => {
+    let { merchant, millennium, payment, uuid } = await setupMerchant(
+      ctx,
+      false,
+    );
+    millennium.queue(async (c) => {
+      setTimeout(() => {
+        payment.send_callback("CANCELLED", uuid);
+      }, CALLBACK_DELAY);
+
+      return c.json(payment.create_response("WAIT", await c.req.json()));
+    });
+    millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
+
+    let result = await merchant.create_payment({
+      ...common.paymentRequest(CURRENCY),
+      redirect_success_url: "https://google.com/success",
+      redirect_fail_url: "https://google.com/fail",
+      pending_url: "https://google.com/pending",
+    });
+
+    console.log(result);
+    let page = await browser.newPage();
+    // await page.goto(result.firstProcessingUrl());
+
+    let pf = new EightpayRequisitesPage(page);
+    await Promise.all([]);
+
+    await merchant.notification_handler(async (notification) => {
+      vitest.assert.strictEqual(
+        notification.status, "approved",
+        "merchant notification status",
       );
-      millennium.queue(async (c) => {
-        setTimeout(() => {
-          payment.send_callback("CANCELLED", uuid);
-        }, CALLBACK_DELAY);
-
-        return c.json(payment.create_response("WAIT", await c.req.json()));
-      });
-      millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
-
-      let result = await merchant.create_payment({
-        ...common.paymentRequest(CURRENCY),
-        redirect_success_url: "https://google.com/success",
-        redirect_fail_url: "https://google.com/fail",
-        pending_url: "https://google.com/pending",
-      });
-
-      console.log(result);
-      let page = await browser.newPage();
-      // await page.goto(result.firstProcessingUrl());
-
-      let pf = new EightpayRequisitesPage(page);
-      await Promise.all([]);
-
-      await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === "approved",
-          "merchant notification status",
-        );
-      });
     });
   });
+});
 
 callbackFinalizationSuite(millennumSuite);
 statusFinalizationSuite(millennumSuite);

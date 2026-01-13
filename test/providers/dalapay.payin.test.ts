@@ -19,22 +19,63 @@ async function setupMerchant(ctx: Context) {
   return { merchant, dalapay, payment, uuid };
 }
 
-const CASES = [
-  [2, "approved"],
-  [3, "declined"],
-] as const;
+vitest.describe.concurrent("dalapay payin", () => {
+  const CASES = [
+    [2, "approved"],
+    [3, "declined"],
+  ] as const;
 
-for (let [dalapay_status, rp_status] of CASES) {
-  test.concurrent(
-    `callback finalization to ${rp_status}`,
-    { timeout: 30_000 },
-    async ({ ctx }) => {
+  for (let [dalapay_status, rp_status] of CASES) {
+    test.concurrent(
+      `callback finalization to ${rp_status}`,
+      { timeout: 30_000 },
+      async ({ ctx }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, dalapay, payment } = await setupMerchant(ctx);
+          dalapay.queue(async (c) => {
+            setTimeout(() => {
+              payment.send_callback(dalapay_status);
+            }, CALLBACK_DELAY);
+            return c.json(
+              payment.status_response(
+                OperationStatus.IN_PROGRESS,
+                await c.req.json(),
+              ),
+            );
+          });
+          dalapay.queue(async (c) => {
+            return c.json(payment.status_response(OperationStatus.IN_PROGRESS));
+          });
+          let result = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            customer: {
+              email: "test@email.com",
+              country: "EU",
+              first_name: "test",
+              last_name: "testov",
+              phone: common.phoneNumber,
+            },
+          });
+          vitest.assert.strictEqual(
+            result.payment.status,
+            "pending",
+            "merchant response payment status",
+          );
+          await merchant.notification_handler(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
+          });
+        });
+      },
+    );
+
+    test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
         let { merchant, dalapay, payment } = await setupMerchant(ctx);
         dalapay.queue(async (c) => {
-          setTimeout(() => {
-            payment.send_callback(dalapay_status);
-          }, CALLBACK_DELAY);
           return c.json(
             payment.status_response(
               OperationStatus.IN_PROGRESS,
@@ -42,9 +83,9 @@ for (let [dalapay_status, rp_status] of CASES) {
             ),
           );
         });
-        dalapay.queue(async (c) => {
-          return c.json(payment.status_response(OperationStatus.IN_PROGRESS));
-        });
+
+        dalapay.queue((c) => c.json(payment.status_response(dalapay_status)));
+
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           customer: {
@@ -55,54 +96,18 @@ for (let [dalapay_status, rp_status] of CASES) {
             phone: common.phoneNumber,
           },
         });
-        vitest.assert(
-          result.payment.status == "pending",
+        vitest.assert.strictEqual(
+          result.payment.status,
+          "pending",
           "merchant response payment status",
         );
         await merchant.notification_handler(async (notification) => {
-          vitest.assert(
-            notification.status === rp_status,
+          vitest.assert.strictEqual(
+            notification.status, rp_status,
             "merchant notification status",
           );
         });
       });
-    },
-  );
-
-  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, dalapay, payment } = await setupMerchant(ctx);
-      dalapay.queue(async (c) => {
-        return c.json(
-          payment.status_response(
-            OperationStatus.IN_PROGRESS,
-            await c.req.json(),
-          ),
-        );
-      });
-
-      dalapay.queue((c) => c.json(payment.status_response(dalapay_status)));
-
-      let result = await merchant.create_payment({
-        ...common.paymentRequest(CURRENCY),
-        customer: {
-          email: "test@email.com",
-          country: "EU",
-          first_name: "test",
-          last_name: "testov",
-          phone: common.phoneNumber,
-        },
-      });
-      vitest.assert(
-        result.payment.status == "pending",
-        "merchant response payment status",
-      );
-      await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === rp_status,
-          "merchant notification status",
-        );
-      });
     });
-  });
-}
+  }
+});

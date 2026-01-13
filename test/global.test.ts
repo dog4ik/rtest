@@ -1,0 +1,13 @@
+import "./internal.test.ts";
+import "./flexy/routing.test.ts";
+import "./base/cashin.test.ts";
+import "./base/commission.test.ts";
+import "./providers/brusnika.payin.test.ts";
+import "./providers/dalapay.payin.test.ts";
+import "./providers/dalapay.payout.test.ts";
+import "./providers/default.test.ts";
+import "./providers/flintpays.payin.test.ts";
+import "./providers/flintpays.payout.test.ts";
+import "./providers/jusan.payin.test.ts";
+import "./providers/madsolution.payin.test.ts";
+import "./providers/millennium.test.ts";

@@ -54,8 +54,9 @@ export function extendNotification(
     sig += private_key;
     let digestedSignature = crypto.createHash("md5").update(sig).digest("hex");
 
-    vitest.assert(
-      digestedSignature === notification.signature,
+    vitest.assert.strictEqual(
+      digestedSignature,
+      notification.signature,
       "Notification signature should match",
     );
   }

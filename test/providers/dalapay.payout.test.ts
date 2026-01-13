@@ -20,23 +20,61 @@ async function setupMerchant(ctx: Context) {
   return { merchant, dalapay, payout, uuid };
 }
 
-const CASES = [
-  [OperationStatus.FAILED, "declined"],
-  [OperationStatus.SUCCESS, "approved"],
-] as const;
+vitest.describe.concurrent("dalapay payout", () => {
+  const CASES = [
+    [OperationStatus.FAILED, "declined"],
+    [OperationStatus.SUCCESS, "approved"],
+  ] as const;
 
-for (let [dalapay_status, rp_status] of CASES) {
-  test.concurrent(
-    `callback finalization to ${rp_status}`,
-    { timeout: 30_000 },
-    async ({ ctx }) => {
+  for (let [dalapay_status, rp_status] of CASES) {
+    test.concurrent(
+      `callback finalization to ${rp_status}`,
+      { timeout: 30_000 },
+      async ({ ctx }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, dalapay, payout } = await setupMerchant(ctx);
+          dalapay.queue(async (c) => {
+            setTimeout(() => {
+              payout.send_callback(dalapay_status);
+            }, CALLBACK_DELAY);
+
+            return c.json(
+              payout.status_response(
+                OperationStatus.IN_PROGRESS,
+                await c.req.json(),
+              ),
+            );
+          });
+
+          dalapay.queue(async (c) => {
+            return c.json(payout.status_response(OperationStatus.IN_PROGRESS));
+          });
+          await merchant.create_payout({
+            ...common.payoutRequest(CURRENCY),
+            customer: {
+              email: "test@email.com",
+              ip: "8.8.8.8",
+              country: "EU",
+              first_name: "test",
+              last_name: "testov",
+              phone: common.phoneNumber,
+            },
+          });
+          await merchant.notification_handler(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
+          });
+        });
+      },
+    );
+
+    test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
         let { merchant, dalapay, payout } = await setupMerchant(ctx);
         dalapay.queue(async (c) => {
-          setTimeout(() => {
-            payout.send_callback(dalapay_status);
-          }, CALLBACK_DELAY);
-
           return c.json(
             payout.status_response(
               OperationStatus.IN_PROGRESS,
@@ -45,9 +83,8 @@ for (let [dalapay_status, rp_status] of CASES) {
           );
         });
 
-        dalapay.queue(async (c) => {
-          return c.json(payout.status_response(OperationStatus.IN_PROGRESS));
-        });
+        dalapay.queue((c) => c.json(payout.status_response(dalapay_status)));
+
         await merchant.create_payout({
           ...common.payoutRequest(CURRENCY),
           customer: {
@@ -60,46 +97,12 @@ for (let [dalapay_status, rp_status] of CASES) {
           },
         });
         await merchant.notification_handler(async (notification) => {
-          vitest.assert(
-            notification.status === rp_status,
+          vitest.assert.strictEqual(
+            notification.status, rp_status,
             "merchant notification status",
           );
         });
       });
-    },
-  );
-
-  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, dalapay, payout } = await setupMerchant(ctx);
-      dalapay.queue(async (c) => {
-        return c.json(
-          payout.status_response(
-            OperationStatus.IN_PROGRESS,
-            await c.req.json(),
-          ),
-        );
-      });
-
-      dalapay.queue((c) => c.json(payout.status_response(dalapay_status)));
-
-      await merchant.create_payout({
-        ...common.payoutRequest(CURRENCY),
-        customer: {
-          email: "test@email.com",
-          ip: "8.8.8.8",
-          country: "EU",
-          first_name: "test",
-          last_name: "testov",
-          phone: common.phoneNumber,
-        },
-      });
-      await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === rp_status,
-          "merchant notification status",
-        );
-      });
     });
-  });
-}
+  }
+});

@@ -15,7 +15,7 @@
   "scripts": {
     "test": "vitest",
     "test:ui": "vitest --ui --watch",
-    "test:run": "vitest run",
+    "test:all": "vitest --ui --watch --project all",
     "patch": "tsx ./patch/index.ts",
     "init": "tsx ./init/index.ts"
   },

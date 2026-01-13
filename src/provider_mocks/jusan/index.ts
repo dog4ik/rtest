@@ -231,8 +231,9 @@ export class JusanPayment {
 
   refund_response(status: PrimeBusinessStatus, req: any) {
     let refund_request = REFUND_REQUEST_SCHEMA.parse(req);
-    vitest.assert(
-      status === "approved",
+    vitest.assert.strictEqual(
+      status,
+      "approved",
       "refund with status is not implemented yet",
     );
     return `

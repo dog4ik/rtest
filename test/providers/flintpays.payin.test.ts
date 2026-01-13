@@ -27,58 +27,70 @@ function paymentRequest() {
     },
   };
 }
+vitest.describe
+  .skipIf(CONFIG.project === "8pay")
+  .concurrent("flintpays payin gateway", () => {
+    const CASES = [
+      ["confirmed" as FlintpayStatus, "approved"],
+      ["rejected" as FlintpayStatus, "declined"],
+    ] as const;
 
-const CASES = [
-  ["confirmed" as FlintpayStatus, "approved"],
-  ["rejected" as FlintpayStatus, "declined"],
-] as const;
+    for (let [flintpay_status, rp_status] of CASES) {
+      test.concurrent(
+        `callback finalization to ${rp_status}`,
+        { timeout: 30_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, flintpays, payment } = await setupMerchant(ctx);
+            flintpays.queue(async (c) => {
+              setTimeout(() => {
+                payment.send_callback(flintpay_status);
+              }, CALLBACK_DELAY);
+              return c.json(
+                payment.create_response("created", await c.req.json()),
+              );
+            });
 
-for (let [flintpay_status, rp_status] of CASES) {
-  test.concurrent(
-    `callback finalization to ${rp_status}`,
-    { timeout: 30_000 },
-    async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let { merchant, flintpays, payment } = await setupMerchant(ctx);
-        flintpays.queue(async (c) => {
-          setTimeout(() => {
-            payment.send_callback(flintpay_status);
-          }, CALLBACK_DELAY);
-          return c.json(payment.create_response("created", await c.req.json()));
-        });
+            flintpays.queue(async (c) => {
+              return c.json(payment.status_response("created"));
+            });
+            let res = await merchant.create_payment(paymentRequest());
+            await res.followFirstProcessingUrl();
+            await merchant.notification_handler(async (notification) => {
+              vitest.assert.strictEqual(
+                notification.status, rp_status,
+                "merchant notification status",
+              );
+            });
+          });
+        },
+      );
 
-        flintpays.queue(async (c) => {
-          return c.json(payment.status_response("created"));
-        });
-        let res = await merchant.create_payment(paymentRequest());
-        await res.followFirstProcessingUrl();
-        await merchant.notification_handler(async (notification) => {
-          vitest.assert(
-            notification.status === rp_status,
-            "merchant notification status",
-          );
-        });
-      });
-    },
-  );
+      test.concurrent(
+        `status finalization to ${rp_status}`,
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, flintpays, payment } = await setupMerchant(ctx);
+            flintpays.queue(async (c) => {
+              return c.json(
+                payment.create_response("created", await c.req.json()),
+              );
+            });
 
-  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, flintpays, payment } = await setupMerchant(ctx);
-      flintpays.queue(async (c) => {
-        return c.json(payment.create_response("created", await c.req.json()));
-      });
+            flintpays.queue((c) =>
+              c.json(payment.status_response(flintpay_status)),
+            );
 
-      flintpays.queue((c) => c.json(payment.status_response(flintpay_status)));
-
-      let res = await merchant.create_payment(paymentRequest());
-      await res.followFirstProcessingUrl();
-      await merchant.notification_handler(async (notification) => {
-        vitest.assert(
-          notification.status === rp_status,
-          "merchant notification status",
-        );
-      });
-    });
+            let res = await merchant.create_payment(paymentRequest());
+            await res.followFirstProcessingUrl();
+            await merchant.notification_handler(async (notification) => {
+              vitest.assert.strictEqual(
+                notification.status, rp_status,
+                "merchant notification status",
+              );
+            });
+          });
+        },
+      );
+    }
   });
-}

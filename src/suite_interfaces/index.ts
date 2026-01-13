@@ -114,8 +114,8 @@ export function routingFinalizationSuite(chain: Routing[], last: Callback) {
   vitest.describe.concurrent("routing", () => {
     test.concurrent("routing chain", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
-        vitest.assert(
-          chain.length > 0,
+        vitest.assert.isNotEmpty(
+          chain,
           "Routing chain should have more than 1 gateway",
         );
         let uuid = crypto.randomUUID();
