@@ -24,20 +24,10 @@
 
 ## Available Scripts
 
-- `npm test` - Run tests with Vitest
-- `npm run test:ui` - Run tests with Vitest UI
+- `npm run test` - Run each test file
 - `npm run test:all` - Run all tests concurrently
 - `npm run patch` - Apply project patches
 - `npm run init` - Init configuration file
-
-### Core Components
-
-- **Context** (`src/test_context/context.ts`) - Main test context providing core operations and mock server capabilities
-- **Mock Server** (`src/mock_server/`) - HTTP server for mocking external providers
-- **Database Layer** (`src/db/`) - PostgreSQL integration for core and settings databases
-- **Driver Layer** (`src/driver/`) - Microservices drivers
-- **Entities** (`src/entities/`) - Extended merchant and notification entities with helper methods
-- **Patch System** (`src/patch/`) - Project patching for test environment setup
 
 ## Project Patching
 
@@ -47,13 +37,17 @@ npm run patch
 
 This applies:
 
-- Docker Compose modifications
-- Production file patches
+- Docker Compose services healthcheck, exposes containers to the host network
+- Production file providers url patches
 - Git patches to disable CSRF protection
 
 ## Development / Writing tests
 
-It is important that all errors/asserts can be observed inside vitest test context.
+1. All tests should be annotated as concurrent, otherwise test harness will run them one by one.
+
+2. All 8pay settings will have `wrapped_to_json_response: true` unless specified otherwise. 
+
+3. It is important that all errors/asserts can be observed inside vitest test context.
 Otherwise asserts/errors will get ignored.
 
 Example (BAD):
