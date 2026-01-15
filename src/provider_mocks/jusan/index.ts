@@ -27,6 +27,13 @@ const PAYIN_REQUEST_SCHEMA = z.object({
   MERCH_3D_TERM_URL: z.url(),
 });
 
+const STATUS_REQUEST_SCHEMA = z.object({
+  ORDER: z.string(),
+  MERCHANT: z.string(),
+  P_SIGN: z.string(),
+  GETSTATUS: z.literal(1),
+});
+
 const REFUND_REQUEST_SCHEMA = z.object({
   ORDER: z.string(),
   MERCHANT: z.string(),
@@ -223,10 +230,14 @@ export class JusanPayment {
   }
 
   status_handler(status: PrimeBusinessStatus): Handler {
-    return (c) =>
-      c.body(this.status_response(status), 200, {
+    return async (c) => {
+      let req = STATUS_REQUEST_SCHEMA.parse(await c.req.parseBody());
+      vitest.assert.strictEqual(req.ORDER, this.request_data?.ORDER);
+      vitest.assert.strictEqual(req.MERCHANT, this.request_data?.MERCHANT);
+      return c.body(this.status_response(status), 200, {
         "content-type": "application/xml; charset=UTF-8",
       });
+    };
   }
 
   refund_response(status: PrimeBusinessStatus, req: any) {

@@ -7,6 +7,7 @@ import type {
 } from "@/mock_server/api";
 import * as vitest from "vitest";
 import * as common from "@/common";
+import { CurlBuilder } from "@/story/curl";
 
 const PAYMENT_METHOD_SCHEMA = z.enum([
   "toCard",
@@ -107,7 +108,7 @@ export class BrusnikaPayment {
     const operationData = this.operation_data(status);
 
     let paymentDetailsData = {
-      nameMediator: "",
+      nameMediator: common.fullName,
       paymentMethod: this.request_data.paymentMethod,
       bankName: "Ipak Bank",
       number: requisite(this.request_data.paymentMethod),
@@ -124,14 +125,18 @@ export class BrusnikaPayment {
   }
 
   status_response(status: BrusnikaPaymentStatus) {
-    if (!this.request_data) {
-      throw new Error("operation data can't be constructed without request");
-    }
     return success_response(this.operation_data(status));
   }
 
   status_handler(status: BrusnikaPaymentStatus): Handler {
-    return (c) => c.json(this.status_response(status));
+    return (c) => {
+      vitest.assert.strictEqual(c.req.method, "GET");
+
+      let path_components = c.req.path.split("/");
+      vitest.assert.strictEqual(path_components.at(-1), this.gateway_id);
+      vitest.assert.strictEqual(c.req.query("idPlatform"), this.gateway_id);
+      return c.json(this.status_response(status));
+    };
   }
 
   static no_requisites_response() {
@@ -175,6 +180,12 @@ export class BrusnikaPayment {
   async send_callback(status: BrusnikaPaymentStatus) {
     let payload = this.callback(status);
     let url = "http://127.0.0.1:4000/callback/brusnikapay";
+    let curl = new CurlBuilder(url, "POST")
+      .header("content-type", "application/json")
+      .header("authorization", `Bearer ${WEBHOOK_TOKEN}`)
+      .json_data(payload)
+      .build();
+    console.log("brusnkika callback", curl);
     return await fetch(url, {
       method: "POST",
       headers: {
@@ -190,7 +201,6 @@ export class BrusnikaPayment {
       api_token: secret,
       class: "brusnikapay",
       webhook_token: WEBHOOK_TOKEN,
-      wrapped_to_json_response: true,
     };
   }
 

@@ -1,5 +1,6 @@
 import { extendMerchant } from "@/entities/merchant";
 import { RoutingBuilder } from "@/flexy_guard_builder";
+import { basic_healthcheck } from "@/healthcheck";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
@@ -73,23 +74,28 @@ export class Context {
     params: MockProviderParams,
     defaultHandler?: Handler,
   ): ProviderInstance {
-    let instance = new ProviderInstance(async (c) => {
-      if (defaultHandler !== undefined) {
-        try {
-          return await defaultHandler(c);
-        } catch (error) {
-          this.testBackgroundReject(error);
+    let instance = new ProviderInstance(
+      async (c) => {
+        if (defaultHandler !== undefined) {
+          try {
+            return await defaultHandler(c);
+          } catch (error) {
+            this.testBackgroundReject(error);
+            c.status(500);
+            return c.text("Default handler error");
+          }
+        } else {
+          this.testBackgroundReject(
+            `Unexpected request on test handler: ${params.alias}`,
+          );
           c.status(500);
-          return c.text("Default handler error");
+          return c.text("Unexpected request on test handler");
         }
-      } else {
-        this.testBackgroundReject(
-          `Unexpected request on test handler: ${params.alias}`,
-        );
-        c.status(500);
-        return c.text("Unexpected request on test handler");
-      }
-    }, this.testBackgroundReject);
+      },
+      this.testBackgroundReject,
+      this.story,
+      params.alias,
+    );
     this.state.mock_servers.registerProviderServer(params.alias, {
       filter: params.filter_fn,
       handler: instance._handler.bind(instance),
@@ -111,6 +117,13 @@ export class Context {
 
   async get_payment_by_gw_token(token: string) {
     return await this.state.business_db.paymentByGwToken(token);
+  }
+
+  async healthcheck(token: string) {
+    return await basic_healthcheck(
+      { business_db: this.state.business_db, core_db: this.state.core_db },
+      token,
+    );
   }
 
   routing_builder(mid: number, start: string): RoutingBuilder {

@@ -19,3 +19,41 @@ export function constructCurlRequest(
 -H 'Authorization: Bearer ${private_key}' \\
 -d '${json}'`;
 }
+
+export class CurlBuilder {
+  private headers: Headers;
+  private data?: string;
+  constructor(
+    private url: string,
+    private method: "POST" | "GET",
+  ) {
+    this.headers = new Headers();
+    this.data = undefined;
+  }
+
+  header(key: string, value: string) {
+    this.headers.append(key, value);
+    return this;
+  }
+
+  set_headers(headers: Headers) {
+    this.headers = headers;
+    return this;
+  }
+
+  json_data(data: Record<string, any>) {
+    this.data = JSON.stringify(data, null, 2);
+    return this;
+  }
+
+  build() {
+    let curl = `curl '${this.url}' \\
+-X ${this.method} \\\n`;
+
+    for (let [name, value] of this.headers.entries()) {
+      curl += `-H '${name}: ${value}' \\\n`;
+    }
+    curl += `-d '${this.data ?? ""}'`;
+    return curl;
+  }
+}

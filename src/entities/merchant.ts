@@ -1,9 +1,5 @@
-import * as vitest from "vitest";
-import { z } from "zod";
 import type { Merchant } from "@/db/core";
-import { err_bad_status, parse_json } from "@/fetch_utils";
-import { BusinessStatusSchema } from "@/db/business";
-import tracing from "@/tracing";
+import { err_bad_status } from "@/fetch_utils";
 import {
   extendNotification,
   NOTIFICATION_SCHEMA,
@@ -15,7 +11,11 @@ import { basic_healthcheck } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest } from "@/story/curl";
-import { ProcessingUrlResponse } from "./payment";
+import { delay } from "@std/async";
+import { PayinResponse } from "./payment/payin_response";
+import { PayoutResponse } from "./payment/payout_response";
+import { assert } from "vitest";
+import { RuleBuilder } from "@/flexy_guard_builder";
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -32,7 +32,7 @@ export type NotificationHandler = (
   | void
   | Promise<void>;
 
-export type ExtendedMecrhant = ReturnType<typeof extendMerchant>;
+export type ExtendedMerchant = ReturnType<typeof extendMerchant>;
 
 export function extendMerchant(ctx: Context, merchant: Merchant) {
   let {
@@ -43,6 +43,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     settings_service,
     business_url,
     mock_servers,
+    guard_service,
     commission_service,
   } = ctx.shared_state();
   async function wallets() {
@@ -53,153 +54,132 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return core_harness.cashin(merchant.id, currency, amount);
   }
 
+  async function set_limits(min: number, max: number) {
+    let rule = new RuleBuilder()
+      .withHeader("mid", merchant.id.toString())
+      .withBody({
+        card: {
+          amount: {
+            value: [min, max],
+          },
+        },
+      })
+      .build();
+    return guard_service.add_rule(rule, `Mid limits`, 1);
+  }
+
+  /**
+   * Changing settings is async operation.
+   * Do not expect consistent results when changing settings for the same merchant concurrently!
+   */
   async function set_settings(settings: Record<string, any>) {
     let current = await settings_db.merchant_settings(merchant.id);
-    ctx.story.add_chapter("Set merchant settings", settings);
+    // console.log({ current });
+    //
+    // let old_update_time: Date | undefined = undefined;
+    // for (let i = 0; i < 20; ++i) {
+    //   try {
+    //     old_update_time = await business_db.settings_last_updated_at(
+    //       current.external_id,
+    //     );
+    //     console.log(`old settings for ${current.external_id}`, old_update_time);
+    //     break;
+    //   } catch (e) {
+    //     console.log(
+    //       "failed to fetch existing settings updated time, using current time",
+    //       e,
+    //     );
+    //     await delay(200);
+    //   }
+    // }
+    // assert(old_update_time, "Flacky test: failed to wait until settings exist");
+    // console.log("old updated time", old_update_time);
+
     await settings_service.edit(current.id, current.external_id, settings);
+
+    // for (let i = 0; i < 21; ++i) {
+    //   let updated_time = await business_db.settings_last_updated_at(
+    //     current.external_id,
+    //   );
+    //   console.log(
+    //     `${i}. new settings for ${current.external_id}`,
+    //     updated_time,
+    //   );
+    //   console.log("old updated_time", old_update_time);
+    //   if (updated_time.getTime() > old_update_time.getTime()) {
+    //     ctx.story.add_chapter("Set merchant settings", settings);
+    //     // The approach above does not work :<(
+    //     // WE WAIT
+    //     await delay(1000);
+    //     return;
+    //   }
+    //   await delay(50);
+    // }
+    // throw Error("Failed to set merchant settings");
+    ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
+    await delay(2000);
   }
 
   function callbackUrl() {
     return `http://host.docker.internal:6767/${merchant.id}`;
   }
 
-  async function create_payment<T extends MerchantRequest = PaymentRequest>(
-    request: T,
-  ) {
-    let nestedPayment = z.object({
-      amount: z.int(),
-      commission: z.int().optional(),
-      currency: z.string(),
-      gateway_amount: z.int(),
-      status: BusinessStatusSchema,
-      two_stage_mode: z.boolean(),
-    });
-
-    let paymentResponse = z.object({
-      payment: nestedPayment,
-      processingUrl: z.array(z.record(z.string(), z.url())).or(z.url()),
-      result: z.int(),
-      selectorUrl: z.url().optional(),
-      status: z.int(),
-      success: z.boolean(),
-      token: z.string().length(32),
-    });
-
+  async function make_request(
+    path: string,
+    request: MerchantRequest | PaymentRequest | PayoutRequest,
+  ): Promise<Response> {
     if (request["callbackUrl"] === undefined) {
       let url = callbackUrl();
       console.log("Overriding merchant callback url to", url);
       request["callbackUrl"] = url;
     }
 
-    let url = business_url + "/api/v1/payments";
-    tracing.debug({ body: request, url }, "Creating merchant payment");
-    console.log({ body: request, url }, "Creating merchant payment");
-    ctx.story.add_chapter(
-      "Create payment",
-      constructCurlRequest(request, merchant.merchant_private_key, "pay"),
-    );
-    let res = await fetch(url, {
+    let url = business_url + path;
+    console.log({ body: request, url }, "Making merchant request");
+
+    return await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: "Bearer " + merchant.merchant_private_key,
       },
       body: JSON.stringify(request),
-    })
-      .then(err_bad_status)
-      .then(parse_json(paymentResponse));
-    ctx.annotate(`Created payment: ${res.token}`);
+    }).then(err_bad_status);
+  }
 
-    return {
-      ...res,
-      firstProcessingUrl() {
-        if (!Array.isArray(this.processingUrl)) {
-          return vitest.assert.fail("Processing url is not an array");
-        } else if (this.processingUrl.length === 0) {
-          return vitest.assert.fail("Processing url is empty");
-        }
-        let object = this.processingUrl[0];
-        return Object.values(object)[0];
-      },
-      async followFirstProcessingUrl() {
-        console.log("Fetching processing url");
-        // TODO: add helper methods on fetch result
-        return await fetch(this.firstProcessingUrl(), {
-          method: "GET",
-          redirect: "follow",
-        })
-          .then(err_bad_status)
-          .then((r) => new ProcessingUrlResponse(ctx, r));
-      },
-    };
+  async function create_payment<T extends MerchantRequest = PaymentRequest>(
+    request: T,
+  ) {
+    ctx.story.add_chapter(
+      "Create payment",
+      constructCurlRequest(request, merchant.merchant_private_key, "pay"),
+    );
+    let res = await make_request("/api/v1/payments", request).then(
+      async (r) => new PayinResponse(ctx, r, await r.json()),
+    );
+    // TODO: fix this
+    try {
+      ctx.annotate(`Created payment: ${res.as_ok().token}`);
+    } catch {}
+
+    return res;
   }
 
   async function create_payout<T extends MerchantRequest = PayoutRequest>(
     request: T,
   ) {
-    let nestedPayout = z.object({
-      token: z.string(),
-      status: BusinessStatusSchema,
-    });
-
-    let payoutResponse = z.object({
-      payout: nestedPayout.optional(),
-      processingUrl: z
-        .array(z.record(z.string(), z.url()))
-        .or(z.url())
-        .optional(),
-      result: z.int(),
-      selectorUrl: z.url().optional(),
-      status: z.int(),
-      success: z.boolean(),
-      token: z.string().length(32),
-    });
-
-    if (request["callbackUrl"] === undefined) {
-      let url = callbackUrl();
-      console.log("Overriding merchant callback url to", url);
-      request["callbackUrl"] = url;
-    }
-
-    let url = business_url + "/api/v1/payouts";
-    tracing.debug({ body: request, url }, "Creating merchant payout");
-    console.log({ body: request, url }, "Creating merchant payout");
     ctx.story.add_chapter(
       "Create payout",
       constructCurlRequest(request, merchant.merchant_private_key, "payout"),
     );
-    let res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer " + merchant.merchant_private_key,
-      },
-      body: JSON.stringify(request),
-    })
-      .then(err_bad_status)
-      .then(parse_json(payoutResponse));
-    ctx.annotate(`Created payout: ${res.token}`);
+    let res = await make_request("/api/v1/payouts", request).then(
+      async (r) => new PayoutResponse(ctx, r, await r.json()),
+    );
+    try {
+      ctx.annotate(`Created payout: ${res.as_ok().token}`);
+    } catch {}
 
-    return {
-      ...res,
-      firstProcessingUrl() {
-        if (!Array.isArray(this.processingUrl)) {
-          return vitest.assert.fail("Processing url is not an array");
-        } else if (this.processingUrl.length === 0) {
-          return vitest.assert.fail("Processing url is empty");
-        }
-        let object = this.processingUrl[0];
-        return Object.values(object)[0];
-      },
-      async followFirstProcessingUrl() {
-        console.log("Fetching processing url");
-        // TODO: add helper methods on fetch result
-        return await fetch(this.firstProcessingUrl(), {
-          method: "GET",
-          redirect: "follow",
-        }).then(err_bad_status);
-      },
-    };
+    return res;
   }
 
   type NotificationHandlerOptions = {
@@ -217,8 +197,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     let { promise, resolve, reject } = Promise.withResolvers();
     mock_servers.registerMerchant(merchant.id, async (c) => {
       try {
+        let raw_request = await c.req.json();
+        ctx.story.add_chapter("Merchant notification", raw_request);
         let callback = extendNotification(
-          NOTIFICATION_SCHEMA.parse(await c.req.json()),
+          NOTIFICATION_SCHEMA.parse(raw_request),
         );
         if (!options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
@@ -252,15 +234,32 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     await commission_service.add(payload);
   }
 
+  async function block_traffic(force = true) {
+    if (force) {
+      ctx.story.add_chapter("Block merchant traffic", merchant.id.toString());
+    } else {
+      ctx.story.add_chapter("Unblock merchant traffic", merchant.id.toString());
+    }
+    await ctx.shared_state().core_harness.block_traffick(merchant.id, force);
+  }
+
   return {
     ...merchant,
     wallets,
+    set_limits,
     cashin,
     set_settings,
-    create_payment,
-    create_payout,
+    create_payment: <T extends MerchantRequest = PaymentRequest>(req: T) =>
+      create_payment(req).then((r) => r.as_ok()),
+    create_payment_err: <T extends MerchantRequest = PaymentRequest>(req: T) =>
+      create_payment(req).then((r) => r.as_error().as_common_error()),
+    create_payout: <T extends MerchantRequest = PayoutResponse>(req: T) =>
+      create_payout(req).then((r) => r.as_ok()),
+    create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>
+      create_payout(req).then((r) => r.as_error().as_common_error()),
     notification_handler,
     callbackUrl,
     set_commission,
+    block_traffic,
   };
 }

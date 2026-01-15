@@ -4,9 +4,9 @@ import * as playwright from "playwright/test";
 import { CONFIG, test } from "@/test_context";
 import { providers } from "@/settings_builder";
 import {
-  MillenniumPayment,
+  MillenniumTransaction,
   type MillenniumStatus,
-} from "@/provider_mocks/millennium/payin";
+} from "@/provider_mocks/millennium";
 import type { Context } from "@/test_context/context";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import {
@@ -25,12 +25,12 @@ async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   let merchant = await ctx.create_random_merchant();
   await merchant.set_settings(
     providers(CURRENCY, {
-      ...MillenniumPayment.settings(uuid),
+      ...MillenniumTransaction.settings(uuid),
       wrapped_to_json_response,
     }),
   );
-  let millennium = ctx.mock_server(MillenniumPayment.mock_params(uuid));
-  let payment = new MillenniumPayment();
+  let millennium = ctx.mock_server(MillenniumTransaction.mock_params(uuid));
+  let payment = new MillenniumTransaction();
   return { merchant, millennium, payment, uuid };
 }
 
@@ -40,7 +40,7 @@ test
     await ctx.track_bg_rejections(async () => {
       let { merchant, millennium, payment } = await setupMerchant(ctx, false);
       millennium.queue(async (c) =>
-        c.json(payment.create_response("WAIT", await c.req.json())),
+        c.json(payment.payin_create_response("WAIT", await c.req.json())),
       );
       millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
 
@@ -77,7 +77,7 @@ test
     await ctx.track_bg_rejections(async () => {
       let { merchant, millennium, payment } = await setupMerchant(ctx, false);
       millennium.queue(async (c) =>
-        c.json(payment.create_response("WAIT", await c.req.json())),
+        c.json(payment.payin_create_response("WAIT", await c.req.json())),
       );
       millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
 
@@ -102,7 +102,8 @@ test
 
       await merchant.notification_handler(async (notification) => {
         vitest.assert.strictEqual(
-          notification.status, "approved",
+          notification.status,
+          "approved",
           "merchant notification status",
         );
       });
@@ -110,7 +111,7 @@ test
   });
 
 function millennumSuite(): Callback & Status {
-  let gw = new MillenniumPayment();
+  let gw = new MillenniumTransaction();
   let statusMap: Record<PrimeBusinessStatus, MillenniumStatus> = {
     approved: "ACCEPTED",
     declined: "CANCELLED",
@@ -120,13 +121,13 @@ function millennumSuite(): Callback & Status {
     suite_send_callback: async function (status, unique_secret) {
       await gw.send_callback(statusMap[status], unique_secret);
     },
-    suite_create_handler: gw.create_handler.bind(gw),
-    mock_options: MillenniumPayment.mock_params,
+    suite_create_handler: gw.payin_create_handler.bind(gw),
+    mock_options: MillenniumTransaction.mock_params,
     suite_merchant_request: function () {
       return common.paymentRequest(CURRENCY);
     },
     suite_merchant_settings: (secret) =>
-      providers(CURRENCY, MillenniumPayment.settings(secret)),
+      providers(CURRENCY, MillenniumTransaction.settings(secret)),
     suite_status_handler: gw.status_handler.bind(gw),
   };
 }
@@ -142,7 +143,7 @@ test.skip("millennium pending url", async ({ ctx, browser }) => {
         payment.send_callback("CANCELLED", uuid);
       }, CALLBACK_DELAY);
 
-      return c.json(payment.create_response("WAIT", await c.req.json()));
+      return c.json(payment.payin_create_response("WAIT", await c.req.json()));
     });
     millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
 
@@ -162,7 +163,8 @@ test.skip("millennium pending url", async ({ ctx, browser }) => {
 
     await merchant.notification_handler(async (notification) => {
       vitest.assert.strictEqual(
-        notification.status, "approved",
+        notification.status,
+        "approved",
         "merchant notification status",
       );
     });

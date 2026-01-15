@@ -1,3 +1,5 @@
+import { CONFIG } from "./test_context";
+
 export type AnyRecord = Record<string, any>;
 
 export interface ProvidersSettings {
@@ -5,13 +7,27 @@ export interface ProvidersSettings {
   gateways: AnyRecord;
 }
 
+type CommonSettingsParams = {
+  method?: string;
+  use_settings_method_priority?: boolean;
+  wrapped_to_json_response?: boolean;
+  enable_change_final_status?: boolean;
+  enable_update_amount?: boolean;
+} & Record<string, any>;
+
 /**
  * Quick way to construct providers settings with single provider
  */
-export function providers(
+export function providers<T extends CommonSettingsParams>(
   currency: string,
-  gateway: AnyRecord,
+  gateway: T,
 ): ProvidersSettings {
+  if (
+    CONFIG.project === "8pay" &&
+    gateway.wrapped_to_json_response === undefined
+  ) {
+    gateway.wrapped_to_json_response = true;
+  }
   return {
     [currency]: {
       gateways: {
@@ -130,6 +146,9 @@ export class SettingsBuilder {
    */
   withGateway(gateway: AnyRecord, alias?: string): this {
     const resolvedAlias = alias ?? `gateway_${this.nextAlias()}`;
+    if (CONFIG.project === "8pay" && gateway.wrapped_to_json_response === undefined) {
+      gateway.wrapped_to_json_response = true;
+    }
     this.settings.gateways[resolvedAlias] = gateway;
     return this;
   }

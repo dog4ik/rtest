@@ -1,10 +1,10 @@
 import * as vitest from "vitest";
+import { z } from "zod";
 import * as sign from "./signature";
-import type { MockProviderParams } from "@/mock_server/api";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
 
-
-export const OperationStatus = {
+export const OperationStatusMap = {
   UNDEFINED: -1,
   INITIATED: 0,
   IN_PROGRESS: 1,
@@ -16,21 +16,23 @@ export const OperationStatus = {
 } as const;
 
 export type OperationStatus =
-  (typeof OperationStatus)[keyof typeof OperationStatus];
+  (typeof OperationStatusMap)[keyof typeof OperationStatusMap];
 
-export type DalapayRequestData = {
-  provider_id: number;
-  merchant_id: string;
-  customer_id: string;
-  order_id: string;
-  country: string;
-  amount: string;
-  currency: string;
-  callback_url: string;
-  email: string;
-  name: string;
-  signature: string;
-};
+const RequestDataSchema = z.object({
+  provider_id: z.number(),
+  merchant_id: z.string(),
+  customer_id: z.string(),
+  order_id: z.string(),
+  country: z.string(),
+  amount: z.coerce.number(),
+  currency: z.string(),
+  callback_url: z.url(),
+  extra: z.object({
+    customer_name: z.string(),
+    customer_email: z.email().optional(),
+  }),
+  signature: z.string(),
+});
 
 const CALLBACK_SECRET =
   "1383f6037b23877f7412a8dd6c7c218fdc7b5702dd86e22a306ab90a23a64d9ba35ffd800c96d2c19f31d7d0c3ee12fdcd181c15a0bdfa9f989179b59602133d";
@@ -40,7 +42,7 @@ const CALLBACK_SECRET =
  */
 export class DalapayTransaction {
   gateway_id: string;
-  request_data?: DalapayRequestData;
+  request_data?: z.infer<typeof RequestDataSchema>;
 
   constructor() {
     this.gateway_id = crypto.randomUUID();
@@ -48,7 +50,7 @@ export class DalapayTransaction {
   }
 
   private provider_message(status: OperationStatus) {
-    return status == OperationStatus.FAILED ? "My fancy error" : "Good";
+    return status == OperationStatusMap.FAILED ? "My fancy error" : "Good";
   }
 
   callback(status: OperationStatus) {
@@ -100,26 +102,8 @@ export class DalapayTransaction {
     }).then(err_bad_status);
   }
 
-  status_response(status: OperationStatus, request?: any) {
-    if (request !== undefined) {
-      let gatewayAmount = Number(request.amount);
-      if (Number.isNaN(gatewayAmount)) {
-        throw new Error("failed to parse gateway amount");
-      }
-
-      let method = Number(request.provider_id);
-      if (Number.isNaN(method)) {
-        throw new Error("failed to parse provider_id");
-      }
-
-      this.request_data = request;
-    } else {
-      if (!this.request_data) {
-        throw new Error("Request data can't be nil");
-      }
-    }
-
-    vitest.assert(this.request_data, "request data should be defined");
+  status_response(status: OperationStatus) {
+    vitest.assert(this.request_data, "request data can't be nil");
 
     let res = {
       order_id: this.request_data.order_id,
@@ -140,6 +124,20 @@ export class DalapayTransaction {
       confirm_type: 0,
     };
     return res;
+  }
+
+  status_handler(status: OperationStatus): Handler {
+    return (c) => c.json(this.status_response(status));
+  }
+
+  create_response(status: OperationStatus, request: any) {
+    this.request_data = RequestDataSchema.parse(request);
+    return this.status_response(status);
+  }
+
+  create_handler(status: OperationStatus): Handler {
+    return async (c) =>
+      c.json(this.create_response(status, await c.req.json()));
   }
 
   static settings(uuid: string) {

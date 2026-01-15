@@ -263,7 +263,6 @@ export class MadsolutionPayment {
     return {
       api_key: secret,
       class: "madsolution",
-      wrapped_to_json_response: true,
     };
   }
 

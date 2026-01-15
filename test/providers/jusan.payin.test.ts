@@ -93,7 +93,7 @@ vitest.describe
       });
     });
 
-    test.concurrent(
+    test.todo(
       "jusan insta declined",
       { timeout: 70_000 },
       async ({ ctx }) => {

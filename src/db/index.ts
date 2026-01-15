@@ -76,4 +76,9 @@ export class Db {
     let res = await this.pool.query(query);
     return z.array(schema).parse(res.rows);
   }
+
+  async now() {
+    let res = await this.pool.query(`select now()`);
+    return z.date().parse(res.rows[0]);
+  }
 }

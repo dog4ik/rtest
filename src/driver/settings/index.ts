@@ -1,7 +1,6 @@
 import * as encoding from "@std/encoding";
 import { type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
-import { delay } from "@std/async";
 
 export class SettingsDriver {
   private base_url: string;
@@ -60,12 +59,5 @@ export class SettingsDriver {
     };
     // Editing settings is async operation.
     await this.action(path, params);
-
-    // Wait to settings to sync with business. Otherwise request will fail with error.
-    // I have tried.
-    // Polling redis sidekiq queue won't help since sidekiq removes the job before executing it.
-    //
-    // Elegant solution for the elegant problem.
-    await delay(1000);
   }
 }

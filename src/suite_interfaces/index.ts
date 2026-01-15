@@ -4,7 +4,6 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import { CONFIG, test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import { SettingsBuilder } from "@/settings_builder";
-import { RoutingBuilder } from "@/flexy_guard_builder";
 
 export interface ProviderBase {
   mock_options: (unique_secret: string) => MockProviderParams;
@@ -38,10 +37,12 @@ const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 7_000;
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
 export function callbackFinalizationSuite(suiteFactory: () => Callback) {
-  vitest.describe.concurrent("callback finalization", () => {
-    for (let target_status of CASES) {
-      let target = suiteFactory();
-      test.concurrent(`finalization to ${target_status}`, async ({ ctx }) => {
+  let alias = suiteFactory().mock_options("").alias;
+  for (let target_status of CASES) {
+    let target = suiteFactory();
+    test.concurrent(
+      `${alias} callback finalization to ${target_status}`,
+      async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
           let merchant = await ctx.create_random_merchant();
           await merchant.set_settings(target.suite_merchant_settings(ctx.uuid));
@@ -70,16 +71,18 @@ export function callbackFinalizationSuite(suiteFactory: () => Callback) {
           }
           await notification;
         });
-      });
-    }
-  });
+      },
+    );
+  }
 }
 
 export function statusFinalizationSuite(suite_factory: () => Status) {
-  vitest.describe.concurrent("status finalization", () => {
-    for (let target_status of CASES) {
-      let target = suite_factory();
-      test.concurrent(`finalization to ${target_status}`, async ({ ctx }) => {
+  let alias = suite_factory().mock_options("").alias;
+  for (let target_status of CASES) {
+    let target = suite_factory();
+    test.concurrent(
+      `${alias} status finalization to ${target_status}`,
+      async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
           let merchant = await ctx.create_random_merchant();
           await merchant.set_settings(target.suite_merchant_settings(ctx.uuid));
@@ -105,9 +108,9 @@ export function statusFinalizationSuite(suite_factory: () => Status) {
           }
           await notification;
         });
-      });
-    }
-  });
+      },
+    );
+  }
 }
 
 export function routingFinalizationSuite(chain: Routing[], last: Callback) {

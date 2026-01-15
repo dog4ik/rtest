@@ -53,6 +53,19 @@ export const BusinessPaymentSchema = z.object({
   // updated_at: z.string().datetime(),
   extra_return_param: z.string().nullable(),
 });
+const BusinessPaymentProjection = sqlProjection(
+  "payments",
+  BusinessPaymentSchema,
+);
+
+export const BusinessMerchantSettingsSchema = z.object({
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+const BusinessMerchantSettings = sqlProjection(
+  "merchant_settings",
+  BusinessMerchantSettingsSchema,
+);
 
 export type BusinessPayment = z.infer<typeof BusinessPaymentSchema>;
 
@@ -64,11 +77,6 @@ function extendedBusinessPayment(payment: BusinessPayment) {
     },
   };
 }
-
-const BusinessPaymentProjection = sqlProjection(
-  "payments",
-  BusinessPaymentSchema,
-);
 
 export class BusinessDb extends Db {
   constructor(
@@ -86,5 +94,20 @@ export class BusinessDb extends Db {
   async paymentByGwToken(token: string) {
     let query = `select ${BusinessPaymentProjection.select(this.project)} from payments where gateway_token = '${token}'`;
     return await this.fetch_one(BusinessPaymentSchema, query);
+  }
+
+  async settings_last_updated_at(external_id: number) {
+    let query = `
+select merchant_providers.updated_at as "latest_update" from merchant_settings
+join merchant_currencies on merchant_currencies.merchant_setting_id = merchant_settings.id
+join merchant_providers on merchant_providers.merchant_currency_id = merchant_currencies.id
+left join merchant_gateways on merchant_gateways.id = merchant_providers.current_gateway_id
+where merchant_settings.external_id = ${external_id} order by merchant_providers.updated_at desc limit 1;
+`;
+
+    return await this.fetch_one(
+      z.object({ latest_update: z.date() }),
+      query,
+    ).then((r) => r.latest_update);
   }
 }

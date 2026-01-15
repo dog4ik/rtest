@@ -1,13 +1,24 @@
-import "./internal.test.ts";
-import "./flexy/routing.test.ts";
-import "./base/cashin.test.ts";
-import "./base/commission.test.ts";
-import "./providers/brusnika.payin.test.ts";
-import "./providers/dalapay.payin.test.ts";
-import "./providers/dalapay.payout.test.ts";
-import "./providers/default.test.ts";
-import "./providers/flintpays.payin.test.ts";
-import "./providers/flintpays.payout.test.ts";
-import "./providers/jusan.payin.test.ts";
-import "./providers/madsolution.payin.test.ts";
-import "./providers/millennium.test.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { describe } from "vitest";
+
+let dirs = ["test"];
+while (dirs.length) {
+  let dir = dirs.pop()!;
+  let entries = fs.readdirSync(dir);
+  for (let entry of entries) {
+    let entry_path = path.join(dir, entry);
+    let stats = fs.statSync(entry_path);
+    if (stats.isDirectory()) {
+      dirs.push(entry_path);
+    } else if (
+      stats.isFile() &&
+      entry.endsWith(".test.ts") &&
+      entry != path.basename(import.meta.filename)
+    ) {
+      describe.concurrent(entry_path, async () => {
+        await import(path.resolve(entry_path));
+      });
+    }
+  }
+}

@@ -8,7 +8,11 @@ export type PayoutRequest = {
     ip: string;
   };
   order_number: string;
+  extra_return_param?: string;
   callbackUrl?: string;
+  bank_account?: {
+    requisite_type?: "card" | "sbp" | "link" | "account";
+  }
   product: string;
 };
 
@@ -20,7 +24,11 @@ export type PaymentRequest = {
     ip?: string;
   };
   order_number?: string;
+  extra_return_param?: string;
   callbackUrl?: string;
+  bank_account?: {
+    requisite_type?: "card" | "sbp" | "link" | "account";
+  }
   product?: string;
 };
 
@@ -43,6 +51,7 @@ export const phoneNumber = "79995553535";
 export const redirectPayUrl = "https://google.com";
 export const amount = 123456;
 export const rrn = "601115349038";
+export const fullName = "Satoru Gojo";
 
 export function paymentRequest(currency: string): PaymentRequest {
   return {

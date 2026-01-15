@@ -80,7 +80,7 @@ export class CoreDriver {
     let params = {
       companyName: uuid,
       email: `${uuid}@mail.com`,
-      password: "c@\"6J?Q3:?H@me=",
+      password: 'c@"6J?Q3:?H@me=',
       country: "236",
     };
     await this.create_merchant(params);
@@ -143,8 +143,37 @@ export class CoreDriver {
     await this.action(`/cashouts/change_status?${queryParams}`, params);
   }
 
-  async resent_callback(token: string) {
+  async resend_callback(token: string) {
     let params = { api_payment_token: token };
     await this.action(`/cashouts/${token}/resend_callback`, params);
+  }
+
+  async block_traffick(merchant_id: number, block: boolean) {
+    let form = {
+      utf8: "✓",
+      _method: "patch",
+      "api_v1_profile[do_not_send_receipt]": "0",
+      "api_v1_profile[refunds_blocked]": "0",
+      "api_v1_profile[traffic_blocked]": block ? "all_blocked" : "no_blocked",
+      "api_v1_profile[default_currency]": "AED",
+      "api_v1_profile[relevant_currencies][]": "",
+      commit: "Save",
+      "api_v1_profile[merchant_settlement_info_attributes][account_number]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][account_name]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
+        "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
+        "",
+      "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][country]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][iban]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][id]": "92",
+      "api_v1_profile[user_ids][]": "",
+      "api_v1_profile[allow_subaccounts]": "0",
+      "api_v1_profile[new_password]": "",
+    };
+    await this.action(`/merchants/${merchant_id}`, form);
   }
 }
