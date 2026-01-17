@@ -56,7 +56,12 @@ export class MockServerState {
     }
   }
 
-  registerMerchant(mid: number, handler: Handler) {
-    this.merchant_handler.handlersMap.set(mid, handler);
+  queueNotification(mid: number, handler: Handler) {
+    let handlers = this.merchant_handler.handlersMap.get(mid);
+    if (handlers === undefined) {
+      this.merchant_handler.handlersMap.set(mid, [handler]);
+    } else {
+      handlers.push(handler);
+    }
   }
 }

@@ -56,7 +56,7 @@ test.concurrent("ironpay no requisities decline", async ({ ctx }) => {
     );
     let ironpay = ctx.mock_server(IronpayPayment.mock_params(ctx.uuid));
     ironpay.queue(IronpayPayment.no_requisites_handler());
-    let notification = merchant.notification_handler((callback) => {
+    let notification = merchant.queue_notification((callback) => {
       assert.strictEqual(callback.status, "declined", "declined notification");
     });
     let response = await merchant

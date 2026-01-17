@@ -44,7 +44,7 @@ vitest.describe.concurrent("routing", () => {
         millennium.queue(MillenniumTransaction.no_requisites_handler()),
         madsolution.queue(madsolution_payment.create_handler("PENDING")),
       ]);
-      let notification = merchant.notification_handler((callback) => {
+      let notification = merchant.queue_notification((callback) => {
         vitest.assert.strictEqual(callback.status, "declined");
       });
 
@@ -104,7 +104,7 @@ async function executeRoutingChain(
   await merchant.set_settings(settings_builder.build());
   await rule_builder.save();
 
-  let notification = merchant.notification_handler((cb) => {
+  let notification = merchant.queue_notification((cb) => {
     vitest.assert.strictEqual(cb.status, "approved");
   });
 

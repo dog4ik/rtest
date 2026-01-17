@@ -56,7 +56,7 @@ vitest.describe
             });
             let res = await merchant.create_payment(paymentRequest());
             await res.followFirstProcessingUrl();
-            await merchant.notification_handler(async (notification) => {
+            await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
                 notification.status, rp_status,
                 "merchant notification status",
@@ -83,7 +83,7 @@ vitest.describe
 
             let res = await merchant.create_payment(paymentRequest());
             await res.followFirstProcessingUrl();
-            await merchant.notification_handler(async (notification) => {
+            await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
                 notification.status, rp_status,
                 "merchant notification status",

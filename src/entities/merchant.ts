@@ -203,19 +203,19 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
    * Setup notification handler.
    * @returns {Promise<unknown>} that will be resolved when the handler is done.
    **/
-  async function notification_handler(
+  async function queue_notification(
     handler: NotificationHandler,
     options?: NotificationHandlerOptions,
   ): Promise<unknown> {
     let { promise, resolve, reject } = Promise.withResolvers();
-    mock_servers.registerMerchant(merchant.id, async (c) => {
+    mock_servers.queueNotification(merchant.id, async (c) => {
       try {
         let raw_request = await c.req.json();
         ctx.story.add_chapter("Merchant notification", raw_request);
         let callback = extendNotification(
           NOTIFICATION_SCHEMA.parse(raw_request),
         );
-        if (!options?.skip_signature_check) {
+        if (options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
         }
         if (!options?.skip_healthcheck) {

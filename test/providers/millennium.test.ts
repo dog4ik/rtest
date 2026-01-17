@@ -61,7 +61,7 @@ test
         playwright.expect(pf.paymentPhone()).toHaveText("+7 999 555 35 35"),
       ]);
 
-      await merchant.notification_handler(async (notification) => {
+      await merchant.queue_notification(async (notification) => {
         vitest.assert.strictEqual(
           notification.status,
           "approved",
@@ -100,7 +100,7 @@ test
           .toHaveAttribute("href", common.redirectPayUrl),
       ]);
 
-      await merchant.notification_handler(async (notification) => {
+      await merchant.queue_notification(async (notification) => {
         vitest.assert.strictEqual(
           notification.status,
           "approved",
@@ -161,7 +161,7 @@ test.skip("millennium pending url", async ({ ctx, browser }) => {
     let pf = new EightpayRequisitesPage(page);
     await Promise.all([]);
 
-    await merchant.notification_handler(async (notification) => {
+    await merchant.queue_notification(async (notification) => {
       vitest.assert.strictEqual(
         notification.status,
         "approved",

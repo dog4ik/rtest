@@ -41,15 +41,13 @@ vitest.describe
           .mock_server(payment.threeds_verifier_mock_params())
           .queue(payment.threeds_challenge_verification_handler("approved"));
 
-        let notification = merchant.notification_handler(
-          async (notification) => {
-            vitest.assert.strictEqual(
-              notification.status,
-              "approved",
-              "merchant notification status",
-            );
-          },
-        );
+        let notification = merchant.queue_notification(async (notification) => {
+          vitest.assert.strictEqual(
+            notification.status,
+            "approved",
+            "merchant notification status",
+          );
+        });
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           card: common.cardObject(),
@@ -74,15 +72,13 @@ vitest.describe
         let { merchant, jusan, payment } = await setupMerchant(ctx);
         jusan.queue(payment.create_response_handler("approved"));
 
-        let notification = merchant.notification_handler(
-          async (notification) => {
-            vitest.assert.strictEqual(
-              notification.status,
-              "approved",
-              "merchant notification status",
-            );
-          },
-        );
+        let notification = merchant.queue_notification(async (notification) => {
+          vitest.assert.strictEqual(
+            notification.status,
+            "approved",
+            "merchant notification status",
+          );
+        });
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           card: common.cardObject(),

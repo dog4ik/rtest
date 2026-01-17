@@ -65,7 +65,7 @@ vitest.describe
             });
             let res = await merchant.create_payout(payoutRequest());
             await res.followFirstProcessingUrl();
-            await merchant.notification_handler(async (notification) => {
+            await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
                 notification.status,
                 rp_status,
@@ -93,7 +93,7 @@ vitest.describe
 
             let res = await merchant.create_payout(payoutRequest());
             await res.followFirstProcessingUrl();
-            await merchant.notification_handler(async (notification) => {
+            await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
                 notification.status,
                 rp_status,
@@ -121,7 +121,7 @@ vitest.describe
         "declined",
         "payout should be insta declined",
       );
-      merchant.notification_handler((notifciation) => {
+      merchant.queue_notification((notifciation) => {
         vitest.assert.strictEqual(
           notifciation.status,
           "declined",

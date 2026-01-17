@@ -44,15 +44,15 @@ export function spawn_provider_server(port: number): ProviderServerInstance {
 
 export type MerchantServerInstance = {
   server: ServerType;
-  handlersMap: Map<number, Handler>;
+  handlersMap: Map<number, Handler[]>;
 };
 
 export function spawn_merchant_server(): MerchantServerInstance {
   const api = new Hono();
-  let handlersMap: Map<number, Handler> = new Map();
+  let handlersMap: Map<number, Handler[]> = new Map();
 
   api.all("/:merhant_id", async (c) => {
-    let handler = handlersMap.get(+c.req.param("merhant_id"));
+    let handler = handlersMap.get(+c.req.param("merhant_id"))?.shift();
     if (handler !== undefined) {
       return await handler(c);
     }

@@ -55,7 +55,7 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
     );
     let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
     brusnika.queue(BrusnikaPayment.no_requisites_handler());
-    let notification = merchant.notification_handler((callback) => {
+    let notification = merchant.queue_notification((callback) => {
       assert.strictEqual(callback.status, "declined", "declined notification");
     });
     let response = await merchant

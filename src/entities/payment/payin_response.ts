@@ -39,7 +39,7 @@ export class PayinResponse {
     assert.strictEqual(
       this.res.status,
       200,
-      "success payout response should have 200 status",
+      "success payin response should have 200 status",
     );
     let parsed = PaymentResponseSchema.safeParse(this.json);
     if (!parsed.success) {

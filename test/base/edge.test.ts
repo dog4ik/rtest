@@ -24,7 +24,7 @@ test.concurrent(
         operation: "PayinRequest",
       });
       let res = await merchant.create_payment(common.paymentRequest("RUB"));
-      let notification = merchant.notification_handler((notification) => {
+      let notification = merchant.queue_notification((notification) => {
         assert.strictEqual(notification.status, "approved");
       });
       console.log(
@@ -51,7 +51,7 @@ test.concurrent(
         self_fee: "10000",
         operation: "PayinRequest",
       });
-      let notification = merchant.notification_handler((notification) => {
+      let notification = merchant.queue_notification((notification) => {
         assert.strictEqual(notification.status, "declined");
       });
       await merchant.create_payment(

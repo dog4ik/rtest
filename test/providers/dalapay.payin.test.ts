@@ -61,7 +61,7 @@ for (let [dalapay_status, rp_status] of CASES) {
           "pending",
           "merchant response payment status",
         );
-        await merchant.notification_handler(async (notification) => {
+        await merchant.queue_notification(async (notification) => {
           vitest.assert.strictEqual(
             notification.status,
             rp_status,
@@ -94,7 +94,7 @@ for (let [dalapay_status, rp_status] of CASES) {
         "pending",
         "merchant response payment status",
       );
-      await merchant.notification_handler(async (notification) => {
+      await merchant.queue_notification(async (notification) => {
         vitest.assert.strictEqual(
           notification.status,
           rp_status,

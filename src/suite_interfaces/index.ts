@@ -127,29 +127,27 @@ export function routingFinalizationSuite(chain: Routing[], last: Callback) {
         let flexy_rule = ctx.routing_builder(merchant.id, "gateway");
         for (let link of chain) {
           let gw = ctx.mock_server(link.mock_options(uuid));
-          gw.queue(link.suite_no_requisites_handler());
-          settings.withGateway(link.suite_merchant_settings(uuid));
+          gw.queue(link.no_requisites_handler());
+          settings.withGateway(link.settings(uuid));
         }
         await merchant.set_settings(settings.build());
         let last_gw = ctx.mock_server(last.mock_options(uuid));
         last_gw.queue(async (c) => {
           setTimeout(
-            () => last.suite_send_callback("approved", uuid),
+            () => last.send_callback("approved", uuid),
             CALLBACK_DELAY,
           );
-          return await last.suite_create_handler("pending")(c);
+          return await last.create_handler("pending")(c);
         });
 
-        let notification = merchant.notification_handler((callback) => {
+        let notification = merchant.queue_notification((callback) => {
           vitest.assert.strictEqual(
             callback.status,
             "approved",
             `merchant should get approved notification`,
           );
         });
-        let create_response = await merchant.create_payment(
-          chain[0].suite_merchant_request(),
-        );
+        let create_response = await merchant.create_payment(chain[0].request());
         let processingUrlResponse =
           await create_response.followFirstProcessingUrl();
         if (CONFIG.project === "8pay") {
