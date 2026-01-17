@@ -118,17 +118,18 @@ function millennumSuite(): Callback & Status {
     pending: "WAIT",
   };
   return {
-    suite_send_callback: async function (status, unique_secret) {
+    type: "payin",
+    send_callback: async function (status, unique_secret) {
       await gw.send_callback(statusMap[status], unique_secret);
     },
-    suite_create_handler: gw.payin_create_handler.bind(gw),
+    create_handler: gw.payin_create_handler.bind(gw),
     mock_options: MillenniumTransaction.mock_params,
-    suite_merchant_request: function () {
+    request: function () {
       return common.paymentRequest(CURRENCY);
     },
-    suite_merchant_settings: (secret) =>
+    settings: (secret) =>
       providers(CURRENCY, MillenniumTransaction.settings(secret)),
-    suite_status_handler: gw.status_handler.bind(gw),
+    status_handler: gw.status_handler.bind(gw),
   };
 }
 

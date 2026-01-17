@@ -25,20 +25,21 @@ function ironpaySuite(): Callback & Status {
     pending: "Pending",
   };
   return {
-    suite_send_callback: async function (status, secret) {
+    send_callback: async function (status, secret) {
       await gw.send_callback(statusMap[status], secret);
     },
-    suite_create_handler: () => gw.create_handler(),
+    type: "payin",
+    create_handler: () => gw.create_handler(),
     mock_options: IronpayPayment.mock_params,
-    suite_merchant_request: function () {
+    request: function () {
       return { ...common.paymentRequest(CURRENCY), extra_return_param: "card" };
     },
-    suite_merchant_settings: (secret) =>
+    settings: (secret) =>
       providers(CURRENCY, {
         ...IronpayPayment.settings(secret),
         wrapped_to_json_response: true,
       }),
-    suite_status_handler: (s) => gw.status_handler(statusMap[s]),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
   };
 }
 

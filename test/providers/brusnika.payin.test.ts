@@ -24,20 +24,22 @@ function brusnikaSuite(): Callback & Status {
     pending: "in_progress",
   };
   return {
-    suite_send_callback: async function (status, _) {
+    send_callback: async function (status, _) {
       await gw.send_callback(statusMap[status]);
     },
-    suite_create_handler: (s) => gw.create_handler(statusMap[s]),
+    create_handler: (s) => gw.create_handler(statusMap[s]),
     mock_options: BrusnikaPayment.mock_params,
-    suite_merchant_request: function () {
+    type: "payin",
+    request: function () {
       return common.paymentRequest(CURRENCY);
     },
-    suite_merchant_settings: (secret) =>
+    settings: (secret) =>
       providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
         wrapped_to_json_response: true,
       }),
-    suite_status_handler: (s) => gw.status_handler(statusMap[s]),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
+    gw,
   };
 }
 
@@ -147,11 +149,11 @@ describe
             },
           })
           .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_8pay_requisite());
+          .then((r) => r.as_trader_requisites());
         await create;
         assert.strictEqual(payment.request_data?.paymentMethod, "toCard");
-        assert.strictEqual(requisites.pan, common.visaCard);
-        assert.strictEqual(requisites.name_seller, common.fullName);
+        assert.strictEqual(requisites.card?.pan, common.visaCard);
+        assert.strictEqual(requisites.card?.name, common.fullName);
       });
     });
 
@@ -170,15 +172,15 @@ describe
           .create_payment({
             ...common.paymentRequest("RUB"),
             bank_account: {
-              requisite_type: "phone",
+              requisite_type: "sbp",
             },
           })
           .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_8pay_requisite());
+          .then((r) => r.as_trader_requisites());
         await create;
         assert.strictEqual(payment.request_data?.paymentMethod, "sbp");
-        assert.strictEqual(requisites.pan, `+${common.phoneNumber}`);
-        assert.strictEqual(requisites.name_seller, common.fullName);
+        assert.strictEqual(requisites.sbp?.phone, `+${common.phoneNumber}`);
+        assert.strictEqual(requisites.sbp?.name, common.fullName);
       });
     });
   });

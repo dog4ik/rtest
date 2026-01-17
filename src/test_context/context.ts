@@ -115,6 +115,10 @@ export class Context {
     return await this.state.business_db.paymentByToken(token);
   }
 
+  async get_feed(api_payment_token: string) {
+    return await this.state.core_db.feed(api_payment_token);
+  }
+
   async get_payment_by_gw_token(token: string) {
     return await this.state.business_db.paymentByGwToken(token);
   }

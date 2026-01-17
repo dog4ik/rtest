@@ -22,20 +22,21 @@ function madsolutionSuite(): Callback & Status {
     pending: "PENDING",
   };
   return {
-    suite_send_callback: async function (status, _) {
+    type: "payin",
+    send_callback: async function (status, _) {
       await gw.send_callback(statusMap[status]);
     },
-    suite_create_handler: (s) => gw.create_handler(statusMap[s]),
+    create_handler: (s) => gw.create_handler(statusMap[s]),
     mock_options: MadsolutionPayment.mock_params,
-    suite_merchant_request: function () {
+    request: function () {
       return {
         ...common.paymentRequest(CURRENCY),
         extra_return_param: "card",
       };
     },
-    suite_merchant_settings: (secret) =>
+    settings: (secret) =>
       providers(CURRENCY, MadsolutionPayment.settings(secret)),
-    suite_status_handler: (s) => gw.status_handler(statusMap[s]),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
   };
 }
 

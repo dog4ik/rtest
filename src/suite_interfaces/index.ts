@@ -4,29 +4,41 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import { CONFIG, test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import { SettingsBuilder } from "@/settings_builder";
+import type { Context } from "@/test_context/context";
 
-export interface ProviderBase {
+export type TestCaseOptions = {
+  skip_if?: boolean;
+};
+
+export interface TestCaseBase {
+  type: "payin" | "payout";
   mock_options: (unique_secret: string) => MockProviderParams;
-  suite_merchant_request: () => PaymentRequest | PayoutRequest;
-  suite_merchant_settings: (unique_secret: string) => {};
+  request: () => PaymentRequest | PayoutRequest;
+  settings: (unique_secret: string) => Record<string, any>;
 }
 
-export interface Callback extends ProviderBase {
-  suite_send_callback: (
+export interface Callback extends TestCaseBase {
+  send_callback: (
     status: PrimeBusinessStatus,
     unique_secret: string,
   ) => Promise<unknown>;
-  suite_create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (status: PrimeBusinessStatus) => Handler;
 }
 
-export interface Status extends ProviderBase {
-  suite_status_handler: (status: PrimeBusinessStatus) => Handler;
-  suite_create_handler: (status: PrimeBusinessStatus) => Handler;
+export interface Status extends TestCaseBase {
+  status_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (status: PrimeBusinessStatus) => Handler;
 }
 
-export interface Routing extends ProviderBase {
-  suite_create_handler: (status: PrimeBusinessStatus) => Handler;
-  suite_no_requisites_handler: () => Handler;
+export interface Routing extends TestCaseBase {
+  create_handler: (status: PrimeBusinessStatus) => Handler;
+  no_requisites_handler: () => Handler;
+}
+
+export interface DataFlow extends TestCaseBase {
+  create_handler: (status: PrimeBusinessStatus) => Handler;
+  after_create_check?: () => unknown;
+  check_merchant_response?: (data: CreateTransactionReturn) => unknown;
 }
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
@@ -36,80 +48,129 @@ const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 7_000;
 
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
-export function callbackFinalizationSuite(suiteFactory: () => Callback) {
-  let alias = suiteFactory().mock_options("").alias;
-  for (let target_status of CASES) {
-    let target = suiteFactory();
-    test.concurrent(
+type CreateTransactionReturn = Awaited<
+  ReturnType<Awaited<ReturnType<typeof create_suite>>["create_transaction"]>
+>;
+
+async function create_suite(ctx: Context, target: TestCaseBase) {
+  let merchant = await ctx.create_random_merchant();
+  let settings = target.settings(ctx.uuid);
+  await merchant.set_settings(settings);
+  let mock_options = target.mock_options(ctx.uuid);
+  let provider = ctx.mock_server(mock_options);
+  return {
+    merchant,
+    provider,
+    provider_alias: mock_options.alias,
+    create_transaction: async () => {
+      let aux = async () => {
+        if (target.type === "payin") {
+          return await merchant.create_payment(target.request());
+        } else if (target.type === "payout") {
+          let request = target.request();
+          await merchant.cashin(request.currency, request.amount / 100);
+          return await merchant.create_payout(request);
+        } else {
+          vitest.assert.fail("unsupported operation type");
+        }
+      };
+
+      let create_response = await aux();
+      if (Array.isArray(create_response.processingUrl)) {
+        return {
+          create_response,
+          processing_response: await create_response.followFirstProcessingUrl(),
+        };
+      }
+      return { create_response };
+    },
+  };
+}
+
+function callbackFinalizationTest(
+  target: Callback,
+  target_status: PrimeBusinessStatus,
+  opts?: TestCaseOptions,
+) {
+  let alias = target.mock_options("").alias;
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(
       `${alias} callback finalization to ${target_status}`,
-      async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let merchant = await ctx.create_random_merchant();
-          await merchant.set_settings(target.suite_merchant_settings(ctx.uuid));
-          let provider = ctx.mock_server(target.mock_options(ctx.uuid));
+      ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let { create_transaction, merchant, provider } = await create_suite(
+            ctx,
+            target,
+          );
           provider.queue((c) => {
             setTimeout(() => {
-              target.suite_send_callback(target_status, ctx.uuid);
+              target.send_callback(target_status, ctx.uuid);
             }, CALLBACK_DELAY);
-            return target.suite_create_handler("pending")(c);
+            return target.create_handler("pending")(c);
           });
 
-          let notification = merchant.notification_handler((callback) => {
+          let notification = merchant.queue_notification((callback) => {
             vitest.assert.strictEqual(
               callback.status,
               target_status,
               `merchant should get ${target_status} notification`,
             );
           });
-          let create_response = await merchant.create_payment(
-            target.suite_merchant_request(),
-          );
-          let processingUrlResponse =
-            await create_response.followFirstProcessingUrl();
-          if (CONFIG.project === "8pay") {
-            await processingUrlResponse.as_8pay_requisite();
-          }
+          await create_transaction();
           await notification;
-        });
-      },
+        }),
     );
+}
+
+export function callbackFinalizationSuite(
+  createTarget: () => Callback,
+  opts?: TestCaseOptions,
+) {
+  for (let status of CASES) {
+    callbackFinalizationTest(createTarget(), status, opts);
   }
 }
 
-export function statusFinalizationSuite(suite_factory: () => Status) {
-  let alias = suite_factory().mock_options("").alias;
-  for (let target_status of CASES) {
-    let target = suite_factory();
-    test.concurrent(
+function statusFinalizationTest(
+  target: Status,
+  target_status: PrimeBusinessStatus,
+  opts?: TestCaseOptions,
+) {
+  let alias = target.mock_options("").alias;
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(
       `${alias} status finalization to ${target_status}`,
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
-          let merchant = await ctx.create_random_merchant();
-          await merchant.set_settings(target.suite_merchant_settings(ctx.uuid));
-          let provider = ctx.mock_server(target.mock_options(ctx.uuid));
-          provider.queue(target.suite_create_handler("pending"));
-          provider.queue(target.suite_status_handler(target_status));
+          let { provider, merchant, create_transaction } = await create_suite(
+            ctx,
+            target,
+          );
+          provider.queue(target.create_handler("pending"));
+          provider.queue(target.status_handler(target_status));
 
-          let notification = merchant.notification_handler((callback) => {
+          let notification = merchant.queue_notification((callback) => {
             vitest.assert.strictEqual(
               callback.status,
               target_status,
               `merchant should get ${target_status} notification`,
             );
           });
-          let create_response = await merchant.create_payment(
-            target.suite_merchant_request(),
-          );
-          console.log(create_response);
-          let processingUrlResponse =
-            await create_response.followFirstProcessingUrl();
-          if (CONFIG.project === "8pay") {
-            await processingUrlResponse.as_8pay_requisite();
-          }
+          await create_transaction();
           await notification;
         });
       },
     );
+}
+
+export function statusFinalizationSuite(
+  suite_factory: () => Status,
+  opts?: TestCaseOptions,
+) {
+  for (let target_status of CASES) {
+    statusFinalizationTest(suite_factory(), target_status, opts);
   }
 }
 
@@ -157,4 +218,25 @@ export function routingFinalizationSuite(chain: Routing[], last: Callback) {
       });
     });
   });
+}
+
+export function dataFlowTest<T extends DataFlow>(
+  title: string,
+  target: T,
+  opts?: TestCaseOptions,
+) {
+  let alias = target.mock_options("").alias;
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} ${title} data flow`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, provider } = await create_suite(ctx, target);
+        let provider_request = provider
+          .queue(target.create_handler("pending"))
+          .then(() => target.after_create_check?.());
+        let response = await create_transaction();
+        await provider_request;
+        await target.check_merchant_response?.(response);
+      }),
+    );
 }

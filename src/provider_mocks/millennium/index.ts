@@ -114,7 +114,7 @@ export class MillenniumTransaction {
         code: "tinkof",
         methodName: "Т-Банк",
         number: this.requisiteNumber(this.payin_data.code),
-        comment: "Максим Б.",
+        comment: common.fullName,
       },
       amountUSDT: this.payin_data.amount * RUB_USDT_RATE,
       expire: 1749628157,
