@@ -2,6 +2,7 @@ import { z } from "zod";
 import { assert } from "vitest";
 import { ErrorResponse } from "./error_response";
 import type { Context } from "@/test_context/context";
+import { CONFIG } from "@/test_context";
 
 export const EightpayRequesiteSchema = z.object({
   id: z.string().min(1),
@@ -78,6 +79,35 @@ export class ProcessingUrlResponse {
       `parse h2h p2p trader requisites: ${response.error?.message}`,
     );
     return response.data;
+  }
+
+  async validateRequisites({
+    type,
+    number,
+    name,
+    bank,
+  }: {
+    type: "sbp" | "card";
+    number: string | undefined;
+    name: string | undefined;
+    bank: string | undefined;
+  }) {
+    if (CONFIG.project === "8pay") {
+      let res = await this.as_8pay_requisite();
+      assert.strictEqual(res.name_seller, name);
+      assert.strictEqual(res.pan, number);
+    } else {
+      let res = await this.as_trader_requisites();
+      if (type === "sbp") {
+        assert.strictEqual(res.sbp?.bank, bank);
+        assert.strictEqual(res.sbp?.name, name);
+        assert.strictEqual(res.sbp?.phone, number);
+      } else if (type === "card") {
+        assert.strictEqual(res.card?.bank, bank);
+        assert.strictEqual(res.card?.name, name);
+        assert.strictEqual(res.card?.pan, number);
+      }
+    }
   }
 
   async as_error() {
