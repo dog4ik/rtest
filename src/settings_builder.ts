@@ -7,7 +7,7 @@ export interface ProvidersSettings {
   gateways: AnyRecord;
 }
 
-type CommonSettingsParams = {
+export type CommonSettingsParams = {
   method?: string;
   use_settings_method_priority?: boolean;
   wrapped_to_json_response?: boolean;

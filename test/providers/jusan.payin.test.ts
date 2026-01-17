@@ -89,33 +89,70 @@ vitest.describe
       });
     });
 
-    test.todo(
-      "jusan insta declined",
-      { timeout: 70_000 },
-      async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let { merchant, jusan, payment } = await setupMerchant(ctx);
-          jusan.queue(payment.create_response_handler("declined"));
+    test.todo("jusan insta declined", { timeout: 70_000 }, async ({ ctx }) => {
+      await ctx.track_bg_rejections(async () => {
+        let { merchant, jusan, payment } = await setupMerchant(ctx);
+        jusan.queue(payment.create_response_handler("declined"));
 
-          let notification = merchant.notification_handler(
-            async (notification) => {
-              vitest.assert.strictEqual(
-                notification.status,
-                "declined",
-                "merchant notification status",
-              );
-            },
+        let notification = merchant.queue_notification(async (notification) => {
+          vitest.assert.strictEqual(
+            notification.status,
+            "declined",
+            "merchant notification status",
           );
-          let result = await merchant.create_payment({
-            ...common.paymentRequest(CURRENCY),
-            card: common.cardObject(),
-          });
-          // FIX(pcidss): 15 minutes status request delay
-          jusan.queue(payment.status_handler("declined"));
-          console.log(result);
-
-          await notification;
         });
-      },
-    );
+        let result = await merchant.create_payment({
+          ...common.paymentRequest(CURRENCY),
+          card: common.cardObject(),
+        });
+        // FIX(pcidss): 15 minutes status request delay
+        jusan.queue(payment.status_handler("declined"));
+        console.log(result);
+
+        await notification;
+      });
+    });
+
+    test.concurrent("jusan refund", async ({ ctx, merchant, jusan_pay }) => {
+      await ctx.track_bg_rejections(async () => {
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, JusanPayment.settings(ctx.uuid)),
+        );
+        let payment = new JusanPayment();
+        jusan_pay.queue(payment.create_response_handler("approved"));
+        jusan_pay.queue(payment.refund_handler("approved"));
+        let initial_approved = merchant.queue_notification(
+          (notification) => {
+            vitest.assert.strictEqual(notification.status, "approved");
+          },
+        );
+
+        let initial_refunded = merchant.queue_notification(
+          (notification) => {
+            vitest.assert.strictEqual(notification.status, "refunded");
+          },
+          { skip_healthcheck: true },
+        );
+
+        let refund_approved = merchant.queue_notification(
+          (notification) => {
+            vitest.assert.strictEqual(notification.type, "refund");
+            vitest.assert.strictEqual(notification.status, "approved");
+          },
+          { skip_healthcheck: true },
+        );
+        let result = await merchant.create_payment({
+          ...common.paymentRequest(CURRENCY),
+          card: common.cardObject(),
+        });
+        vitest.assert.strictEqual(result.payment.status, "approved");
+
+        let refund_res = await merchant.create_refund({ token: result.token });
+        console.log(refund_res);
+
+        await initial_approved;
+        await initial_refunded;
+        await refund_approved;
+      });
+    });
   });

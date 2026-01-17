@@ -1,6 +1,7 @@
 import * as default_provider from "@/provider_mocks/default";
+import * as common from "@/common";
 import { assert, describe } from "vitest";
-import { test } from "@/test_context";
+import { CONFIG, test } from "@/test_context";
 
 const CURRENCY = "RUB";
 let AMOUNT = 100 * 1000;

@@ -37,7 +37,7 @@ const STATUS_REQUEST_SCHEMA = z.object({
 const REFUND_REQUEST_SCHEMA = z.object({
   ORDER: z.string(),
   MERCHANT: z.string(),
-  REV_AMOUNT: z.float64(),
+  REV_AMOUNT: z.coerce.number(),
   REV_DESC: z.literal("REFUND"),
   P_SIGN: z.string(),
 });

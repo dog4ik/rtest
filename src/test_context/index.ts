@@ -11,6 +11,7 @@ import type {
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { IronpayPayment } from "@/provider_mocks/ironpay";
 import type { ProviderInstance } from "@/mock_server/instance";
+import { JusanPayment } from "@/provider_mocks/jusan";
 
 export const CONFIG = config.open("configuration.toml");
 const state = initState(CONFIG);
@@ -38,6 +39,7 @@ function w(
 const ProvidersMockParams = {
   brusnika: w(BrusnikaPayment.mock_params),
   ironpay: w(IronpayPayment.mock_params),
+  jusan_pay: w(JusanPayment.mock_params),
 };
 
 type ProvidersContext = Record<
