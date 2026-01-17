@@ -52,6 +52,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   }
 
   async function cashin(currency: string, amount: number) {
+    ctx.story.add_chapter(`MID ${merchant.id} cashin`, `${currency} ${amount}`);
     return core_harness.cashin(merchant.id, currency, amount);
   }
 
