@@ -17,7 +17,7 @@ export const NOTIFICATION_SCHEMA = z.object({
   cardHolder: z.string().nullable(),
   gatewayDetails: z
     .object({
-      merchant: z.object({ ip: z.string() }),
+      merchant: z.object({ ip: z.string() }).optional(),
       filtered_traders: z.array(z.number()).nullish(),
       pending_url_request: z.any(),
       decline_reason: z.string().optional(),
