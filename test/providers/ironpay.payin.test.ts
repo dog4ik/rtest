@@ -89,7 +89,7 @@ describe
         let requisites = await merchant
           .create_payment({
             ...common.paymentRequest("RUB"),
-            extra_return_param: "Cards",
+            extra_return_param: "card",
           })
           .then((p) => p.followFirstProcessingUrl())
           .then((r) => r.as_8pay_requisite());
