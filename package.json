@@ -13,7 +13,6 @@
     "vitest": "latest"
   },
   "scripts": {
-    "test": "vitest",
     "test": "vitest --ui --watch --project default",
     "test:all": "vitest --ui --watch --project all",
     "patch": "tsx ./patch/index.ts",
