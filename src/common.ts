@@ -12,8 +12,8 @@ export type PayoutRequest = {
   callbackUrl?: string;
   bank_account?: {
     requisite_type?: "card" | "sbp" | "link" | "account";
-  }
-  product: string;
+  };
+  product?: string;
 };
 
 export type PaymentRequest = {
