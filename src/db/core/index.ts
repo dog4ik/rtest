@@ -8,6 +8,7 @@ export const CoreStatusSchema = z.union([
   z.literal(0),
   z.literal(1),
   z.literal(2),
+  z.literal(4),
 ]);
 
 export const CoreStatusMap = {

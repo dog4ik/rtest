@@ -8,7 +8,7 @@ import {
 import type { HttpContext } from "@/mock_server/api";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
 import { basic_healthcheck } from "@/healthcheck";
-import type { PaymentRequest, PayoutRequest } from "@/common";
+import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest } from "@/story/curl";
 import { delay } from "@std/async";
@@ -16,6 +16,7 @@ import { PayinResponse } from "./payment/payin_response";
 import { PayoutResponse } from "./payment/payout_response";
 import { assert } from "vitest";
 import { RuleBuilder } from "@/flexy_guard_builder";
+import { RefundResponse } from "./payment/refund_response";
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -165,6 +166,17 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return res;
   }
 
+  async function create_refund(request: RefundRequest) {
+    ctx.story.add_chapter(
+      "Create refund",
+      constructCurlRequest(request, merchant.merchant_private_key, "refund"),
+    );
+    let res = await make_request("/api/v1/refunds", request).then(
+      async (r) => new RefundResponse(ctx, r, await r.json()),
+    );
+    return res;
+  }
+
   async function create_payout<T extends MerchantRequest = PayoutRequest>(
     request: T,
   ) {
@@ -257,7 +269,9 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       create_payout(req).then((r) => r.as_ok()),
     create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_error().as_common_error()),
-    notification_handler,
+    create_refund: (req: RefundRequest) =>
+      create_refund(req).then((r) => r.as_ok()),
+    queue_notification,
     callbackUrl,
     set_commission,
     block_traffic,

@@ -28,8 +28,13 @@ export type PaymentRequest = {
   callbackUrl?: string;
   bank_account?: {
     requisite_type?: "card" | "sbp" | "link" | "account";
-  }
+  };
   product?: string;
+};
+
+export type RefundRequest = {
+  token: string;
+  amount?: number;
 };
 
 export type CardObject = {
@@ -94,7 +99,7 @@ export function cardObject(): CardObject {
   };
 }
 
-export function payoutRequest(currency: string): PaymentRequest {
+export function payoutRequest(currency: string): PayoutRequest {
   return {
     amount,
     currency,
