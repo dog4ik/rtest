@@ -13,7 +13,11 @@ import {
   type Status,
   type TestCaseOptions,
 } from "@/suite_interfaces";
-import { defaultSettings, SettingsBuilder } from "@/settings_builder";
+import {
+  defaultSettings,
+  providers,
+  SettingsBuilder,
+} from "@/settings_builder";
 import { CONFIG } from "@/test_context";
 import { assert } from "vitest";
 
@@ -119,6 +123,69 @@ dataFlowTest(
 );
 
 dataFlowTest(
+  "bank_list mapping default",
+  {
+    ...manypaySuite(),
+    settings(secret) {
+      return defaultSettings(CURRENCY, {
+        ...ManypayPayout.settings(secret),
+        bank_list: {
+          Сбербанк: "sberbank",
+          default: "default_bank",
+        },
+      });
+    },
+    request() {
+      return {
+        ...common.payoutRequest(CURRENCY),
+        card: { pan: common.visaCard },
+        extra_return_param: "unspecified_bank",
+      };
+    },
+    after_create_check() {
+      assert.strictEqual(this.gw.request_data?.payment.number, common.visaCard);
+      assert.strictEqual(this.gw.request_data?.payment.bank, "default_bank");
+      assert.strictEqual(
+        this.gw.request_data?.payment.payment_method,
+        "card2card",
+      );
+    },
+  },
+  OPTS,
+);
+
+dataFlowTest(
+  "bank_list mapping default empty bank",
+  {
+    ...manypaySuite(),
+    settings(secret) {
+      return defaultSettings(CURRENCY, {
+        ...ManypayPayout.settings(secret),
+        bank_list: {
+          Сбербанк: "sberbank",
+          default: "default_bank",
+        },
+      });
+    },
+    request() {
+      return {
+        ...common.payoutRequest(CURRENCY),
+        card: { pan: common.visaCard },
+      };
+    },
+    after_create_check() {
+      assert.strictEqual(this.gw.request_data?.payment.number, common.visaCard);
+      assert.strictEqual(this.gw.request_data?.payment.bank, "default_bank");
+      assert.strictEqual(
+        this.gw.request_data?.payment.payment_method,
+        "card2card",
+      );
+    },
+  },
+  OPTS,
+);
+
+dataFlowTest(
   "card extra_return_param",
   {
     ...manypaySuite(),
@@ -185,6 +252,72 @@ dataFlowTest(
       );
       assert.strictEqual(this.gw.request_data?.payment.bank, "tbank");
       assert.strictEqual(this.gw.request_data?.payment.payment_method, "sbp");
+    },
+  },
+  OPTS,
+);
+
+dataFlowTest(
+  "sbp bank_account",
+  {
+    ...manypaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, ManypayPayout.settings(secret));
+    },
+    request() {
+      let req = common.payoutRequest(CURRENCY);
+      return {
+        ...req,
+        customer: {
+          ...req.customer,
+          phone: common.phoneNumber,
+        },
+        bank_account: {
+          requisite_type: "sbp",
+          bank_name: "tbank",
+        },
+      };
+    },
+    after_create_check() {
+      assert.strictEqual(
+        this.gw.request_data?.payment.number,
+        common.phoneNumber,
+      );
+      assert.strictEqual(this.gw.request_data?.payment.bank, "tbank");
+      assert.strictEqual(this.gw.request_data?.payment.payment_method, "sbp");
+    },
+  },
+  OPTS,
+);
+
+dataFlowTest(
+  "card bank_account",
+  {
+    ...manypaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, ManypayPayout.settings(secret));
+    },
+    request() {
+      let req = common.payoutRequest(CURRENCY);
+      return {
+        ...req,
+        customer: {
+          ...req.customer,
+          phone: common.phoneNumber,
+        },
+        bank_account: {
+          requisite_type: "card",
+        },
+        card: { pan: common.visaCard },
+      };
+    },
+    after_create_check() {
+      assert.strictEqual(this.gw.request_data?.payment.number, common.visaCard);
+      assert.strictEqual(this.gw.request_data?.payment.bank, undefined);
+      assert.strictEqual(
+        this.gw.request_data?.payment.payment_method,
+        "card2card",
+      );
     },
   },
   OPTS,
