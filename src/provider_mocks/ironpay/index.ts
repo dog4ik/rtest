@@ -162,6 +162,7 @@ export class IronpayPayment {
   async send_callback(status: IronpayStatus, secret: string) {
     assert(this.request_data);
     let payload = this.callback(status, secret);
+    console.log("Callback body", JSON.stringify(payload, null, 2))
     await fetch(this.request_data.callback_url, {
       method: "POST",
       body: JSON.stringify(payload),

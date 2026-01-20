@@ -1,3 +1,4 @@
+import * as playwright from "playwright";
 import * as vitest from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { PrimeBusinessStatus } from "@/db/business";
@@ -41,6 +42,12 @@ export interface DataFlow extends TestCaseBase {
   check_merchant_response?: (data: CreateTransactionReturn) => unknown;
 }
 
+export interface PayformDataFlow extends TestCaseBase {
+  create_handler: (status: PrimeBusinessStatus) => Handler;
+  after_create_check?: () => unknown;
+  check_pf_page?: (page: playwright.Page) => unknown;
+}
+
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 // FIX(pcidss): Brusnika does not allow sending callback 5s after creation.
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 7_000;
@@ -58,24 +65,24 @@ async function create_suite(ctx: Context, target: TestCaseBase) {
   await merchant.set_settings(settings);
   let mock_options = target.mock_options(ctx.uuid);
   let provider = ctx.mock_server(mock_options);
+  let init_transaction = async () => {
+    if (target.type === "payin") {
+      return await merchant.create_payment(target.request());
+    } else if (target.type === "payout") {
+      let request = target.request();
+      await merchant.cashin(request.currency, request.amount / 100);
+      return await merchant.create_payout(request);
+    } else {
+      vitest.assert.fail("unsupported operation type");
+    }
+  };
   return {
     merchant,
     provider,
     provider_alias: mock_options.alias,
-    create_transaction: async () => {
-      let aux = async () => {
-        if (target.type === "payin") {
-          return await merchant.create_payment(target.request());
-        } else if (target.type === "payout") {
-          let request = target.request();
-          await merchant.cashin(request.currency, request.amount / 100);
-          return await merchant.create_payout(request);
-        } else {
-          vitest.assert.fail("unsupported operation type");
-        }
-      };
-
-      let create_response = await aux();
+    init_transaction,
+    async create_transaction() {
+      let create_response = await init_transaction();
       if (Array.isArray(create_response.processingUrl)) {
         return {
           create_response,
@@ -237,6 +244,34 @@ export function dataFlowTest<T extends DataFlow>(
         let response = await create_transaction();
         await provider_request;
         await target.check_merchant_response?.(response);
+      }),
+    );
+}
+
+export function payformDataFlowTest<T extends PayformDataFlow>(
+  title: string,
+  target: T,
+  opts?: TestCaseOptions,
+) {
+  let alias = target.mock_options("").alias;
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} ${title} payform data flow`, ({ ctx, browser }) =>
+      ctx.track_bg_rejections(async () => {
+        let { init_transaction, provider } = await create_suite(ctx, target);
+        let provider_request = provider
+          .queue(target.create_handler("pending"))
+          .then(() => target.after_create_check?.());
+        let response = await init_transaction();
+        let page = await browser.newPage();
+        await page.setViewportSize({ width: 720, height: 900 });
+        await page.goto(response.firstProcessingUrl());
+        await ctx.annotate("Payform screenshot", {
+          contentType: "image/png",
+          body: await page.screenshot(),
+        });
+        await target.check_pf_page?.(page);
+        await provider_request;
       }),
     );
 }

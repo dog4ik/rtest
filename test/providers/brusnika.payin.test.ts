@@ -6,6 +6,8 @@ import {
 } from "@/provider_mocks/brusnika";
 import {
   callbackFinalizationSuite,
+  dataFlowTest,
+  payformDataFlowTest,
   statusFinalizationSuite,
   type Callback,
   type Status,
@@ -13,10 +15,11 @@ import {
 import { providers } from "@/settings_builder";
 import { CONFIG, test } from "@/test_context";
 import { assert, describe } from "vitest";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
-function brusnikaSuite(): Callback & Status {
+function brusnikaSuite() {
   let gw = new BrusnikaPayment();
   let statusMap: Record<PrimeBusinessStatus, BrusnikaPaymentStatus> = {
     approved: "success",
@@ -36,11 +39,10 @@ function brusnikaSuite(): Callback & Status {
     settings: (secret) =>
       providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
-        wrapped_to_json_response: true,
       }),
     status_handler: (s) => gw.status_handler(statusMap[s]),
     gw,
-  };
+  } satisfies Callback & Status & { gw: BrusnikaPayment };
 }
 
 callbackFinalizationSuite(brusnikaSuite);
@@ -71,116 +73,155 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
   });
 });
 
+describe.concurrent("brusnika 8pay requisite", () => {
+  dataFlowTest("extra_return_param sbp", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: true,
+      }),
+    request() {
+      return { ...common.paymentRequest(CURRENCY), extra_return_param: "SBP" };
+    },
+    async check_merchant_response({ processing_response, create_response }) {
+      assert.strictEqual(this.gw.request_data?.paymentMethod, "sbp");
+      assert.strictEqual(this.gw.request_data?.amount, common.amount / 100);
+      assert.strictEqual(
+        this.gw.request_data?.idTransactionMerchant,
+        create_response.token,
+      );
+      let res = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(res?.name_seller, common.fullName);
+      assert.strictEqual(res?.pan, `+${common.phoneNumber}`);
+    },
+  });
+
+  dataFlowTest("extra_return_param cards", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: true,
+      }),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "Cards",
+      };
+    },
+    async check_merchant_response({ processing_response, create_response }) {
+      assert.strictEqual(this.gw.request_data?.paymentMethod, "toCard");
+      assert.strictEqual(this.gw.request_data?.amount, common.amount / 100);
+      assert.strictEqual(
+        this.gw.request_data?.idTransactionMerchant,
+        create_response.token,
+      );
+      let res = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(res?.name_seller, common.fullName);
+      assert.strictEqual(res?.pan, common.visaCard);
+    },
+  });
+});
+
 describe
-  // .skipIf(CONFIG.project !== "8pay")
-  .concurrent("brusnika 8pay requisite", () => {
-    test.concurrent("brusnika requisite card", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(
-          providers("RUB", {
-            ...BrusnikaPayment.settings(ctx.uuid),
-            wrapped_to_json_response: true,
-          }),
-        );
-        let payment = new BrusnikaPayment();
-        let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
-        let create = brusnika.queue(payment.create_handler("in_progress"));
-        let requisites = await merchant
-          .create_payment({
-            ...common.paymentRequest("RUB"),
-            extra_return_param: "Cards",
-          })
-          .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_8pay_requisite());
-        await create;
-        assert.strictEqual(payment.request_data?.paymentMethod, "toCard");
-        assert.strictEqual(requisites.pan, common.visaCard);
-        assert.strictEqual(requisites.name_seller, common.fullName);
-      });
+  .skipIf(CONFIG.project !== "8pay")
+  .concurrent("brusnika 8pay form", () => {
+    payformDataFlowTest("card", {
+      ...brusnikaSuite(),
+      settings: (secret) =>
+        providers(CURRENCY, {
+          ...BrusnikaPayment.settings(secret),
+          wrapped_to_json_response: false,
+        }),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "Cards",
+        };
+      },
+      async check_pf_page(page) {
+        let form = new EightpayRequisitesPage(page);
+        await form.validateRequisites({
+          type: "card",
+          amount: common.amount,
+          number: common.visaCard,
+          name: common.fullName,
+          bank: common.bankName,
+        });
+      },
     });
 
-    test.concurrent("brusnika requisite sbp", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(
-          providers("RUB", {
-            ...BrusnikaPayment.settings(ctx.uuid),
-            wrapped_to_json_response: true,
-          }),
-        );
-        let payment = new BrusnikaPayment();
-        let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
-        let create = brusnika.queue(payment.create_handler("in_progress"));
-        let requisites = await merchant
-          .create_payment({
-            ...common.paymentRequest("RUB"),
-            extra_return_param: "SBP",
-          })
-          .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_8pay_requisite());
-        await create;
-        assert.strictEqual(payment.request_data?.paymentMethod, "sbp");
-        assert.strictEqual(requisites.pan, `+${common.phoneNumber}`);
-        assert.strictEqual(requisites.name_seller, common.fullName);
-      });
+    payformDataFlowTest("sbp", {
+      ...brusnikaSuite(),
+      settings: (secret) =>
+        providers(CURRENCY, {
+          ...BrusnikaPayment.settings(secret),
+          wrapped_to_json_response: false,
+        }),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "SBP",
+        };
+      },
+      async check_pf_page(page) {
+        let form = new EightpayRequisitesPage(page);
+        await form.validateRequisites({
+          type: "sbp",
+          amount: common.amount,
+          number: `+${common.phoneNumber}`,
+          name: common.fullName,
+          bank: common.bankName,
+        });
+      },
     });
   });
 
 describe
   .skipIf(CONFIG.project === "8pay")
   .concurrent("brusnika pcidss requisite", () => {
-    test.concurrent("brusnika requisite card", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(
-          providers("RUB", {
-            ...BrusnikaPayment.settings(ctx.uuid),
-          }),
-        );
-        let payment = new BrusnikaPayment();
-        let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
-        let create = brusnika.queue(payment.create_handler("in_progress"));
-        let requisites = await merchant
-          .create_payment({
-            ...common.paymentRequest("RUB"),
-            bank_account: {
-              requisite_type: "card",
-            },
-          })
-          .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        await create;
-        assert.strictEqual(payment.request_data?.paymentMethod, "toCard");
-        assert.strictEqual(requisites.card?.pan, common.visaCard);
-        assert.strictEqual(requisites.card?.name, common.fullName);
-      });
+    dataFlowTest("bank_account sbp", {
+      ...brusnikaSuite(),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          bank_account: {
+            requisite_type: "sbp",
+          },
+        };
+      },
+      async check_merchant_response({ processing_response }) {
+        assert.strictEqual(this.gw.request_data?.paymentMethod, "sbp");
+        assert.strictEqual(this.gw.request_data?.amount, common.amount / 100);
+        await processing_response?.validateRequisites({
+          type: "sbp",
+          bank: common.bankName,
+          name: common.fullName,
+          number: `+${common.phoneNumber}`,
+        });
+      },
     });
 
-    test.concurrent("brusnika requisite sbp", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(
-          providers("RUB", {
-            ...BrusnikaPayment.settings(ctx.uuid),
-          }),
-        );
-        let payment = new BrusnikaPayment();
-        let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
-        let create = brusnika.queue(payment.create_handler("in_progress"));
-        let requisites = await merchant
-          .create_payment({
-            ...common.paymentRequest("RUB"),
-            bank_account: {
-              requisite_type: "sbp",
-            },
-          })
-          .then((p) => p.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        await create;
-        assert.strictEqual(payment.request_data?.paymentMethod, "sbp");
-        assert.strictEqual(requisites.sbp?.phone, `+${common.phoneNumber}`);
-        assert.strictEqual(requisites.sbp?.name, common.fullName);
-      });
+    dataFlowTest("bank_account card", {
+      ...brusnikaSuite(),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          bank_account: {
+            requisite_type: "card",
+          },
+        };
+      },
+      async check_merchant_response({ processing_response }) {
+        assert.strictEqual(this.gw.request_data?.paymentMethod, "toCard");
+        assert.strictEqual(this.gw.request_data?.amount, common.amount / 100);
+        await processing_response?.validateRequisites({
+          type: "card",
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.visaCard,
+        });
+      },
     });
   });

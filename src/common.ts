@@ -59,6 +59,7 @@ export const redirectPayUrl = "https://google.com";
 export const amount = 123456;
 export const rrn = "601115349038";
 export const fullName = "Satoru Gojo";
+export const bankName = "Сбербанк";
 
 export function paymentRequest(currency: string): PaymentRequest {
   return {

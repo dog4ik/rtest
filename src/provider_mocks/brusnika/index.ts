@@ -110,7 +110,7 @@ export class BrusnikaPayment {
     let paymentDetailsData = {
       nameMediator: common.fullName,
       paymentMethod: this.request_data.paymentMethod,
-      bankName: "Ipak Bank",
+      bankName: common.bankName,
       number: requisite(this.request_data.paymentMethod),
       numberAdditional: null,
       qRcode: null,
