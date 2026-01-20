@@ -113,46 +113,62 @@ vitest.describe
       });
     });
 
-    test.concurrent("jusan refund", async ({ ctx, merchant, jusan_pay }) => {
-      await ctx.track_bg_rejections(async () => {
-        await merchant.set_settings(
-          defaultSettings(CURRENCY, JusanPayment.settings(ctx.uuid)),
-        );
-        let payment = new JusanPayment();
-        jusan_pay.queue(payment.create_response_handler("approved"));
-        jusan_pay.queue(payment.refund_handler("approved"));
-        let initial_approved = merchant.queue_notification(
-          (notification) => {
-            vitest.assert.strictEqual(notification.status, "approved");
-          },
-        );
+    test.concurrent(
+      "jusan refund with commission",
+      async ({ ctx, merchant, jusan_pay }) => {
+        await ctx.track_bg_rejections(async () => {
+          await merchant.set_settings(
+            defaultSettings(CURRENCY, JusanPayment.settings(ctx.uuid)),
+          );
+          let payment = new JusanPayment();
+          await merchant.cashin("RUB", (common.amount / 100) * 0.1);
+          await merchant.set_commission({
+            operation: "RefundRequest",
+            self_rate: "10",
+            currency: "RUB",
+            source: "jusan",
+            comment: "jusan test",
+          });
+          jusan_pay.queue(payment.create_response_handler("approved"));
+          jusan_pay.queue(payment.refund_handler("approved"));
 
-        let initial_refunded = merchant.queue_notification(
-          (notification) => {
-            vitest.assert.strictEqual(notification.status, "refunded");
-          },
-          { skip_healthcheck: true },
-        );
+          let notifications = [
+            merchant.queue_notification((notification) => {
+              vitest.assert.strictEqual(notification.status, "approved");
+            }),
+            merchant.queue_notification(
+              (notification) => {
+                vitest.assert.strictEqual(notification.status, "refunded");
+              },
+              { skip_healthcheck: true },
+            ),
+            merchant.queue_notification(
+              (notification) => {
+                vitest.assert.strictEqual(notification.type, "refund");
+                vitest.assert.strictEqual(notification.status, "approved");
+              },
+              { skip_healthcheck: true },
+            ),
+          ];
+          let result = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            card: common.cardObject(),
+          });
+          vitest.assert.strictEqual(result.payment.status, "approved");
 
-        let refund_approved = merchant.queue_notification(
-          (notification) => {
-            vitest.assert.strictEqual(notification.type, "refund");
-            vitest.assert.strictEqual(notification.status, "approved");
-          },
-          { skip_healthcheck: true },
-        );
-        let result = await merchant.create_payment({
-          ...common.paymentRequest(CURRENCY),
-          card: common.cardObject(),
+          await merchant.create_refund({
+            token: result.token,
+          });
+
+          let wallet = (await merchant.wallets())[0];
+          vitest.assert.strictEqual(
+            wallet.available,
+            0,
+            "refund commission should clear the balance",
+          );
+
+          await Promise.all(notifications);
         });
-        vitest.assert.strictEqual(result.payment.status, "approved");
-
-        let refund_res = await merchant.create_refund({ token: result.token });
-        console.log(refund_res);
-
-        await initial_approved;
-        await initial_refunded;
-        await refund_approved;
-      });
-    });
+      },
+    );
   });
