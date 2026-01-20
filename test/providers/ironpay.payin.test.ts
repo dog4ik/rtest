@@ -127,7 +127,7 @@ describe
       },
     });
 
-    dataFlowTest("card extra_return_param", {
+    dataFlowTest("card bank_account", {
       ...ironpaySuite(),
       request() {
         return {
