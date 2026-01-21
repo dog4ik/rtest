@@ -101,9 +101,6 @@ export class CoreDriver {
     });
 
     let now = new Date();
-    console.log("date", dateFormatter.format(now));
-    console.log("time", timeFormatter.format(now));
-
     let params = {
       utf8: "",
       authenticity_token: "TODO",

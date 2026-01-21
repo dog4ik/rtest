@@ -1,5 +1,12 @@
 import type { HttpContext } from "./mock_server/api";
 
+type BankAccount = {
+  requisite_type?: "card" | "sbp" | "link" | "account";
+  bank_name?: string;
+  account_holder?: string;
+  account_number?: string;
+};
+
 export type PayoutRequest = {
   currency: string;
   amount: number;
@@ -10,10 +17,7 @@ export type PayoutRequest = {
   order_number: string;
   extra_return_param?: string;
   callbackUrl?: string;
-  bank_account?: {
-    requisite_type?: "card" | "sbp" | "link" | "account";
-    bank_name?: string;
-  };
+  bank_account?: BankAccount;
   product?: string;
 };
 
@@ -27,10 +31,7 @@ export type PaymentRequest = {
   order_number?: string;
   extra_return_param?: string;
   callbackUrl?: string;
-  bank_account?: {
-    requisite_type?: "card" | "sbp" | "link" | "account";
-    bank_name?: string;
-  };
+  bank_account?: BankAccount;
   product?: string;
 };
 
@@ -60,6 +61,7 @@ export const amount = 123456;
 export const rrn = "601115349038";
 export const fullName = "Satoru Gojo";
 export const bankName = "Сбербанк";
+export const accountNumber = "7355608";
 
 export function paymentRequest(currency: string): PaymentRequest {
   return {
