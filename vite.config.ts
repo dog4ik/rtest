@@ -11,7 +11,6 @@ export default defineConfig({
     // We need to share singletons like database connections between all tests.
     maxWorkers: 1,
     includeSource: ["src/**/*.ts"],
-    testTimeout: 120_000,
     environment: "node",
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
@@ -20,6 +19,7 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          testTimeout: 120_000,
           include: ["./test/global.test.ts"],
           name: "all",
         },
@@ -27,6 +27,7 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          testTimeout: 45_000,
           include: ["test/**/*.test.{ts,js}"],
           exclude: ["test/global.test.ts"],
           name: "default",
