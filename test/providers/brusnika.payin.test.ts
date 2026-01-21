@@ -165,6 +165,7 @@ describe
           extra_return_param: "SBP",
         };
       },
+      // FIX: phone requisite is not formatted properly on the payform
       async check_pf_page(page) {
         let form = new EightpayRequisitesPage(page);
         await form.validateRequisites({

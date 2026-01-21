@@ -30,6 +30,11 @@ function formatPan(pan: string) {
   return pan;
 }
 
+// app/views/charge_pages/pay_matrix/_en.html.slim:152
+function formatPhone(num: string) {
+  return num.replace(/^(\d)(\d{3})(\d{3})(\d{2})(\d{2})$/, "+$1 $2 $3 $4 $5");
+}
+
 export class EightpayRequisitesPage {
   constructor(private p: playwright.Page) {}
 
@@ -81,7 +86,7 @@ export class EightpayRequisitesPage {
       await expect(this.pageTitle()).toBeVisible();
       await expect(this.pageTitle()).toHaveText("Оплата по СБП");
       await expect(this.paymentPhone()).toBeVisible();
-      await expect(this.paymentPhone()).toHaveText(number);
+      await expect(this.paymentPhone()).toHaveText(formatPhone(number));
     } else if (type === "card") {
       await expect(this.pageTitle()).toBeVisible();
       await expect(this.pageTitle()).toHaveText("Оплата по номеру карты");

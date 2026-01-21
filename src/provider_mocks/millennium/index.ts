@@ -58,10 +58,12 @@ function dataResponse<T>(status: MillenniumStatus, data: T) {
   return { status, data };
 }
 
+const CODE_SCHEMA = z.enum(["card", "cards", "sbp", "phone", "nspk", "qr"]);
+
 const PAYIN_CREATE_SCHEMA = z.object({
   merchantID: z.string(),
   amount: z.number(),
-  code: z.string(),
+  code: CODE_SCHEMA,
   orderID: z.string().optional(),
   currency: z.string().optional(),
 });
@@ -69,7 +71,7 @@ const PAYIN_CREATE_SCHEMA = z.object({
 const PAYOUT_CREATE_SCHEMA = z.object({
   merchantID: z.string(),
   amount: z.number(),
-  code: z.string(),
+  code: CODE_SCHEMA,
   orderID: z.string().optional(),
   currency: z.string().optional(),
   wallet: z.string(),
