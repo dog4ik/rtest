@@ -23,6 +23,11 @@ async function setupFailedTransaction(ctx: Context) {
     await payment.send_callback("CANCELED");
   });
 
+  let merchant_notification = merchant.queue_notification((notification) => {
+    assert.strictEqual(notification.type, "pay");
+    assert.strictEqual(notification.status, "declined");
+  });
+
   let init_response = await merchant.create_payment({
     ...common.paymentRequest(CURRENCY),
     extra_return_param: "SBP",
@@ -31,10 +36,7 @@ async function setupFailedTransaction(ctx: Context) {
     .followFirstProcessingUrl()
     .then((p) => p.as_8pay_requisite());
 
-  await merchant.queue_notification((notification) => {
-    assert.strictEqual(notification.type, "pay");
-    assert.strictEqual(notification.status, "declined");
-  });
+  await merchant_notification;
   return { payment, madsolution, merchant, init_response };
 }
 
