@@ -68,8 +68,8 @@ export class CurlBuilder {
     }
 
     if (this.data !== undefined) {
-      curl += `-d '${this.data}'`;
+      curl += `-d '${this.data}' \\\n`;
     }
-    return curl;
+    return curl.slice(0, -3);
   }
 }
