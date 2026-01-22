@@ -8,8 +8,9 @@ export const EightpayRequesiteSchema = z.object({
   id: z.string().min(1),
   pan: z.string().min(1),
   name_seller: z.string(),
+  deeplink: z.url().optional(),
   support_banks: z.array(z.string()).min(1),
-  support_bank_native: z.record(z.string(), z.string()),
+  support_bank_native: z.record(z.string(), z.string()).optional(),
 });
 
 export const TraderRequisiteSchema = z.object({
@@ -55,6 +56,10 @@ export class ProcessingUrlResponse {
       json as Record<string, any>,
     );
     return json;
+  }
+
+  status() {
+    return this.response.status;
   }
 
   async as_8pay_requisite() {

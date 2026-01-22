@@ -13,6 +13,7 @@ export type CommonSettingsParams = {
   wrapped_to_json_response?: boolean;
   enable_change_final_status?: boolean;
   enable_update_amount?: boolean;
+  masked_provider?: boolean;
 } & Record<string, any>;
 
 /**

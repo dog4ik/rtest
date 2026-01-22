@@ -76,6 +76,12 @@ test.concurrent("ironpay no requisities decline", async ({ ctx }) => {
 
 dataFlowTest("sbp extra_return_param", {
   ...ironpaySuite(),
+  settings(secret) {
+    return providers(CURRENCY, {
+      ...IronpayPayment.settings(secret),
+      wrapped_to_json_response: true,
+    });
+  },
   request() {
     return {
       ...common.paymentRequest(CURRENCY),
@@ -89,12 +95,38 @@ dataFlowTest("sbp extra_return_param", {
     assert.strictEqual(req?.local_amount, common.amount / 100);
   },
   async check_merchant_response({ processing_response }) {
-    await processing_response?.validateRequisites({
-      name: common.fullName,
-      number: `+${common.phoneNumber}`,
-      type: "sbp",
-      bank: "Россельхозбанк",
+    let requisites = await processing_response?.as_8pay_requisite();
+    assert.strictEqual(requisites?.pan, `+${common.phoneNumber}`);
+    assert.strictEqual(requisites?.name_seller, common.fullName);
+    assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
+  },
+});
+
+dataFlowTest("card extra_return_param", {
+  ...ironpaySuite(),
+  settings(secret) {
+    return providers(CURRENCY, {
+      ...IronpayPayment.settings(secret),
+      wrapped_to_json_response: true,
     });
+  },
+  request() {
+    return {
+      ...common.paymentRequest(CURRENCY),
+      extra_return_param: "card",
+    };
+  },
+  after_create_check() {
+    let req = this.gw.request_data;
+    assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
+    assert.strictEqual(req?.curr, CURRENCY);
+    assert.strictEqual(req?.local_amount, common.amount / 100);
+  },
+  async check_merchant_response({ processing_response }) {
+    let requisites = await processing_response?.as_8pay_requisite();
+    assert.strictEqual(requisites?.pan, common.visaCard);
+    assert.strictEqual(requisites?.name_seller, common.fullName);
+    assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
   },
 });
 
@@ -122,7 +154,7 @@ describe
           name: common.fullName,
           number: `+${common.phoneNumber}`,
           type: "sbp",
-          bank: "Россельхозбанк",
+          bank: "Rosselkhozbank",
         });
       },
     });
@@ -148,35 +180,11 @@ describe
           name: common.fullName,
           number: common.visaCard,
           type: "card",
-          bank: "Россельхозбанк",
+          bank: "Rosselkhozbank",
         });
       },
     });
   });
-
-dataFlowTest("card extra_return_param", {
-  ...ironpaySuite(),
-  request() {
-    return {
-      ...common.paymentRequest(CURRENCY),
-      extra_return_param: "card",
-    };
-  },
-  after_create_check() {
-    let req = this.gw.request_data;
-    assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
-    assert.strictEqual(req?.curr, CURRENCY);
-    assert.strictEqual(req?.local_amount, common.amount / 100);
-  },
-  async check_merchant_response({ processing_response }) {
-    await processing_response?.validateRequisites({
-      name: common.fullName,
-      number: common.visaCard,
-      type: "card",
-      bank: "Россельхозбанк",
-    });
-  },
-});
 
 describe
   .skipIf(CONFIG.project !== "8pay")
