@@ -1,13 +1,10 @@
 import * as playwright from "playwright";
 import * as config from "@/config";
 import { initState } from "@/state";
-import { test as base, type TestAPI } from "vitest";
+import { test as base } from "vitest";
 import { Context } from "./context";
 import type { ExtendedMerchant } from "@/entities/merchant";
-import type {
-  MockProviderParams,
-  ProviderServerInstance,
-} from "@/mock_server/api";
+import type { MockProviderParams } from "@/mock_server/api";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { IronpayPayment } from "@/provider_mocks/ironpay";
 import type { ProviderInstance } from "@/mock_server/instance";
@@ -22,6 +19,7 @@ type TestContext = {
 
 type BrowserContext = {
   browser: playwright.BrowserContext;
+  chrome: playwright.Browser;
 };
 
 type MerchantContext = {
@@ -76,6 +74,9 @@ export const test = base
       let context = await browser.newContext();
       await use(context);
       await context.close();
+    },
+    chrome: async ({}, use) => {
+      await use((await state).browser);
     },
   })
   .extend<MerchantContext>({

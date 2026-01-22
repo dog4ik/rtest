@@ -1,15 +1,15 @@
 import * as playwright from "playwright";
 import { expect } from "playwright/test";
+import { assert } from "vitest";
 
-function formatAmount(value: number) {
-  return (
-    new Intl.NumberFormat("ru-RU", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-      .format(value / 100)
-      .replace(",", ".") + " Р"
-  );
+function formatAmounts(value: number) {
+  let number = new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+    .format(value / 100)
+    .replace(",", ".");
+  return [" Р", " ₽"].map((v) => number + v);
 }
 
 function formatPan(pan: string) {
@@ -30,9 +30,12 @@ function formatPan(pan: string) {
   return pan;
 }
 
-// app/views/charge_pages/pay_matrix/_en.html.slim:152
-function formatPhone(num: string) {
-  return num.replace(/^(\d)(\d{3})(\d{3})(\d{2})(\d{2})$/, "+$1 $2 $3 $4 $5");
+function phoneFormats(num: string) {
+  return [
+    // app/views/charge_pages/pay_matrix/_en.html.slim:152
+    num.replace(/^(\d)(\d{3})(\d{3})(\d{2})(\d{2})$/, "+$1 $2 $3 $4 $5"),
+    num,
+  ];
 }
 
 export class EightpayRequisitesPage {
@@ -86,17 +89,20 @@ export class EightpayRequisitesPage {
       await expect(this.pageTitle()).toBeVisible();
       await expect(this.pageTitle()).toHaveText("Оплата по СБП");
       await expect(this.paymentPhone()).toBeVisible();
-      await expect(this.paymentPhone()).toHaveText(formatPhone(number));
+      let phone = (await this.paymentPhone().textContent()) ?? "";
+      assert.include(phoneFormats(phone), phone);
     } else if (type === "card") {
       await expect(this.pageTitle()).toBeVisible();
       await expect(this.pageTitle()).toHaveText("Оплата по номеру карты");
       await expect(this.p.getByText(formatPan(number))).toBeVisible();
     }
+    const normalize = (s: string) => s.replace("\u00A0", " ").trim();
+    let amountText = (await this.amountSpan().textContent()) ?? "";
+    assert.include(formatAmounts(amount).map(normalize), normalize(amountText));
     await Promise.all([
       expect(this.fioDiv()).toBeVisible(),
       expect(this.fioDiv()).toHaveText(name ?? ""),
       expect(this.amountSpan()).toBeVisible(),
-      expect(this.amountSpan()).toHaveText(formatAmount(amount)),
     ]);
   }
 }

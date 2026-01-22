@@ -62,6 +62,12 @@ export const rrn = "601115349038";
 export const fullName = "Satoru Gojo";
 export const bankName = "Сбербанк";
 export const accountNumber = "7355608";
+export const androidUserAgent =
+  "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36";
+export const iosUserAgent =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/69.0.3497.105 Mobile/15E148 Safari/605.1";
+export const desktopUserAgent =
+  "Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0";
 
 export function paymentRequest(currency: string): PaymentRequest {
   return {

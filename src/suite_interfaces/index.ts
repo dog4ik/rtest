@@ -43,6 +43,9 @@ export interface DataFlow extends TestCaseBase {
 }
 
 export interface PayformDataFlow extends TestCaseBase {
+  browser_context?: (
+    browser: playwright.Browser,
+  ) => Promise<playwright.BrowserContext>;
   create_handler: (status: PrimeBusinessStatus) => Handler;
   after_create_check?: () => unknown;
   check_pf_page?: (page: playwright.Page) => unknown;
@@ -256,15 +259,24 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
   let alias = target.mock_options("").alias;
   test
     .skipIf(opts?.skip_if)
-    .concurrent(`${alias} ${title} payform data flow`, ({ ctx, browser }) =>
+    .concurrent(`${alias} ${title} payform data flow`, ({ ctx, chrome }) =>
       ctx.track_bg_rejections(async () => {
         let { init_transaction, provider } = await create_suite(ctx, target);
         let provider_request = provider
           .queue(target.create_handler("pending"))
           .then(() => target.after_create_check?.());
+
         let response = await init_transaction();
-        let page = await browser.newPage();
-        await page.setViewportSize({ width: 720, height: 900 });
+
+        let browser_context: playwright.BrowserContext;
+        if (target.browser_context) {
+          browser_context = await target.browser_context(chrome);
+        } else {
+          browser_context = await chrome.newContext();
+        }
+        let page = await browser_context.newPage();
+        await page.setViewportSize({ width: 720, height: 1024 });
+
         await page.goto(response.firstProcessingUrl());
         await ctx.annotate("Payform screenshot", {
           contentType: "image/png",
