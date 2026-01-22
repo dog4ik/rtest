@@ -271,14 +271,14 @@ export class MadsolutionPayment {
     }).then(err_bad_status);
   }
 
-  dispute_callback(status: MadsolutionAppealStatus) {
+  dispute_callback(status: MadsolutionAppealStatus, new_amount?: number) {
     assert(this.dispute_data, "dispute should be created first");
 
     return {
       Event: "APPEAL_APPROVED",
       Appeal: {
         OriginalOrderAmount: this.request_data!.amount,
-        ModifiedOrderAmount: null,
+        ModifiedOrderAmount: new_amount ?? null,
         Id: this.dispute_data.dispute_id,
         OrderId: this.gateway_id,
         Status: appealStatusObject(status),
@@ -289,8 +289,11 @@ export class MadsolutionPayment {
     };
   }
 
-  async send_dispute_callback(status: MadsolutionAppealStatus) {
-    let payload = this.dispute_callback(status);
+  async send_dispute_callback(
+    status: MadsolutionAppealStatus,
+    new_amount?: number,
+  ) {
+    let payload = this.dispute_callback(status, new_amount);
     console.log(
       "Madsolution dispute callback",
       new CurlBuilder(CALLBACK_URL, "POST").json_data(payload).build(),
