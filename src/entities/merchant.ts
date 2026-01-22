@@ -265,10 +265,15 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         if (options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
         }
-        if (!options?.skip_healthcheck) {
+        if (
+          !options?.skip_healthcheck &&
+          ["pay", "payout"].includes(callback.type)
+        ) {
           (
             await basic_healthcheck({ business_db, core_db }, callback.token)
           ).assert();
+        } else {
+          console.log("Skipping transaction healthcheck");
         }
         let res = await handler(callback, c);
         resolve(undefined);
