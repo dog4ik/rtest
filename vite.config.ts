@@ -14,12 +14,12 @@ export default defineConfig({
     environment: "node",
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
-    maxConcurrency: 10,
+    testTimeout: 45_000,
     projects: [
       {
         extends: true,
         test: {
-          testTimeout: 120_000,
+          maxConcurrency: 20,
           include: ["./test/global.test.ts"],
           name: "all",
         },
@@ -27,7 +27,7 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          testTimeout: 45_000,
+          maxConcurrency: 10,
           include: ["test/**/*.test.{ts,js}"],
           exclude: ["test/global.test.ts"],
           name: "default",
