@@ -1,8 +1,9 @@
 import * as common from "@/common";
 import { z } from "zod";
-import * as vitest from "vitest";
+import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
+import { CurlBuilder } from "@/story/curl";
 
 const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP"]);
 
@@ -29,6 +30,24 @@ const PAYIN_REQUEST_SCHEMA = z.object({
   externalClientId: z.string(),
 });
 
+function uppercaseFirstLetterKeys<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map(uppercaseFirstLetterKeys) as T;
+  }
+
+  if (input !== null && typeof input === "object") {
+    let result: Record<string, any> = {};
+
+    for (let [key, value] of Object.entries(input)) {
+      const newKey = key.charAt(0).toUpperCase() + key.slice(1);
+      result[newKey] = uppercaseFirstLetterKeys(value);
+    }
+
+    return result as T;
+  }
+  return input;
+}
+
 function appealStatusObject(type: MadsolutionAppealStatus) {
   const map = {
     OPEN: { id: 1, code: "OPEN", name: "Открыта" },
@@ -44,24 +63,11 @@ function appealStatusObject(type: MadsolutionAppealStatus) {
   } as const;
 
   const obj = map[type];
-  if (!obj) vitest.assert.fail(`unrecognized appeal status: ${type}`);
+  if (!obj) assert.fail(`unrecognized appeal status: ${type}`);
   return obj;
 }
 
 function statusObject(status: MadsolutionStatus) {
-  const map = {
-    PENDING: { Id: 1, Code: "PENDING", Name: "Ожидает подтверждения" },
-    EXPIRED: { Id: 2, Code: "EXPIRED", Name: "Вышло время ожидания" },
-    CONFIRMED: { Id: 3, Code: "CONFIRMED", Name: "Подтверждена" },
-    CANCELED: { Id: 4, Code: "CANCELED", Name: "Отменена" },
-  } as const;
-
-  const obj = map[status];
-  if (!obj) vitest.assert.fail(`unrecognized status type: ${status}`);
-  return obj;
-}
-
-function statusObjectLowercase(status: MadsolutionStatus) {
   const map = {
     PENDING: { id: 1, code: "PENDING", name: "Ожидает подтверждения" },
     EXPIRED: { id: 2, code: "EXPIRED", name: "Вышло время ожидания" },
@@ -70,7 +76,7 @@ function statusObjectLowercase(status: MadsolutionStatus) {
   } as const;
 
   const obj = map[status];
-  if (!obj) vitest.assert.fail(`unrecognized status type: ${status}`);
+  if (!obj) assert.fail(`unrecognized status type: ${status}`);
   return obj;
 }
 
@@ -82,7 +88,7 @@ function trafficType(type: MadsolutionMethod) {
   } as const;
 
   const obj = map[type];
-  if (!obj) vitest.assert.fail(`unrecognized traffic type: ${type}`);
+  if (!obj) assert.fail(`unrecognized traffic type: ${type}`);
   return obj;
 }
 
@@ -109,9 +115,45 @@ function cardInfo(method: MadsolutionMethod) {
       holderName: "Николай Олегович С",
     };
   } else {
-    vitest.assert.fail(`unknown madsolution payment method: ${method}`);
+    assert.fail(`unknown madsolution payment method: ${method}`);
   }
 }
+
+function paymentInstrument(method: MadsolutionMethod) {
+  let type = { id: 1, code: "CARD", name: "Карта" };
+  let bank = { id: 13, code: "OZON", name: "Ozon Банк", countryId: 1 };
+  let country = { id: 1, code: "RUS", name: "Россия" };
+  if (method === "CARDNUM") {
+    return {
+      type: { id: 1, code: "CARD", name: "Карта" },
+      country,
+      bank,
+      card: {
+        holderName: common.fullName,
+        number: common.visaCard,
+        phone: null,
+        accountNumber: null,
+      },
+      qr: null,
+    };
+  } else if (method === "PHONE" || method === "SBP") {
+    return {
+      // SBP still has type card
+      type,
+      country,
+      bank,
+      card: {
+        holderName: common.fullName,
+        number: null,
+        phone: common.phoneNumber,
+        accountNumber: null,
+      },
+      qr: null,
+    };
+  }
+}
+
+const CALLBACK_URL = "http://127.0.0.1:4000/callback/madsolution";
 
 export class MadsolutionPayment {
   gateway_id: string;
@@ -159,13 +201,14 @@ export class MadsolutionPayment {
         feeAmount: 0.019787,
         netAmount: 0.168664,
       },
+      paymentInstrument: paymentInstrument(this.request_data.trafficTypeCode),
       id: this.gateway_id,
-      status: statusObjectLowercase(status),
+      status: statusObject(status),
       trafficType: trafficType(this.request_data.trafficTypeCode),
       createdAtUtc: "2025-12-15T16:57:44.256722Z",
       updatedAtUtc: "2025-12-15T16:57:44.256722Z",
       expiresAtUtc: "2025-12-15T17:07:44.256722Z",
-      appealId: null,
+      appealId: this.dispute_data?.dispute_id ?? null,
     };
   }
 
@@ -177,7 +220,7 @@ export class MadsolutionPayment {
 
   create_handler(status: MadsolutionStatus): Handler {
     return async (c) =>
-      c.json(this.payment_response(status, await c.req.json()));
+      c.json(this.payment_response(status, await c.req.json()), 201);
   }
 
   status_response(status: MadsolutionStatus) {
@@ -189,7 +232,7 @@ export class MadsolutionPayment {
   }
 
   dispute_response(status: MadsolutionAppealStatus) {
-    vitest.assert(
+    assert(
       this.request_data,
       "operation data can't be constructed without request",
     );
@@ -207,41 +250,54 @@ export class MadsolutionPayment {
     };
   }
 
+  dispute_status_handler(status: MadsolutionAppealStatus): Handler {
+    return (c) => c.json(this.dispute_response(status), 200);
+  }
+
+  create_dispute_handler(): Handler {
+    return async (c) => {
+      let dispute_data = await c.req.parseBody();
+      console.log("DISPUTE DATA", dispute_data);
+      return c.json(this.dispute_response("OPEN"), 201);
+    };
+  }
+
   callback(status: MadsolutionStatus) {
+    let response = this.positive_response(status);
     return {
       Event: "ORDER_CONFIRMED",
-      Order: {
-        ExternalId: this.request_data!.externalId,
-        Amount: this.changed_amount ?? this.request_data!.amount,
-        PaymentInfo: {},
-        Id: this.gateway_id,
-        Status: statusObject(status),
-      },
+      Order: uppercaseFirstLetterKeys(response),
       Timestamp: "2025-06-03T14:05:21.2824128Z",
     };
   }
 
-  async send_callback(status: MadsolutionStatus) {
+  async send_callback(status: MadsolutionStatus, new_amount?: number) {
+    if (new_amount !== undefined) {
+      this.changed_amount = new_amount;
+    }
     let cb = this.callback(status);
-    let url = "http://127.0.0.1:4000/callback/madsolution";
-    return await fetch(url, {
+    console.log(
+      "Madsolution callback",
+      new CurlBuilder(CALLBACK_URL, "POST").json_data(cb).build(),
+    );
+    return await fetch(CALLBACK_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(cb),
     }).then(err_bad_status);
   }
 
-  dispute_callback(status: MadsolutionAppealStatus) {
-    vitest.assert(this.dispute_data, "dispute should be created first");
+  dispute_callback(status: MadsolutionAppealStatus, new_amount?: number) {
+    assert(this.dispute_data, "dispute should be created first");
 
     return {
       Event: "APPEAL_APPROVED",
       Appeal: {
         OriginalOrderAmount: this.request_data!.amount,
-        ModifiedOrderAmount: null,
+        ModifiedOrderAmount: new_amount ?? null,
         Id: this.dispute_data.dispute_id,
         OrderId: this.gateway_id,
-        Status: appealStatusObject(status),
+        Status: uppercaseFirstLetterKeys(appealStatusObject(status)),
         CreatedAtUtc: "2025-12-15T14:56:11.21512Z",
         UpdatedAtUtc: "2025-12-15T14:56:43.196974Z",
       },
@@ -249,14 +305,40 @@ export class MadsolutionPayment {
     };
   }
 
-  async send_dispute_callback(status: MadsolutionAppealStatus) {
-    let payload = this.dispute_callback(status);
-    let url = "http://127.0.0.1:4000/callback/madsolution";
-    return await fetch(url, {
+  async send_dispute_callback(
+    status: MadsolutionAppealStatus,
+    new_amount?: number,
+  ) {
+    let payload = this.dispute_callback(status, new_amount);
+    console.log(
+      "Madsolution dispute callback",
+      new CurlBuilder(CALLBACK_URL, "POST").json_data(payload).build(),
+    );
+    return await fetch(CALLBACK_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }).then(err_bad_status);
+  }
+
+  async appeal_already_exists_response() {
+    assert(this.dispute_data);
+    return {
+      type: "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+      title: "Conflict",
+      status: 409,
+      errors: [
+        {
+          code: "Order.AlreadyHasAppeal",
+          message: ` ${this.dispute_data?.dispute_id}, , .`,
+          type: 3,
+        },
+      ],
+    };
+  }
+
+  appeal_already_exists_handler(): Handler {
+    return (c) => c.json(this.appeal_already_exists_response(), 409);
   }
 
   static settings(secret: string) {

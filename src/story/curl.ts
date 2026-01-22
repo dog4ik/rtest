@@ -9,6 +9,7 @@ export function constructCurlRequest(
     if (operation_type === "pay") return "payments";
     else if (operation_type === "payout") return "payouts";
     else if (operation_type === "refund") return "refunds";
+    else if (operation_type === "dispute") return "disputes";
   };
 
   const json = JSON.stringify(request, null, 2);
@@ -22,17 +23,24 @@ export function constructCurlRequest(
 
 export class CurlBuilder {
   private headers: Headers;
+  private form_fields: Map<string, any>;
   private data?: string;
   constructor(
     private url: string,
     private method: "POST" | "GET",
   ) {
     this.headers = new Headers();
+    this.form_fields = new Map();
     this.data = undefined;
   }
 
   header(key: string, value: string) {
     this.headers.append(key, value);
+    return this;
+  }
+
+  form_field(key: string, value: {}) {
+    this.form_fields.set(key, value);
     return this;
   }
 
@@ -42,6 +50,7 @@ export class CurlBuilder {
   }
 
   json_data(data: Record<string, any>) {
+    this.headers.set("content-type", "application/json");
     this.data = JSON.stringify(data, null, 2);
     return this;
   }
@@ -53,7 +62,14 @@ export class CurlBuilder {
     for (let [name, value] of this.headers.entries()) {
       curl += `-H '${name}: ${value}' \\\n`;
     }
-    curl += `-d '${this.data ?? ""}'`;
-    return curl;
+
+    for (let [name, value] of this.form_fields.entries()) {
+      curl += `-F '${name}=${value}' \\\n`;
+    }
+
+    if (this.data !== undefined) {
+      curl += `-d '${this.data}' \\\n`;
+    }
+    return curl.slice(0, -3);
   }
 }

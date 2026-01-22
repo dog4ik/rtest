@@ -61,14 +61,11 @@ export class ErrorResponse {
 
       assert_error(err: z.infer<typeof ErrorObjectSchema>[]) {
         if (Array.isArray(this.errors)) {
-          assert.deepEqual(err, this.errors);
+          assert.deepEqual(this.errors, err);
         } else if (isCursed(this.errors)) {
-          assert.deepEqual(
-            convertCursedError(this.errors),
-            err,
-          );
+          assert.deepEqual(convertCursedError(this.errors), err);
         } else {
-          assert.strictEqual(joinErrors(err), this.errors);
+          assert.strictEqual(this.errors, joinErrors(err));
         }
       },
     };

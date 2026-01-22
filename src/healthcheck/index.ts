@@ -127,7 +127,7 @@ async function validate_mid_wallets(
   let wallets = await core_db.profileWallets(mid_id);
   let wallet = wallets.find(
     (w) =>
-      w.currency == (feed.target_currency || feed.currency) || payment.currency,
+      w.currency == (feed.target_currency || feed.currency || payment.currency),
   );
   if (!wallet) {
     throw Error("find wallet with currency");
