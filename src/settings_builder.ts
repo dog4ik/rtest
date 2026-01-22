@@ -9,11 +9,12 @@ export interface ProvidersSettings {
 
 export type CommonSettingsParams = {
   method?: string;
-  use_settings_method_priority?: boolean;
+  use_setting_method_priority?: boolean;
   wrapped_to_json_response?: boolean;
   enable_change_final_status?: boolean;
   enable_update_amount?: boolean;
   masked_provider?: boolean;
+  payment_method?: string;
 } & Record<string, any>;
 
 /**

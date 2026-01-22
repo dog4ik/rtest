@@ -73,14 +73,9 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
   });
 });
 
-describe.concurrent("brusnika 8pay requisite", () => {
+describe.skipIf(CONFIG.project !== "8pay").concurrent("brusnika 8pay", () => {
   dataFlowTest("extra_return_param sbp", {
     ...brusnikaSuite(),
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...BrusnikaPayment.settings(secret),
-        wrapped_to_json_response: true,
-      }),
     request() {
       return { ...common.paymentRequest(CURRENCY), extra_return_param: "SBP" };
     },
@@ -99,11 +94,6 @@ describe.concurrent("brusnika 8pay requisite", () => {
 
   dataFlowTest("extra_return_param cards", {
     ...brusnikaSuite(),
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...BrusnikaPayment.settings(secret),
-        wrapped_to_json_response: true,
-      }),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -122,62 +112,104 @@ describe.concurrent("brusnika 8pay requisite", () => {
       assert.strictEqual(res?.pan, common.visaCard);
     },
   });
-});
 
-describe
-  .skipIf(CONFIG.project !== "8pay")
-  .concurrent("brusnika 8pay form", () => {
-    payformDataFlowTest("card", {
-      ...brusnikaSuite(),
-      settings: (secret) =>
-        providers(CURRENCY, {
-          ...BrusnikaPayment.settings(secret),
-          wrapped_to_json_response: false,
-        }),
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          extra_return_param: "Cards",
-        };
-      },
-      async check_pf_page(page) {
-        let form = new EightpayRequisitesPage(page);
-        await form.validateRequisites({
-          type: "card",
-          amount: common.amount,
-          number: common.visaCard,
-          name: common.fullName,
-          bank: common.bankName,
-        });
-      },
-    });
-
-    payformDataFlowTest("sbp", {
-      ...brusnikaSuite(),
-      settings: (secret) =>
-        providers(CURRENCY, {
-          ...BrusnikaPayment.settings(secret),
-          wrapped_to_json_response: false,
-        }),
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          extra_return_param: "SBP",
-        };
-      },
-      // FIX: phone requisite is not formatted properly on the payform
-      async check_pf_page(page) {
-        let form = new EightpayRequisitesPage(page);
-        await form.validateRequisites({
-          type: "sbp",
-          amount: common.amount,
-          number: `+${common.phoneNumber}`,
-          name: common.fullName,
-          bank: common.bankName,
-        });
-      },
-    });
+  payformDataFlowTest("card", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: false,
+      }),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "Cards",
+      };
+    },
+    async check_pf_page(page) {
+      let form = new EightpayRequisitesPage(page);
+      await form.validateRequisites({
+        type: "card",
+        amount: common.amount,
+        number: common.visaCard,
+        name: common.fullName,
+        bank: common.bankName,
+      });
+    },
   });
+
+  payformDataFlowTest("sbp", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: false,
+      }),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "SBP",
+      };
+    },
+    // FIX: phone requisite is not formatted properly on the payform
+    async check_pf_page(page) {
+      let form = new EightpayRequisitesPage(page);
+      await form.validateRequisites({
+        type: "sbp",
+        amount: common.amount,
+        number: `+${common.phoneNumber}`,
+        name: common.fullName,
+        bank: common.bankName,
+      });
+    },
+  });
+
+  dataFlowTest("payment_method", {
+    ...brusnikaSuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        payment_method: "sbp",
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.paymentMethod, "sbp");
+    },
+    async check_merchant_response({ processing_response }) {
+      await processing_response?.as_8pay_requisite();
+    },
+  });
+
+  dataFlowTest("use_settings_method_priority", {
+    ...brusnikaSuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        payment_method: "sbp",
+        use_setting_method_priority: true,
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "card",
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.paymentMethod, "sbp");
+    },
+    async check_merchant_response({ processing_response }) {
+      await processing_response?.as_8pay_requisite();
+    },
+  });
+});
 
 describe
   .skipIf(CONFIG.project === "8pay")

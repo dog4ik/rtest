@@ -74,170 +74,200 @@ test.concurrent("ironpay no requisities decline", async ({ ctx }) => {
   });
 });
 
-dataFlowTest("sbp extra_return_param", {
-  ...ironpaySuite(),
-  settings(secret) {
-    return providers(CURRENCY, {
-      ...IronpayPayment.settings(secret),
-      wrapped_to_json_response: true,
-    });
-  },
-  request() {
-    return {
-      ...common.paymentRequest(CURRENCY),
-      extra_return_param: "sbp",
-    };
-  },
-  after_create_check() {
-    let req = this.gw.request_data;
-    assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
-    assert.strictEqual(req?.curr, CURRENCY);
-    assert.strictEqual(req?.local_amount, common.amount / 100);
-  },
-  async check_merchant_response({ processing_response }) {
-    let requisites = await processing_response?.as_8pay_requisite();
-    assert.strictEqual(requisites?.pan, `+${common.phoneNumber}`);
-    assert.strictEqual(requisites?.name_seller, common.fullName);
-    assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
-  },
-});
-
-dataFlowTest("card extra_return_param", {
-  ...ironpaySuite(),
-  settings(secret) {
-    return providers(CURRENCY, {
-      ...IronpayPayment.settings(secret),
-      wrapped_to_json_response: true,
-    });
-  },
-  request() {
-    return {
-      ...common.paymentRequest(CURRENCY),
-      extra_return_param: "card",
-    };
-  },
-  after_create_check() {
-    let req = this.gw.request_data;
-    assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
-    assert.strictEqual(req?.curr, CURRENCY);
-    assert.strictEqual(req?.local_amount, common.amount / 100);
-  },
-  async check_merchant_response({ processing_response }) {
-    let requisites = await processing_response?.as_8pay_requisite();
-    assert.strictEqual(requisites?.pan, common.visaCard);
-    assert.strictEqual(requisites?.name_seller, common.fullName);
-    assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
-  },
-});
-
-describe
-  .skipIf(CONFIG.project === "8pay")
-  .concurrent("pcidss bank_account", () => {
-    dataFlowTest("sbp bank_account", {
-      ...ironpaySuite(),
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          bank_account: {
-            requisite_type: "sbp",
-          },
-        };
-      },
-      after_create_check() {
-        let req = this.gw.request_data;
-        assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
-        assert.strictEqual(req?.curr, CURRENCY);
-        assert.strictEqual(req?.local_amount, common.amount / 100);
-      },
-      async check_merchant_response({ processing_response }) {
-        await processing_response?.validateRequisites({
-          name: common.fullName,
-          number: `+${common.phoneNumber}`,
-          type: "sbp",
-          bank: "Rosselkhozbank",
-        });
-      },
-    });
-
-    dataFlowTest("card bank_account", {
-      ...ironpaySuite(),
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          bank_account: {
-            requisite_type: "card",
-          },
-        };
-      },
-      after_create_check() {
-        let req = this.gw.request_data;
-        assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
-        assert.strictEqual(req?.curr, CURRENCY);
-        assert.strictEqual(req?.local_amount, common.amount / 100);
-      },
-      async check_merchant_response({ processing_response }) {
-        await processing_response?.validateRequisites({
-          name: common.fullName,
-          number: common.visaCard,
-          type: "card",
-          bank: "Rosselkhozbank",
-        });
-      },
-    });
+describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
+  dataFlowTest("sbp bank_account", {
+    ...ironpaySuite(),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        bank_account: {
+          requisite_type: "sbp",
+        },
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
+      assert.strictEqual(req?.curr, CURRENCY);
+      assert.strictEqual(req?.local_amount, common.amount / 100);
+    },
+    async check_merchant_response({ processing_response }) {
+      await processing_response?.validateRequisites({
+        name: common.fullName,
+        number: `+${common.phoneNumber}`,
+        type: "sbp",
+        bank: "Rosselkhozbank",
+      });
+    },
   });
 
-describe
-  .skipIf(CONFIG.project !== "8pay")
-  .concurrent("ironpay 8pay payform", () => {
-    payformDataFlowTest("sbp", {
-      ...ironpaySuite(),
-      settings(secret) {
-        return providers(CURRENCY, {
-          ...IronpayPayment.settings(secret),
-          wrapped_to_json_response: false,
-        });
-      },
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          extra_return_param: "card",
-        };
-      },
-      async check_pf_page(page) {
-        let form = new EightpayRequisitesPage(page);
-        await form?.validateRequisites({
-          name: common.fullName,
-          amount: common.amount,
-          number: common.visaCard,
-          type: "card",
-          bank: "Россельхозбанк",
-        });
-      },
-    });
-
-    payformDataFlowTest("sbp", {
-      ...ironpaySuite(),
-      settings(secret) {
-        return providers(CURRENCY, {
-          ...IronpayPayment.settings(secret),
-          wrapped_to_json_response: false,
-        });
-      },
-      request() {
-        return {
-          ...common.paymentRequest(CURRENCY),
-          extra_return_param: "sbp",
-        };
-      },
-      async check_pf_page(page) {
-        let form = new EightpayRequisitesPage(page);
-        await form?.validateRequisites({
-          name: common.fullName,
-          amount: common.amount,
-          number: `+${common.phoneNumber}`,
-          type: "sbp",
-          bank: "Россельхозбанк",
-        });
-      },
-    });
+  dataFlowTest("card bank_account", {
+    ...ironpaySuite(),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        bank_account: {
+          requisite_type: "card",
+        },
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
+      assert.strictEqual(req?.curr, CURRENCY);
+      assert.strictEqual(req?.local_amount, common.amount / 100);
+    },
+    async check_merchant_response({ processing_response }) {
+      await processing_response?.validateRequisites({
+        name: common.fullName,
+        number: common.visaCard,
+        type: "card",
+        bank: "Rosselkhozbank",
+      });
+    },
   });
+});
+
+describe.skipIf(CONFIG.project !== "8pay").concurrent("ironpay 8pay", () => {
+  dataFlowTest("sbp extra_return_param", {
+    ...ironpaySuite(),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "sbp",
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
+      assert.strictEqual(req?.curr, CURRENCY);
+      assert.strictEqual(req?.local_amount, common.amount / 100);
+    },
+    async check_merchant_response({ processing_response }) {
+      let requisites = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(requisites?.pan, `+${common.phoneNumber}`);
+      assert.strictEqual(requisites?.name_seller, common.fullName);
+      assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
+    },
+  });
+
+  dataFlowTest("payment_method", {
+    ...ironpaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...IronpayPayment.settings(secret),
+        payment_method: "sbp",
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
+    },
+    async check_merchant_response({ processing_response }) {
+     await processing_response?.as_8pay_requisite();
+    },
+  });
+
+  dataFlowTest("use_settings_method_priority", {
+    ...ironpaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...IronpayPayment.settings(secret),
+        payment_method: "sbp",
+        use_setting_method_priority: true,
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "card",
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
+    },
+    async check_merchant_response({ processing_response }) {
+     await processing_response?.as_8pay_requisite();
+    },
+  });
+
+  dataFlowTest("card extra_return_param", {
+    ...ironpaySuite(),
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "card",
+      };
+    },
+    after_create_check() {
+      let req = this.gw.request_data;
+      assert.strictEqual(req?.payment_type_id, IronpayMethodMap.CARD);
+      assert.strictEqual(req?.curr, CURRENCY);
+      assert.strictEqual(req?.local_amount, common.amount / 100);
+    },
+    async check_merchant_response({ processing_response }) {
+      let requisites = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(requisites?.pan, common.visaCard);
+      assert.strictEqual(requisites?.name_seller, common.fullName);
+      assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
+    },
+  });
+
+  payformDataFlowTest("sbp", {
+    ...ironpaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...IronpayPayment.settings(secret),
+        wrapped_to_json_response: false,
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "card",
+      };
+    },
+    async check_pf_page(page) {
+      let form = new EightpayRequisitesPage(page);
+      await form?.validateRequisites({
+        name: common.fullName,
+        amount: common.amount,
+        number: common.visaCard,
+        type: "card",
+        bank: "Россельхозбанк",
+      });
+    },
+  });
+
+  payformDataFlowTest("sbp", {
+    ...ironpaySuite(),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...IronpayPayment.settings(secret),
+        wrapped_to_json_response: false,
+      });
+    },
+    request() {
+      return {
+        ...common.paymentRequest(CURRENCY),
+        extra_return_param: "sbp",
+      };
+    },
+    async check_pf_page(page) {
+      let form = new EightpayRequisitesPage(page);
+      await form?.validateRequisites({
+        name: common.fullName,
+        amount: common.amount,
+        number: `+${common.phoneNumber}`,
+        type: "sbp",
+        bank: "Россельхозбанк",
+      });
+    },
+  });
+});
