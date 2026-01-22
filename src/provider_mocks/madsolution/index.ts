@@ -1,8 +1,9 @@
 import * as common from "@/common";
 import { z } from "zod";
-import * as vitest from "vitest";
+import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
+import { CurlBuilder } from "@/story/curl";
 
 const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP"]);
 
@@ -31,6 +32,25 @@ const PAYIN_REQUEST_SCHEMA = z.object({
 
 function appealStatusObject(type: MadsolutionAppealStatus) {
   const map = {
+    OPEN: { Id: 1, Code: "OPEN", Name: "Открыта" },
+    CLOSED: { Id: 2, Code: "CLOSED", Name: "Закрыта" },
+    WITHDRAWN: { Id: 3, Code: "WITHDRAWN", Name: "Отозвана" },
+    REJECTED: { Id: 4, Code: "REJECTED", Name: "Отклонена" },
+    APPROVED: { Id: 5, Code: "APPROVED", Name: "Принята" },
+    APPROVED_WITH_MODIFICATION: {
+      Id: 6,
+      Code: "APPROVED_WITH_MODIFICATION",
+      Name: "Принята с изменением суммы заявки",
+    },
+  } as const;
+
+  const obj = map[type];
+  if (!obj) assert.fail(`unrecognized appeal status: ${type}`);
+  return obj;
+}
+
+function appealStatusObjectLowercase(type: MadsolutionAppealStatus) {
+  const map = {
     OPEN: { id: 1, code: "OPEN", name: "Открыта" },
     CLOSED: { id: 2, code: "CLOSED", name: "Закрыта" },
     WITHDRAWN: { id: 3, code: "WITHDRAWN", name: "Отозвана" },
@@ -44,10 +64,13 @@ function appealStatusObject(type: MadsolutionAppealStatus) {
   } as const;
 
   const obj = map[type];
-  if (!obj) vitest.assert.fail(`unrecognized appeal status: ${type}`);
+  if (!obj) assert.fail(`unrecognized appeal status: ${type}`);
   return obj;
 }
 
+/**
+ * Status object has uppercase letters in callback
+ */
 function statusObject(status: MadsolutionStatus) {
   const map = {
     PENDING: { Id: 1, Code: "PENDING", Name: "Ожидает подтверждения" },
@@ -57,7 +80,7 @@ function statusObject(status: MadsolutionStatus) {
   } as const;
 
   const obj = map[status];
-  if (!obj) vitest.assert.fail(`unrecognized status type: ${status}`);
+  if (!obj) assert.fail(`unrecognized status type: ${status}`);
   return obj;
 }
 
@@ -70,7 +93,7 @@ function statusObjectLowercase(status: MadsolutionStatus) {
   } as const;
 
   const obj = map[status];
-  if (!obj) vitest.assert.fail(`unrecognized status type: ${status}`);
+  if (!obj) assert.fail(`unrecognized status type: ${status}`);
   return obj;
 }
 
@@ -82,7 +105,7 @@ function trafficType(type: MadsolutionMethod) {
   } as const;
 
   const obj = map[type];
-  if (!obj) vitest.assert.fail(`unrecognized traffic type: ${type}`);
+  if (!obj) assert.fail(`unrecognized traffic type: ${type}`);
   return obj;
 }
 
@@ -109,9 +132,11 @@ function cardInfo(method: MadsolutionMethod) {
       holderName: "Николай Олегович С",
     };
   } else {
-    vitest.assert.fail(`unknown madsolution payment method: ${method}`);
+    assert.fail(`unknown madsolution payment method: ${method}`);
   }
 }
+
+const CALLBACK_URL = "http://127.0.0.1:4000/callback/madsolution";
 
 export class MadsolutionPayment {
   gateway_id: string;
@@ -177,7 +202,7 @@ export class MadsolutionPayment {
 
   create_handler(status: MadsolutionStatus): Handler {
     return async (c) =>
-      c.json(this.payment_response(status, await c.req.json()));
+      c.json(this.payment_response(status, await c.req.json()), 201);
   }
 
   status_response(status: MadsolutionStatus) {
@@ -189,7 +214,7 @@ export class MadsolutionPayment {
   }
 
   dispute_response(status: MadsolutionAppealStatus) {
-    vitest.assert(
+    assert(
       this.request_data,
       "operation data can't be constructed without request",
     );
@@ -201,9 +226,21 @@ export class MadsolutionPayment {
     return {
       id: this.dispute_data!.dispute_id,
       orderId: this.gateway_id,
-      status: appealStatusObject(status),
+      status: appealStatusObjectLowercase(status),
       createdAtUtc: "2025-12-16T12:00:39.8636369Z",
       updatedAtUtc: "2025-12-16T12:00:39.8636369Z",
+    };
+  }
+
+  dispute_status_handler(status: MadsolutionAppealStatus): Handler {
+    return (c) => c.json(this.dispute_response(status), 200);
+  }
+
+  create_dispute_handler(): Handler {
+    return async (c) => {
+      let dispute_data = await c.req.parseBody();
+      console.log("DISPUTE DATA", dispute_data);
+      return c.json(this.dispute_response("OPEN"), 201);
     };
   }
 
@@ -223,8 +260,11 @@ export class MadsolutionPayment {
 
   async send_callback(status: MadsolutionStatus) {
     let cb = this.callback(status);
-    let url = "http://127.0.0.1:4000/callback/madsolution";
-    return await fetch(url, {
+    console.log(
+      "Madsolution callback",
+      new CurlBuilder(CALLBACK_URL, "POST").json_data(cb).build(),
+    );
+    return await fetch(CALLBACK_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(cb),
@@ -232,7 +272,7 @@ export class MadsolutionPayment {
   }
 
   dispute_callback(status: MadsolutionAppealStatus) {
-    vitest.assert(this.dispute_data, "dispute should be created first");
+    assert(this.dispute_data, "dispute should be created first");
 
     return {
       Event: "APPEAL_APPROVED",
@@ -251,12 +291,35 @@ export class MadsolutionPayment {
 
   async send_dispute_callback(status: MadsolutionAppealStatus) {
     let payload = this.dispute_callback(status);
-    let url = "http://127.0.0.1:4000/callback/madsolution";
-    return await fetch(url, {
+    console.log(
+      "Madsolution dispute callback",
+      new CurlBuilder(CALLBACK_URL, "POST").json_data(payload).build(),
+    );
+    return await fetch(CALLBACK_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }).then(err_bad_status);
+  }
+
+  async appeal_already_exists_response() {
+    assert(this.dispute_data);
+    return {
+      type: "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+      title: "Conflict",
+      status: 409,
+      errors: [
+        {
+          code: "Order.AlreadyHasAppeal",
+          message: ` ${this.dispute_data?.dispute_id}, , .`,
+          type: 3,
+        },
+      ],
+    };
+  }
+
+  appeal_already_exists_handler(): Handler {
+    return (c) => c.json(this.appeal_already_exists_response(), 409);
   }
 
   static settings(secret: string) {

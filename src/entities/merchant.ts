@@ -1,4 +1,5 @@
 import type { Merchant } from "@/db/core";
+import fs from "node:fs/promises";
 import { err_bad_status } from "@/fetch_utils";
 import {
   extendNotification,
@@ -10,13 +11,20 @@ import type { CreateRuleFormData } from "@/driver/flexy_commission";
 import { basic_healthcheck } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { Context } from "@/test_context/context";
-import { constructCurlRequest } from "@/story/curl";
+import { constructCurlRequest, CurlBuilder } from "@/story/curl";
 import { delay } from "@std/async";
 import { PayinResponse } from "./payment/payin_response";
 import { PayoutResponse } from "./payment/payout_response";
-import { assert } from "vitest";
 import { RuleBuilder } from "@/flexy_guard_builder";
 import { RefundResponse } from "./payment/refund_response";
+import { DisputeResponse } from "./payment/dispute_response";
+
+export type DisputeRequest = {
+  token: string;
+  file_path: string;
+  amount?: number;
+  description?: string;
+};
 
 type MerchantRequest = Record<string, any> & {
   callbackUrl?: string;
@@ -178,6 +186,45 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return res;
   }
 
+  async function create_dispute(request: DisputeRequest) {
+    let url = business_url + "/api/v1/disputes";
+    let curl = new CurlBuilder(url, "POST");
+    curl.header("authorization", `Bearer ${merchant.merchant_private_key}`);
+
+    let form = new FormData();
+    if (request.amount !== undefined) {
+      form.set("amount", request.amount);
+      curl.form_field("amount", request.amount);
+    }
+    if (request.description !== undefined) {
+      form.set("description", request.description);
+      curl.form_field("description", request.description);
+    }
+
+    let buffer = await fs.readFile(request.file_path);
+
+    let file = new File([buffer], "dispute.png", {
+      type: "image/png",
+    });
+    form.set("document[]", file);
+    curl.form_field("document[]", `@"${request.file_path}"`);
+
+    form.set("token", request.token);
+    curl.form_field("token", request.token);
+
+    ctx.story.add_chapter("Create dispute", curl.build());
+
+    let res = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + merchant.merchant_private_key,
+      },
+      body: form,
+    }).then(err_bad_status);
+
+    return new DisputeResponse(ctx, res, await res.json());
+  }
+
   async function create_payout<T extends MerchantRequest = PayoutRequest>(
     request: T,
   ) {
@@ -272,6 +319,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       create_payout(req).then((r) => r.as_error().as_common_error()),
     create_refund: (req: RefundRequest) =>
       create_refund(req).then((r) => r.as_ok()),
+    create_dispute: (req: DisputeRequest) =>
+      create_dispute(req).then((r) => r.as_ok()),
+    create_dispute_err: (req: DisputeRequest) =>
+      create_dispute(req).then((r) => r.as_error().as_common_error()),
     queue_notification,
     callbackUrl,
     set_commission,

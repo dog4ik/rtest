@@ -4,7 +4,7 @@ import { Db, sqlProjection } from ".";
 import type { Project } from "@/project";
 import { CoreStatusMap, type CoreStatus } from "./core";
 
-export const OperationTypeSchema = z.enum(["pay", "payout", "refund"]);
+export const OperationTypeSchema = z.enum(["pay", "payout", "refund", "dispute"]);
 export type OperationType = z.infer<typeof OperationTypeSchema>;
 
 export const BusinessStatusSchema = z
