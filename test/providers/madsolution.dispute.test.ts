@@ -181,25 +181,22 @@ test.concurrent(
   "madsolution dispute should not be created on successful transaction",
   ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { init_response, madsolution, merchant, payment } =
-        await setupSuccessfulTransaction(ctx);
+      let { init_response, merchant } = await setupSuccessfulTransaction(ctx);
 
-      let dispute_creation = madsolution
-        .queue(payment.create_dispute_handler())
-        .then(async () => {
-          await delay(CALLBACK_DELAY);
-          console.log("Sending dispute callback");
-          await payment.send_dispute_callback("APPROVED", 654321);
-        });
-
-      await merchant.create_dispute_err({
+      let err = await merchant.create_dispute_err({
         token: init_response.token,
         file_path: assets.PngImgPath,
         description: "test dispute description",
       });
-      // todo: check error message
 
-      await dispute_creation;
+      err.assert_error([
+        {
+          code: "invalid_payment_status",
+          kind: "processing_error",
+        },
+      ]);
+
+      // todo: check error message
     }),
 );
 
@@ -242,7 +239,7 @@ test.concurrent(
 );
 
 test.concurrent(
-  "madsolution duplicate disputes should not be created",
+  "madsolution new dispute after approved should not be created",
   ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let { init_response, madsolution, merchant, payment } =
@@ -263,6 +260,8 @@ test.concurrent(
         description: "test dispute description",
       });
       assert.strictEqual(res.status, "declined", "original transaction status");
+      await dispute_creation;
+      await Promise.all(notifications);
 
       let secondRes = await merchant.create_dispute_err({
         token: init_response.token,
@@ -273,9 +272,5 @@ test.concurrent(
       secondRes.assert_error([
         { code: "payment_already_has_accepted_dispute", kind: "" },
       ]);
-
-      await dispute_creation;
-
-      await Promise.all(notifications);
     }),
 );
