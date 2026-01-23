@@ -204,7 +204,7 @@ test.concurrent(
 );
 
 test.concurrent(
-  "madsolution duplicate disputes should not be created",
+  "madsolution concurrent duplicate disputes should not be created",
   ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let { init_response, madsolution, merchant, payment } =
@@ -233,6 +233,45 @@ test.concurrent(
       });
       secondRes.assert_error([
         { code: "payment_already_has_pending_dispute", kind: "" },
+      ]);
+
+      await dispute_creation;
+
+      await Promise.all(notifications);
+    }),
+);
+
+test.concurrent(
+  "madsolution duplicate disputes should not be created",
+  ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let { init_response, madsolution, merchant, payment } =
+        await setupFailedTransaction(ctx);
+
+      let dispute_creation = madsolution
+        .queue(payment.create_dispute_handler())
+        .then(async () => {
+          await delay(CALLBACK_DELAY);
+          console.log("Sending dispute callback");
+          await payment.send_dispute_callback("APPROVED", 654321);
+        });
+      let notifications = queueDisputeNotifiactions(merchant, true);
+
+      let res = await merchant.create_dispute({
+        token: init_response.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute description",
+      });
+      assert.strictEqual(res.status, "declined", "original transaction status");
+
+      let secondRes = await merchant.create_dispute_err({
+        token: init_response.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute description",
+      });
+
+      secondRes.assert_error([
+        { code: "payment_already_has_accepted_dispute", kind: "" },
       ]);
 
       await dispute_creation;
