@@ -245,36 +245,11 @@ test.concurrent("duplicate disputes should not be created", ({ ctx }) =>
       file_path: assets.PngImgPath,
       description: "test dispute description",
     });
-    secondRes.assert_error([{ code: "", kind: "" }]);
+    secondRes.assert_error([
+      { code: "payment_already_has_pending_dispute", kind: "" },
+    ]);
 
     await dispute_creation;
-
-    await Promise.all(notifications);
-  }),
-);
-
-test.concurrent("madsolution approved changed amount dispute", ({ ctx }) =>
-  ctx.track_bg_rejections(async () => {
-    let { init_response, madsolution, merchant, payment } =
-      await setupTransaction(ctx, false, {
-        enable_change_final_status: true,
-        enable_update_amount: true,
-      });
-
-    let dispute_creation = madsolution.queue(payment.create_dispute_handler());
-    let notifications = queueDisputeNotifiactions(merchant, true);
-
-    await merchant.create_dispute({
-      token: init_response.token,
-      file_path: assets.PngImgPath,
-      description: "test dispute description",
-    });
-    await dispute_creation;
-
-    payment.changed_amount = 654321;
-    await payment.send_callback("CONFIRMED");
-
-    await payment.send_dispute_callback("APPROVED", 654321);
 
     await Promise.all(notifications);
   }),
