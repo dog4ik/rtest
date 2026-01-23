@@ -84,22 +84,7 @@ test.concurrent(
       madsolution.queue(payment.create_dispute_handler());
       madsolution.queue(payment.dispute_status_handler("APPROVED"));
 
-      let notifications = [
-        merchant.queue_notification(
-          (notification) => {
-            assert.strictEqual(notification.type, "dispute");
-            assert.strictEqual(notification.status, "pending");
-          },
-          { skip_healthcheck: true },
-        ),
-        merchant.queue_notification(
-          (notification) => {
-            assert.strictEqual(notification.type, "dispute");
-            assert.strictEqual(notification.status, "approved");
-          },
-          { skip_healthcheck: true },
-        ),
-      ];
+      let notifications = queueDisputeNotifiactions(merchant, true);
 
       await merchant.create_dispute({
         token: init_response.token,
@@ -192,65 +177,66 @@ test.concurrent(
     }),
 );
 
-test.concurrent("madsolution approved changed amount dispute", ({ ctx }) =>
-  ctx.track_bg_rejections(async () => {
-    let { init_response, madsolution, merchant, payment } =
-      await setupSuccessfulTransaction(ctx);
+test.concurrent(
+  "madsolution dispute should not be created on successful transaction",
+  ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let { init_response, madsolution, merchant, payment } =
+        await setupSuccessfulTransaction(ctx);
 
-    let dispute_creation = madsolution
-      .queue(payment.create_dispute_handler())
-      .then(async () => {
-        await delay(CALLBACK_DELAY);
-        console.log("Sending dispute callback");
-        await payment.send_dispute_callback("APPROVED", 654321);
+      let dispute_creation = madsolution
+        .queue(payment.create_dispute_handler())
+        .then(async () => {
+          await delay(CALLBACK_DELAY);
+          console.log("Sending dispute callback");
+          await payment.send_dispute_callback("APPROVED", 654321);
+        });
+
+      await merchant.create_dispute_err({
+        token: init_response.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute description",
       });
-    let notifications = queueDisputeNotifiactions(merchant, true);
+      // todo: check error message
 
-    let res = await merchant.create_dispute({
-      token: init_response.token,
-      file_path: assets.PngImgPath,
-      description: "test dispute description",
-    });
-    assert.strictEqual(res.status, "approved", "original transaction status");
-
-    await dispute_creation;
-
-    await Promise.all(notifications);
-  }),
+      await dispute_creation;
+    }),
 );
 
-test.concurrent("duplicate disputes should not be created", ({ ctx }) =>
-  ctx.track_bg_rejections(async () => {
-    let { init_response, madsolution, merchant, payment } =
-      await setupFailedTransaction(ctx);
+test.concurrent(
+  "madsolution duplicate disputes should not be created",
+  ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let { init_response, madsolution, merchant, payment } =
+        await setupFailedTransaction(ctx);
 
-    let dispute_creation = madsolution
-      .queue(payment.create_dispute_handler())
-      .then(async () => {
-        await delay(CALLBACK_DELAY);
-        console.log("Sending dispute callback");
-        await payment.send_dispute_callback("APPROVED", 654321);
+      let dispute_creation = madsolution
+        .queue(payment.create_dispute_handler())
+        .then(async () => {
+          await delay(CALLBACK_DELAY);
+          console.log("Sending dispute callback");
+          await payment.send_dispute_callback("APPROVED", 654321);
+        });
+      let notifications = queueDisputeNotifiactions(merchant, true);
+
+      let res = await merchant.create_dispute({
+        token: init_response.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute description",
       });
-    let notifications = queueDisputeNotifiactions(merchant, true);
+      assert.strictEqual(res.status, "declined", "original transaction status");
 
-    let res = await merchant.create_dispute({
-      token: init_response.token,
-      file_path: assets.PngImgPath,
-      description: "test dispute description",
-    });
-    assert.strictEqual(res.status, "declined", "original transaction status");
+      let secondRes = await merchant.create_dispute_err({
+        token: init_response.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute description",
+      });
+      secondRes.assert_error([
+        { code: "payment_already_has_pending_dispute", kind: "" },
+      ]);
 
-    let secondRes = await merchant.create_dispute_err({
-      token: init_response.token,
-      file_path: assets.PngImgPath,
-      description: "test dispute description",
-    });
-    secondRes.assert_error([
-      { code: "payment_already_has_pending_dispute", kind: "" },
-    ]);
+      await dispute_creation;
 
-    await dispute_creation;
-
-    await Promise.all(notifications);
-  }),
+      await Promise.all(notifications);
+    }),
 );
