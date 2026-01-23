@@ -31,7 +31,7 @@ export const MerchantQuery = sqlProjection("profiles", MerchantSchema);
 
 export const WalletSchema = z.object({
   id: z.int(),
-  currency: z.string().optional(),
+  currency: z.string().nullable(),
   available: z.number(),
   held: z.number(),
 });

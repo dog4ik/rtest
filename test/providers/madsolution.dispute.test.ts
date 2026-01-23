@@ -2,7 +2,7 @@ import { assert } from "vitest";
 import * as common from "@/common";
 import * as assets from "@/assets";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
-import { providers } from "@/settings_builder";
+import { providers, type CommonSettingsParams } from "@/settings_builder";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import type { Context } from "@/test_context/context";
@@ -11,10 +11,17 @@ import type { ExtendedMerchant } from "@/entities/merchant";
 const CURRENCY = "RUB";
 const CALLBACK_DELAY = 5_000;
 
-async function setupTransaction(ctx: Context, success: boolean) {
+async function setupTransaction(
+  ctx: Context,
+  success: boolean,
+  extra_settings?: CommonSettingsParams,
+) {
   let merchant = await ctx.create_random_merchant();
   await merchant.set_settings(
-    providers(CURRENCY, MadsolutionPayment.settings(ctx.uuid)),
+    providers(CURRENCY, {
+      ...MadsolutionPayment.settings(ctx.uuid),
+      ...extra_settings,
+    }),
   );
   let payment = new MadsolutionPayment();
   let madsolution = ctx.mock_server(MadsolutionPayment.mock_params(ctx.uuid));
@@ -212,7 +219,7 @@ test.concurrent("madsolution approved changed amount dispute", ({ ctx }) =>
   }),
 );
 
-test.concurrent("duplicate dispute should not be created", ({ ctx }) =>
+test.concurrent("duplicate disputes should not be created", ({ ctx }) =>
   ctx.track_bg_rejections(async () => {
     let { init_response, madsolution, merchant, payment } =
       await setupFailedTransaction(ctx);
@@ -241,6 +248,33 @@ test.concurrent("duplicate dispute should not be created", ({ ctx }) =>
     secondRes.assert_error([{ code: "", kind: "" }]);
 
     await dispute_creation;
+
+    await Promise.all(notifications);
+  }),
+);
+
+test.concurrent("madsolution approved changed amount dispute", ({ ctx }) =>
+  ctx.track_bg_rejections(async () => {
+    let { init_response, madsolution, merchant, payment } =
+      await setupTransaction(ctx, false, {
+        enable_change_final_status: true,
+        enable_update_amount: true,
+      });
+
+    let dispute_creation = madsolution.queue(payment.create_dispute_handler());
+    let notifications = queueDisputeNotifiactions(merchant, true);
+
+    await merchant.create_dispute({
+      token: init_response.token,
+      file_path: assets.PngImgPath,
+      description: "test dispute description",
+    });
+    await dispute_creation;
+
+    payment.changed_amount = 654321;
+    await payment.send_callback("CONFIRMED");
+
+    await payment.send_dispute_callback("APPROVED", 654321);
 
     await Promise.all(notifications);
   }),
