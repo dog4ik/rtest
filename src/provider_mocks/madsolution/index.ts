@@ -271,7 +271,10 @@ export class MadsolutionPayment {
     };
   }
 
-  async send_callback(status: MadsolutionStatus) {
+  async send_callback(status: MadsolutionStatus, new_amount?: number) {
+    if (new_amount !== undefined) {
+      this.changed_amount = new_amount;
+    }
     let cb = this.callback(status);
     console.log(
       "Madsolution callback",
