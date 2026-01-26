@@ -30,26 +30,25 @@ const PAYIN_REQUEST_SCHEMA = z.object({
   externalClientId: z.string(),
 });
 
-function appealStatusObject(type: MadsolutionAppealStatus) {
-  const map = {
-    OPEN: { Id: 1, Code: "OPEN", Name: "Открыта" },
-    CLOSED: { Id: 2, Code: "CLOSED", Name: "Закрыта" },
-    WITHDRAWN: { Id: 3, Code: "WITHDRAWN", Name: "Отозвана" },
-    REJECTED: { Id: 4, Code: "REJECTED", Name: "Отклонена" },
-    APPROVED: { Id: 5, Code: "APPROVED", Name: "Принята" },
-    APPROVED_WITH_MODIFICATION: {
-      Id: 6,
-      Code: "APPROVED_WITH_MODIFICATION",
-      Name: "Принята с изменением суммы заявки",
-    },
-  } as const;
+function uppercaseFirstLetterKeys<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map(uppercaseFirstLetterKeys) as T;
+  }
 
-  const obj = map[type];
-  if (!obj) assert.fail(`unrecognized appeal status: ${type}`);
-  return obj;
+  if (input !== null && typeof input === "object") {
+    let result: Record<string, any> = {};
+
+    for (let [key, value] of Object.entries(input)) {
+      const newKey = key.charAt(0).toUpperCase() + key.slice(1);
+      result[newKey] = uppercaseFirstLetterKeys(value);
+    }
+
+    return result as T;
+  }
+  return input;
 }
 
-function appealStatusObjectLowercase(type: MadsolutionAppealStatus) {
+function appealStatusObject(type: MadsolutionAppealStatus) {
   const map = {
     OPEN: { id: 1, code: "OPEN", name: "Открыта" },
     CLOSED: { id: 2, code: "CLOSED", name: "Закрыта" },
@@ -68,23 +67,7 @@ function appealStatusObjectLowercase(type: MadsolutionAppealStatus) {
   return obj;
 }
 
-/**
- * Status object has uppercase letters in callback
- */
 function statusObject(status: MadsolutionStatus) {
-  const map = {
-    PENDING: { Id: 1, Code: "PENDING", Name: "Ожидает подтверждения" },
-    EXPIRED: { Id: 2, Code: "EXPIRED", Name: "Вышло время ожидания" },
-    CONFIRMED: { Id: 3, Code: "CONFIRMED", Name: "Подтверждена" },
-    CANCELED: { Id: 4, Code: "CANCELED", Name: "Отменена" },
-  } as const;
-
-  const obj = map[status];
-  if (!obj) assert.fail(`unrecognized status type: ${status}`);
-  return obj;
-}
-
-function statusObjectLowercase(status: MadsolutionStatus) {
   const map = {
     PENDING: { id: 1, code: "PENDING", name: "Ожидает подтверждения" },
     EXPIRED: { id: 2, code: "EXPIRED", name: "Вышло время ожидания" },
@@ -136,6 +119,40 @@ function cardInfo(method: MadsolutionMethod) {
   }
 }
 
+function paymentInstrument(method: MadsolutionMethod) {
+  let type = { id: 1, code: "CARD", name: "Карта" };
+  let bank = { id: 13, code: "OZON", name: "Ozon Банк", countryId: 1 };
+  let country = { id: 1, code: "RUS", name: "Россия" };
+  if (method === "CARDNUM") {
+    return {
+      type: { id: 1, code: "CARD", name: "Карта" },
+      country,
+      bank,
+      card: {
+        holderName: common.fullName,
+        number: common.visaCard,
+        phone: null,
+        accountNumber: null,
+      },
+      qr: null,
+    };
+  } else if (method === "PHONE" || method === "SBP") {
+    return {
+      // SBP still has type card
+      type,
+      country,
+      bank,
+      card: {
+        holderName: common.fullName,
+        number: null,
+        phone: common.phoneNumber,
+        accountNumber: null,
+      },
+      qr: null,
+    };
+  }
+}
+
 const CALLBACK_URL = "http://127.0.0.1:4000/callback/madsolution";
 
 export class MadsolutionPayment {
@@ -184,13 +201,14 @@ export class MadsolutionPayment {
         feeAmount: 0.019787,
         netAmount: 0.168664,
       },
+      paymentInstrument: paymentInstrument(this.request_data.trafficTypeCode),
       id: this.gateway_id,
-      status: statusObjectLowercase(status),
+      status: statusObject(status),
       trafficType: trafficType(this.request_data.trafficTypeCode),
       createdAtUtc: "2025-12-15T16:57:44.256722Z",
       updatedAtUtc: "2025-12-15T16:57:44.256722Z",
       expiresAtUtc: "2025-12-15T17:07:44.256722Z",
-      appealId: null,
+      appealId: this.dispute_data?.dispute_id ?? null,
     };
   }
 
@@ -226,7 +244,7 @@ export class MadsolutionPayment {
     return {
       id: this.dispute_data!.dispute_id,
       orderId: this.gateway_id,
-      status: appealStatusObjectLowercase(status),
+      status: appealStatusObject(status),
       createdAtUtc: "2025-12-16T12:00:39.8636369Z",
       updatedAtUtc: "2025-12-16T12:00:39.8636369Z",
     };
@@ -245,15 +263,10 @@ export class MadsolutionPayment {
   }
 
   callback(status: MadsolutionStatus) {
+    let response = this.positive_response(status);
     return {
       Event: "ORDER_CONFIRMED",
-      Order: {
-        ExternalId: this.request_data!.externalId,
-        Amount: this.changed_amount ?? this.request_data!.amount,
-        PaymentInfo: {},
-        Id: this.gateway_id,
-        Status: statusObject(status),
-      },
+      Order: uppercaseFirstLetterKeys(response),
       Timestamp: "2025-06-03T14:05:21.2824128Z",
     };
   }
@@ -281,7 +294,7 @@ export class MadsolutionPayment {
         ModifiedOrderAmount: new_amount ?? null,
         Id: this.dispute_data.dispute_id,
         OrderId: this.gateway_id,
-        Status: appealStatusObject(status),
+        Status: uppercaseFirstLetterKeys(appealStatusObject(status)),
         CreatedAtUtc: "2025-12-15T14:56:11.21512Z",
         UpdatedAtUtc: "2025-12-15T14:56:43.196974Z",
       },
