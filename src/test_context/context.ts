@@ -6,6 +6,7 @@ import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
+import { delay } from "@std/async";
 import * as vitest from "vitest";
 
 export class Context {
@@ -54,10 +55,13 @@ export class Context {
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
   async create_random_merchant() {
-    let merchant = await this.state.core_harness.create_random_merchant();
-    return await this.state.core_db
-      .merchantByEmail(merchant.email)
+    let now = new Date();
+    let merchantInfo = await this.state.core_harness.create_random_merchant();
+    let merchant = await this.state.core_db
+      .merchantByEmail(merchantInfo.email)
       .then(this.with_context(extendMerchant));
+    await this.state.business_db.wait_for_settings_update(now, merchant.id, true);
+    return merchant;
   }
 
   /**

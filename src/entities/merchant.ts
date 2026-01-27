@@ -84,50 +84,12 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
    */
   async function set_settings(settings: Record<string, any>) {
     let current = await settings_db.merchant_settings(merchant.id);
-    // console.log({ current });
-    //
-    // let old_update_time: Date | undefined = undefined;
-    // for (let i = 0; i < 20; ++i) {
-    //   try {
-    //     old_update_time = await business_db.settings_last_updated_at(
-    //       current.external_id,
-    //     );
-    //     console.log(`old settings for ${current.external_id}`, old_update_time);
-    //     break;
-    //   } catch (e) {
-    //     console.log(
-    //       "failed to fetch existing settings updated time, using current time",
-    //       e,
-    //     );
-    //     await delay(200);
-    //   }
-    // }
-    // assert(old_update_time, "Flacky test: failed to wait until settings exist");
-    // console.log("old updated time", old_update_time);
+    let now = new Date();
 
     await settings_service.edit(current.id, current.external_id, settings);
 
-    // for (let i = 0; i < 21; ++i) {
-    //   let updated_time = await business_db.settings_last_updated_at(
-    //     current.external_id,
-    //   );
-    //   console.log(
-    //     `${i}. new settings for ${current.external_id}`,
-    //     updated_time,
-    //   );
-    //   console.log("old updated_time", old_update_time);
-    //   if (updated_time.getTime() > old_update_time.getTime()) {
-    //     ctx.story.add_chapter("Set merchant settings", settings);
-    //     // The approach above does not work :<(
-    //     // WE WAIT
-    //     await delay(1000);
-    //     return;
-    //   }
-    //   await delay(50);
-    // }
-    // throw Error("Failed to set merchant settings");
     ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
-    await delay(2000);
+    await ctx.shared_state().business_db.wait_for_settings_update(now, merchant.id, false);
   }
 
   function callbackUrl() {

@@ -3,6 +3,8 @@ import type { Pool } from "pg";
 import { Db, sqlProjection } from ".";
 import type { Project } from "@/project";
 import { CoreStatusMap, type CoreStatus } from "./core";
+import { delay } from "@std/async";
+import { assert } from "vitest";
 
 export const OperationTypeSchema = z.enum([
   "pay",
@@ -123,13 +125,50 @@ export class BusinessDb extends Db {
     return await this.fetch_one(BusinessPaymentSchema, query);
   }
 
-  async settings_last_updated_at(external_id: number) {
+  private async settings_last_updated_at(external_id: number) {
     let query = `
 select merchant_providers.updated_at as latest_update
 from merchant_settings
 join merchant_currencies on merchant_currencies.merchant_setting_id = merchant_settings.id
 join merchant_providers on merchant_providers.merchant_currency_id = merchant_currencies.id
-where merchant_settings.external_id = ${external_id} and merchant_providers.operation_type = 'all_types'
+where merchant_settings.external_id = '${external_id}' and merchant_providers.operation_type = 'all_types'
+order by merchant_providers.updated_at desc limit 1;
+`;
+
+    return await this.fetch_optional(
+      z.object({ latest_update: z.date() }),
+      query,
+    ).then((r) => r?.latest_update);
+  }
+
+  async wait_for_settings_update(
+    since: Date,
+    external_id: number,
+    is_initial: boolean,
+    waitDuration = 6_000,
+  ) {
+    let delayMs = 400;
+    for (let i = 0; i < waitDuration / delayMs; ++i) {
+      let updated_at = is_initial
+        ? await this.initial_settings_last_updated_at(external_id)
+        : await this.settings_last_updated_at(external_id);
+      updated_at?.setHours(updated_at?.getHours() + 1);
+      console.log("Settings update wait tick", { updated_at, since });
+      if (updated_at && updated_at > since) {
+        return;
+      }
+      await delay(delayMs);
+    }
+    assert.fail(`Failed to wait until settings for ${external_id} are updated`);
+  }
+
+  private async initial_settings_last_updated_at(external_id: number) {
+    let query = `
+select merchant_providers.updated_at as latest_update
+from merchant_settings
+join merchant_currencies on merchant_currencies.merchant_setting_id = merchant_settings.id
+join merchant_providers on merchant_providers.merchant_currency_id = merchant_currencies.id
+where merchant_settings.external_id = '${external_id}' and merchant_currencies.currency_code = 'USD' and merchant_providers.operation_type = 'payout'
 order by merchant_providers.updated_at desc limit 1;
 `;
 
