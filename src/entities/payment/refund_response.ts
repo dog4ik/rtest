@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const NestedRefundSchema = z.object({
   token: z.string().length(32),
-  amount: z.int(),
+  amount: z.int().min(1),
   status: BusinessStatusSchema,
   currency: z.string().length(3),
 });

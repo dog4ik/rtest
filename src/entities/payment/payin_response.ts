@@ -7,10 +7,10 @@ import { ProcessingUrlResponse } from "./processing_url_response";
 import type { Context } from "@/test_context/context";
 
 const NestedPaymentSchema = z.object({
-  amount: z.int(),
+  amount: z.int().min(1),
   commission: z.int().optional(),
   currency: z.string(),
-  gateway_amount: z.int(),
+  gateway_amount: z.int().min(1),
   status: BusinessStatusSchema,
   two_stage_mode: z.boolean(),
 });

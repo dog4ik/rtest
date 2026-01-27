@@ -63,6 +63,8 @@ export const FeedSchema = z.object({
   trader_id: z.int().nullable(),
   agent_id: z.int().nullable(),
   source: z.string().nullable(),
+  payment_object: z.object().nullable(),
+  payment_object_json: z.object().nullable(),
   created_at: z.date(),
   updated_at: z.date(),
   commission_amount: z.float64().nullable(),

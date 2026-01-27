@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { assert } from "vitest";
-import { channel } from "node:diagnostics_channel";
 
 const ErrorObjectSchema = z.object({
   code: z.string().nullish(),

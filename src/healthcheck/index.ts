@@ -1,4 +1,5 @@
-import * as vitest from "vitest";
+import { assert } from "vitest";
+import * as common from "@/common";
 import { businessOfCoreStatus, type BusinessPayment } from "@/db/business";
 import { CoreDb, type CoreStatus, type Feed } from "@/db/core";
 import type { Entry } from "@/db/core/entry";
@@ -40,7 +41,7 @@ class HealthcheckResult {
       (this.traderWalletValidation !== undefined &&
         !this.midWalletValidation.valid())
     ) {
-      vitest.assert.fail(this.toString());
+      assert.fail(this.toString());
     }
   }
 
@@ -82,11 +83,36 @@ export async function basic_healthcheck(
   { core_db, business_db }: Pick<SharedState, "core_db" | "business_db">,
   token: string,
 ) {
-  let [business, core, entries] = await Promise.all([
+  let [business, interaction_logs, core, entries] = await Promise.all([
     business_db.paymentByToken(token),
+    business_db.interactionLogs(token),
     core_db.feed(token),
     core_db.entries(token),
   ]);
+  let checkSensitiveData = (s: string | null, msg: string) => {
+    if (s !== null) {
+      assert.notInclude(s, common.visaCard, msg);
+      assert.notInclude(s, common.mastercardCard, msg);
+    }
+  };
+  for (let log of interaction_logs) {
+    checkSensitiveData(log.request, "interaction_logs.request");
+    checkSensitiveData(log.response, "interaction_logs.response");
+  }
+  checkSensitiveData(JSON.stringify(business.details), "payments.details");
+  checkSensitiveData(
+    JSON.stringify(business.gateway_details),
+    "payments.gateway_details",
+  );
+  checkSensitiveData(
+    JSON.stringify(core.payment_object),
+    "feeds.payment_object",
+  );
+  checkSensitiveData(
+    JSON.stringify(core.payment_object_json),
+    "feeds.payment_object_json",
+  );
+
   let status = new Match(core.status, businessOfCoreStatus(business.status));
   let amount = new Match(core.amount, business.amount / 100);
 

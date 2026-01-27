@@ -5,8 +5,8 @@ import type { Context } from "@/test_context/context";
 import { CONFIG } from "@/test_context";
 
 export const EightpayRequesiteSchema = z.object({
-  id: z.string().min(1),
-  pan: z.string().min(1),
+  id: z.string().nonempty(),
+  pan: z.string().nonempty(),
   name_seller: z.string(),
   deeplink: z.url().optional(),
   support_banks: z.array(z.string()).min(1),
@@ -20,10 +20,10 @@ export const TraderRequisiteSchema = z.object({
   token: z.string().length(32),
   processingUrl: z.url(),
   payment: z.object({
-    amount: z.number(),
-    currency: z.string(),
-    gateway_amount: z.number(),
-    gateway_currency: z.string(),
+    amount: z.number().min(1),
+    currency: z.string().nonempty(),
+    gateway_amount: z.number().min(1),
+    gateway_currency: z.string().nonempty(),
     status: z.literal("pending"),
   }),
   card: z
@@ -49,6 +49,17 @@ export class ProcessingUrlResponse {
   ) {}
 
   private async consume_json_body() {
+    let contentType = this.response.headers.get("content-type");
+    console.log("Content type", contentType);
+    if (contentType?.startsWith("text/html")) {
+      let page = await this.ctx.shared_state().browser.newPage();
+      await page.setContent(await this.response.text());
+      await this.ctx.annotate("Unexpected processing url html", {
+        contentType: "image/png",
+        body: await page.screenshot(),
+      });
+      assert.fail(`expected json content type, got: ${contentType}`);
+    }
     let json = await this.response.json();
     console.log("Processing url", json);
     this.ctx.story.add_chapter(

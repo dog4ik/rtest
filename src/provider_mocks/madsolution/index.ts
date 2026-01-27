@@ -105,14 +105,14 @@ function cardInfo(method: MadsolutionMethod) {
       bank,
       cardNumber: common.visaCard,
       phoneNumber: null,
-      holderName: "Николай Олегович С",
+      holderName: common.fullName,
     };
   } else if (method === "PHONE" || method === "SBP") {
     return {
       bank,
       cardNumber: null,
       phoneNumber: common.phoneNumber,
-      holderName: "Николай Олегович С",
+      holderName: common.fullName,
     };
   } else {
     assert.fail(`unknown madsolution payment method: ${method}`);

@@ -1,4 +1,3 @@
-import { BusinessStatusSchema } from "@/db/business";
 import type { Context } from "@/test_context/context";
 import { assert } from "vitest";
 import { z } from "zod";
@@ -7,7 +6,7 @@ import { ErrorResponse } from "./error_response";
 const DisputeResponseSchema = z.object({
   success: z.literal(true),
   result: z.literal(0),
-  status: BusinessStatusSchema,
+  status: z.literal("declined"),
 });
 
 export class DisputeResponse {
