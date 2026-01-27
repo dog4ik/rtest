@@ -6,9 +6,16 @@ import { CONFIG, test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import { SettingsBuilder } from "@/settings_builder";
 import type { Context } from "@/test_context/context";
+import type { ProviderInstance } from "@/mock_server/instance";
+import { delay } from "@std/async";
 
 export type TestCaseOptions = {
   skip_if?: boolean;
+};
+
+export type TestCaseContext = {
+  provider: ProviderInstance;
+  ctx: Context;
 };
 
 export interface TestCaseBase {
@@ -23,21 +30,33 @@ export interface Callback extends TestCaseBase {
     status: PrimeBusinessStatus,
     unique_secret: string,
   ) => Promise<unknown>;
-  create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (
+    status: PrimeBusinessStatus,
+    ctx: TestCaseContext,
+  ) => Handler;
 }
 
 export interface Status extends TestCaseBase {
   status_handler: (status: PrimeBusinessStatus) => Handler;
-  create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (
+    status: PrimeBusinessStatus,
+    ctx: TestCaseContext,
+  ) => Handler;
 }
 
 export interface Routing extends TestCaseBase {
-  create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (
+    status: PrimeBusinessStatus,
+    ctx: TestCaseContext,
+  ) => Handler;
   no_requisites_handler: () => Handler;
 }
 
 export interface DataFlow extends TestCaseBase {
-  create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (
+    status: PrimeBusinessStatus,
+    ctx: TestCaseContext,
+  ) => Handler;
   after_create_check?: () => unknown;
   check_merchant_response?: (data: CreateTransactionReturn) => unknown;
 }
@@ -46,7 +65,10 @@ export interface PayformDataFlow extends TestCaseBase {
   browser_context?: (
     browser: playwright.Browser,
   ) => Promise<playwright.BrowserContext>;
-  create_handler: (status: PrimeBusinessStatus) => Handler;
+  create_handler: (
+    status: PrimeBusinessStatus,
+    ctx: TestCaseContext,
+  ) => Handler;
   after_create_check?: () => unknown;
   check_pf_page?: (page: playwright.Page) => unknown;
 }
@@ -83,6 +105,7 @@ async function create_suite(ctx: Context, target: TestCaseBase) {
     merchant,
     provider,
     provider_alias: mock_options.alias,
+    suite_ctx: { ctx, provider } as TestCaseContext,
     init_transaction,
     async create_transaction() {
       let create_response = await init_transaction();
@@ -109,16 +132,14 @@ function callbackFinalizationTest(
       `${alias} callback finalization to ${target_status}`,
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
-          let { create_transaction, merchant, provider } = await create_suite(
-            ctx,
-            target,
-          );
-          provider.queue((c) => {
-            setTimeout(() => {
-              target.send_callback(target_status, ctx.uuid);
-            }, CALLBACK_DELAY);
-            return target.create_handler("pending")(c);
-          });
+          let { create_transaction, merchant, provider, suite_ctx } =
+            await create_suite(ctx, target);
+          provider
+            .queue(target.create_handler("pending", suite_ctx))
+            .then(async () => {
+              await delay(CALLBACK_DELAY);
+              await target.send_callback(target_status, ctx.uuid);
+            });
 
           let notification = merchant.queue_notification((callback) => {
             vitest.assert.strictEqual(
@@ -154,11 +175,9 @@ function statusFinalizationTest(
       `${alias} status finalization to ${target_status}`,
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
-          let { provider, merchant, create_transaction } = await create_suite(
-            ctx,
-            target,
-          );
-          provider.queue(target.create_handler("pending"));
+          let { provider, merchant, create_transaction, suite_ctx } =
+            await create_suite(ctx, target);
+          provider.queue(target.create_handler("pending", suite_ctx));
           provider.queue(target.status_handler(target_status));
 
           let notification = merchant.queue_notification((callback) => {
@@ -208,7 +227,10 @@ export function routingFinalizationSuite(chain: Routing[], last: Callback) {
             () => last.send_callback("approved", uuid),
             CALLBACK_DELAY,
           );
-          return await last.create_handler("pending")(c);
+          return await last.create_handler("pending", {
+            ctx,
+            provider: last_gw,
+          })(c);
         });
 
         let notification = merchant.queue_notification((callback) => {
@@ -240,9 +262,12 @@ export function dataFlowTest<T extends DataFlow>(
     .skipIf(opts?.skip_if)
     .concurrent(`${alias} ${title} data flow`, ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
-        let { create_transaction, provider } = await create_suite(ctx, target);
+        let { create_transaction, provider, suite_ctx } = await create_suite(
+          ctx,
+          target,
+        );
         let provider_request = provider
-          .queue(target.create_handler("pending"))
+          .queue(target.create_handler("pending", suite_ctx))
           .then(() => target.after_create_check?.());
         let response = await create_transaction();
         await provider_request;
@@ -261,9 +286,12 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
     .skipIf(opts?.skip_if)
     .concurrent(`${alias} ${title} payform data flow`, ({ ctx, chrome }) =>
       ctx.track_bg_rejections(async () => {
-        let { init_transaction, provider } = await create_suite(ctx, target);
+        let { init_transaction, provider, suite_ctx } = await create_suite(
+          ctx,
+          target,
+        );
         let provider_request = provider
-          .queue(target.create_handler("pending"))
+          .queue(target.create_handler("pending", suite_ctx))
           .then(() => target.after_create_check?.());
 
         let response = await init_transaction();

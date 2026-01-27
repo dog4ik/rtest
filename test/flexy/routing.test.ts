@@ -2,8 +2,8 @@ import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
 import { MillenniumTransaction } from "@/provider_mocks/millennium";
 import { SettingsBuilder } from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
-import * as vitest from "vitest";
+import { CONFIG, PROJECT, test } from "@/test_context";
+import { describe, assert } from "vitest";
 import * as common from "@/common";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { Context } from "@/test_context/context";
@@ -11,12 +11,14 @@ import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_re
 
 const CURRENCY = "RUB";
 
-vitest.describe.concurrent("routing", () => {
+describe.runIf(PROJECT === "8pay").concurrent("routing", () => {
   test.concurrent("Basic routing", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
       let merchant = await ctx.create_random_merchant();
       let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
-      let millennium = ctx.mock_server(MillenniumTransaction.mock_params(ctx.uuid));
+      let millennium = ctx.mock_server(
+        MillenniumTransaction.mock_params(ctx.uuid),
+      );
       let madsolution = ctx.mock_server(
         MadsolutionPayment.mock_params(ctx.uuid),
       );
@@ -45,7 +47,7 @@ vitest.describe.concurrent("routing", () => {
         madsolution.queue(madsolution_payment.create_handler("PENDING")),
       ]);
       let notification = merchant.queue_notification((callback) => {
-        vitest.assert.strictEqual(callback.status, "declined");
+        assert.strictEqual(callback.status, "declined");
       });
 
       let result = await merchant.create_payment({
@@ -105,7 +107,7 @@ async function executeRoutingChain(
   await rule_builder.save();
 
   let notification = merchant.queue_notification((cb) => {
-    vitest.assert.strictEqual(cb.status, "approved");
+    assert.strictEqual(cb.status, "approved");
   });
 
   let result = await merchant.create_payment({

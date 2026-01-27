@@ -147,22 +147,26 @@ vitest.describe
       );
     });
 
-    test.concurrent("payout pending if timed out", async ({ ctx }) => {
-      let { merchant, flintpays, payout } = await setupMerchant(ctx);
+    test.concurrent(
+      "payout pending if timed out",
+      { timeout: 80_000 },
+      async ({ ctx }) => {
+        let { merchant, flintpays, payout } = await setupMerchant(ctx);
 
-      flintpays.queue(async (c) => {
-        console.log("waiting for rp to timeout request");
-        await delay(60_000);
-        return c.json(payout.create_response("created", await c.req.json()));
-      });
-      let res = await merchant.create_payout(payoutRequest());
-      console.log(res);
-      await res.followFirstProcessingUrl();
-      let businessPayment = await ctx.get_payment(res.token);
-      vitest.assert.strictEqual(
-        businessPayment.status,
-        "pending",
-        "payout should stay in pending",
-      );
-    });
+        flintpays.queue(async (c) => {
+          console.log("waiting for rp to timeout request");
+          await delay(60_000);
+          return c.json(payout.create_response("created", await c.req.json()));
+        });
+        let res = await merchant.create_payout(payoutRequest());
+        console.log(res);
+        await res.followFirstProcessingUrl();
+        let businessPayment = await ctx.get_payment(res.token);
+        vitest.assert.strictEqual(
+          businessPayment.status,
+          "pending",
+          "payout should stay in pending",
+        );
+      },
+    );
   });

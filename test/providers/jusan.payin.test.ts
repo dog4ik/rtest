@@ -19,7 +19,7 @@ async function setupMerchant(ctx: Context) {
 }
 
 vitest.describe
-  .skipIf(CONFIG.project === "8pay")
+  .runIf(CONFIG.project === "reactivepay")
   .concurrent("jusan gateway", () => {
     test.concurrent("Jusan 3ds approved", async ({ ctx, browser }) => {
       await ctx.track_bg_rejections(async () => {

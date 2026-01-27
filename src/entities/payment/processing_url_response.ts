@@ -95,7 +95,7 @@ export class ProcessingUrlResponse {
     type: "sbp" | "card";
     number: string | undefined;
     name: string | undefined;
-    bank: string | undefined;
+    bank: string[] | string | undefined;
   }) {
     if (CONFIG.project === "8pay") {
       let res = await this.as_8pay_requisite();
@@ -103,14 +103,20 @@ export class ProcessingUrlResponse {
       assert.strictEqual(res.pan, number);
     } else {
       let res = await this.as_trader_requisites();
+      let resBank: string | undefined = undefined;
       if (type === "sbp") {
-        assert.strictEqual(res.sbp?.bank, bank);
+        resBank = res.sbp?.bank;
         assert.strictEqual(res.sbp?.name, name);
         assert.strictEqual(res.sbp?.phone, number);
       } else if (type === "card") {
-        assert.strictEqual(res.card?.bank, bank);
+        resBank = res.card?.bank;
         assert.strictEqual(res.card?.name, name);
         assert.strictEqual(res.card?.pan, number);
+      }
+      if (Array.isArray(bank)) {
+        assert.include(bank, resBank);
+      } else {
+        assert.strictEqual(resBank, bank);
       }
     }
   }

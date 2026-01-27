@@ -14,7 +14,7 @@ import {
   type Status,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG, PROJECT, test } from "@/test_context";
 import { assert, describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
@@ -32,10 +32,27 @@ function ironpaySuite() {
       await gw.send_callback(statusMap[status], secret);
     },
     type: "payin",
-    create_handler: () => gw.create_handler(),
+    create_handler: (_, ctx) => {
+      if (PROJECT === "spinpay") {
+        ctx.provider.queue(IronpayPayment.login_handler(ctx.ctx.uuid));
+      }
+      return gw.create_handler();
+    },
     mock_options: IronpayPayment.mock_params,
     request: function () {
-      return { ...common.paymentRequest(CURRENCY), extra_return_param: "card" };
+      if (PROJECT === "8pay") {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "card",
+        };
+      } else {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          bank_account: {
+            requisite_type: "card",
+          },
+        };
+      }
     },
     settings: (secret) =>
       providers(CURRENCY, {
@@ -59,6 +76,9 @@ test.concurrent("ironpay no requisities decline", async ({ ctx }) => {
       }),
     );
     let ironpay = ctx.mock_server(IronpayPayment.mock_params(ctx.uuid));
+    if (PROJECT == "spinpay") {
+      ironpay.queue(IronpayPayment.login_handler(ctx.uuid));
+    }
     ironpay.queue(IronpayPayment.no_requisites_handler());
     let notification = merchant.queue_notification((callback) => {
       assert.strictEqual(callback.status, "declined", "declined notification");
@@ -96,7 +116,7 @@ describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
         name: common.fullName,
         number: `+${common.phoneNumber}`,
         type: "sbp",
-        bank: "Rosselkhozbank",
+        bank: ["Rosselkhozbank", "Россельхозбанк"],
       });
     },
   });
@@ -122,13 +142,13 @@ describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
         name: common.fullName,
         number: common.visaCard,
         type: "card",
-        bank: "Rosselkhozbank",
+        bank: ["Rosselkhozbank", "Россельхозбанк"],
       });
     },
   });
 });
 
-describe.skipIf(CONFIG.project !== "8pay").concurrent("ironpay 8pay", () => {
+describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   dataFlowTest("sbp extra_return_param", {
     ...ironpaySuite(),
     request() {
@@ -169,7 +189,7 @@ describe.skipIf(CONFIG.project !== "8pay").concurrent("ironpay 8pay", () => {
       assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
     },
     async check_merchant_response({ processing_response }) {
-     await processing_response?.as_8pay_requisite();
+      await processing_response?.as_8pay_requisite();
     },
   });
 
@@ -193,7 +213,7 @@ describe.skipIf(CONFIG.project !== "8pay").concurrent("ironpay 8pay", () => {
       assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP);
     },
     async check_merchant_response({ processing_response }) {
-     await processing_response?.as_8pay_requisite();
+      await processing_response?.as_8pay_requisite();
     },
   });
 

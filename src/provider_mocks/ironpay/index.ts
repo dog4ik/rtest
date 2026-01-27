@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import * as common from "@/common";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { assert } from "vitest";
+import { err_bad_status } from "@/fetch_utils";
 
 export type IronpayStatus = "Pending" | "Canceled" | "Approved";
 
@@ -27,6 +28,7 @@ export type IronpayMethod =
 
 const RATE = 0.8;
 const COMMISSION = 0.1;
+const CALLBACK_URL = "http://127.0.0.1:4000/callback/ironpay";
 
 function callbackSignature(
   params: Record<string, any>,
@@ -77,7 +79,7 @@ const IronpayRequestSchema = z.object({
   order_id: z.string().length(32),
   client_id: z.email(),
   payment_type_id: IronpayMethodSchema,
-  callback_url: z.url(),
+  callback_url: z.url().optional(),
 });
 
 export class IronpayPayment {
@@ -143,6 +145,20 @@ export class IronpayPayment {
     return (c) => c.json(this.status_response(status));
   }
 
+  static login_handler(secret: string): Handler {
+    return (c) => {
+      assert.strictEqual(c.req.path, "/api/login");
+      assert.strictEqual(c.req.method, "POST");
+      let expires = new Date();
+      expires.setHours(expires.getHours() + 1);
+      return c.json({
+        access_token: secret,
+        refresh_token: secret,
+        expires_at: expires.toISOString(),
+      });
+    };
+  }
+
   callback(status: IronpayStatus, secret: string) {
     assert(this.request_data, "request data is not present");
 
@@ -162,14 +178,14 @@ export class IronpayPayment {
   async send_callback(status: IronpayStatus, secret: string) {
     assert(this.request_data);
     let payload = this.callback(status, secret);
-    console.log("Callback body", JSON.stringify(payload, null, 2))
-    await fetch(this.request_data.callback_url, {
+    console.log("Callback body", JSON.stringify(payload, null, 2));
+    await fetch(this.request_data.callback_url ?? CALLBACK_URL, {
       method: "POST",
       body: JSON.stringify(payload),
       headers: {
         "content-type": "application/json",
       },
-    });
+    }).then(err_bad_status);
   }
 
   static no_requisites_response() {
@@ -203,8 +219,16 @@ export class IronpayPayment {
   static mock_params(secret: string): MockProviderParams {
     return {
       alias: "ironpay",
-      filter_fn: (req) => {
-        return req.header("api-key") === secret;
+      filter_fn: async (req) => {
+        // support login for spinpay https://api.iron-pay.com/login
+        if (req.path === "/api/login") {
+          let body = await req.json();
+          return body.uuid === secret;
+        }
+        return (
+          req.header("api-key") === secret ||
+          req.header("Authorization") === `Bearer ${secret}`
+        );
       },
     };
   }

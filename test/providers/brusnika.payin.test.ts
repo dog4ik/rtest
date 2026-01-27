@@ -13,7 +13,7 @@ import {
   type Status,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG, PROJECT, test } from "@/test_context";
 import { assert, describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
@@ -34,7 +34,19 @@ function brusnikaSuite() {
     mock_options: BrusnikaPayment.mock_params,
     type: "payin",
     request: function () {
-      return common.paymentRequest(CURRENCY);
+      if (PROJECT === "8pay") {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "card",
+        };
+      } else {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          bank_account: {
+            requisite_type: "card",
+          },
+        };
+      }
     },
     settings: (secret) =>
       providers(CURRENCY, {
@@ -73,7 +85,7 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
   });
 });
 
-describe.skipIf(CONFIG.project !== "8pay").concurrent("brusnika 8pay", () => {
+describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   dataFlowTest("extra_return_param sbp", {
     ...brusnikaSuite(),
     request() {

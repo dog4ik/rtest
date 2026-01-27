@@ -12,6 +12,7 @@ import { JusanPayment } from "@/provider_mocks/jusan";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
 
 export const CONFIG = config.open("configuration.toml");
+export const PROJECT = CONFIG.project;
 const state = initState(CONFIG);
 
 type TestContext = {
