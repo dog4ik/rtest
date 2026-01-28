@@ -110,4 +110,13 @@ JOIN entries ON entries.wallet_request_id = wallet_requests.id";
     let query = `${entrySelect} where feeds.api_payment_token = '${token}' order by entries.created_at desc`;
     return await this.fetch_all(EntrySchema, query);
   }
+
+  async last_session_code() {
+    let query =
+      "select confirm_code from sessions where confirm_code != '' order by created_at desc limit 1";
+    return await this.fetch_one(
+      z.object({ confirm_code: z.coerce.number() }),
+      query,
+    );
+  }
 }
