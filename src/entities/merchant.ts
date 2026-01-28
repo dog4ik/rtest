@@ -89,7 +89,9 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     await settings_service.edit(current.id, current.external_id, settings);
 
     ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
-    await ctx.shared_state().business_db.wait_for_settings_update(now, merchant.id, false);
+    await ctx
+      .shared_state()
+      .business_db.wait_for_settings_update(now, merchant.id, false);
   }
 
   function callbackUrl() {
@@ -276,10 +278,14 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     set_limits,
     cashin,
     set_settings,
+    create_payment_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
+      create_payment(req),
     create_payment: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_ok()),
     create_payment_err: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_error().as_common_error()),
+    create_payout_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
+      create_payment(req),
     create_payout: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_ok()),
     create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>

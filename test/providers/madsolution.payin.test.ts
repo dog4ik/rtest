@@ -15,6 +15,7 @@ import { providers } from "@/settings_builder";
 import { PROJECT, test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
+import { EightpayRequesiteSchema } from "@/entities/payment/processing_url_response";
 
 const CURRENCY = "RUB";
 
@@ -89,6 +90,30 @@ describe
         };
       },
     });
+
+    test.concurrent(
+      "madsolution skip_processing_url",
+      ({ ctx, merchant, madsolution }) =>
+        ctx.track_bg_rejections(async () => {
+          let payment = new MadsolutionPayment();
+          let settings = providers(CURRENCY, {
+            ...MadsolutionPayment.settings(ctx.uuid),
+            enable_update_amount: true,
+            enable_change_final_status: true,
+            wrapped_to_json_response: true,
+          });
+          settings.gateways["skip_processing_url"] = true;
+          await merchant.set_settings(settings);
+          madsolution.queue(payment.create_handler("PENDING"));
+          let res = await merchant.create_payment_raw({
+            ...common.paymentRequest(CURRENCY),
+            extra_return_param: "card",
+          });
+          let requisites = EightpayRequesiteSchema.parse(res.json);
+          assert.strictEqual(requisites.pan, common.visaCard);
+          assert.strictEqual(requisites.name_seller, common.fullName);
+        }),
+    );
 
     test.concurrent(
       "madsolution changed amount",
