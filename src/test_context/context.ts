@@ -60,8 +60,24 @@ export class Context {
     let merchant = await this.state.core_db
       .merchantByEmail(merchantInfo.email)
       .then(this.with_context(extendMerchant));
-    await this.state.business_db.wait_for_settings_update(now, merchant.id, true);
+    await this.state.business_db.wait_for_settings_update(
+      now,
+      merchant.id,
+      true,
+    );
     return merchant;
+  }
+
+  /**
+   * Create new unique merchant. Same as creating new merchant via UI in core/manage.
+   */
+  async add_flexy_guard_rule(payload: {}, comment?: string, priority?: number) {
+    this.story.add_chapter("Add flexy guard rule", payload);
+    await this.shared_state().guard_service.add_rule(
+      payload,
+      comment,
+      priority ?? 1,
+    );
   }
 
   /**
