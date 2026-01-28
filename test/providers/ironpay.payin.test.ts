@@ -43,7 +43,7 @@ function ironpaySuite() {
       if (PROJECT === "8pay") {
         return {
           ...common.paymentRequest(CURRENCY),
-          extra_return_param: "card",
+          extra_return_param: "Cards",
         };
       } else {
         return {
@@ -205,7 +205,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
-        extra_return_param: "card",
+        extra_return_param: "Cards",
       };
     },
     after_create_check() {
@@ -222,7 +222,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
-        extra_return_param: "card",
+        extra_return_param: "Cards",
       };
     },
     after_create_check() {
@@ -239,7 +239,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
     },
   });
 
-  payformDataFlowTest("sbp", {
+  payformDataFlowTest("card", {
     ...ironpaySuite(),
     settings(secret) {
       return providers(CURRENCY, {
@@ -250,7 +250,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
-        extra_return_param: "card",
+        extra_return_param: "Cards",
       };
     },
     async check_pf_page(page) {
