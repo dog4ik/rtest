@@ -33,6 +33,13 @@ export default defineConfig({
           name: "default",
         },
       },
+      {
+        extends: true,
+        test: {
+          include: ["banking/**/*.test.{ts,js}"],
+          name: "banking",
+        },
+      },
     ],
     reporters: [
       "verbose",
