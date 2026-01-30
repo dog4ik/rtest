@@ -28,7 +28,7 @@ test.concurrent(
       .getByRole("button", { name: "Business Business Description" })
       .click();
     await page.locator('input[name="company_name"]').click();
-    await page.locator('input[name="company_name"]').fill("Test company name");
+    await page.locator('input[name="company_name"]').fill(faker.company.name());
     await page.locator('input[name="registration_number"]').click();
     await page.locator('input[name="registration_number"]').fill("12342424");
     await page.getByRole("combobox").selectOption("Bangladesh");
@@ -51,20 +51,22 @@ test.concurrent(
     await page.getByRole("button").filter({ hasText: /^$/ }).first().click();
     await page.locator("#info").getByText("Afghanistan").click();
     await page.locator("#company_info_legal_name").click();
-    await page
-      .locator("#company_info_legal_name")
-      .fill("TEst account legal name");
+    await page.locator("#company_info_legal_name").fill(faker.company.name());
     await page
       .getByRole("button")
       .filter({
         has: page.locator("input#company_info_industry"),
       })
       .click();
-    await page.getByText("Test busiens").click();
+    await page
+      .locator("div.v-input.v-select._open")
+      .locator("div.v-select-list__item")
+      .nth(0)
+      .click();
     await page.locator("#company_info_type_of_incorporation").click();
     await page
       .locator("#company_info_type_of_incorporation")
-      .fill("Entitiy type");
+      .fill(faker.person.jobArea());
     await page.locator("#company_info_reg_number").click();
     await page.locator("#company_info_reg_number").fill("93293939");
     await page.locator("#company_info_date_of_incorporation").click();
@@ -76,46 +78,60 @@ test.concurrent(
       .click();
     await page
       .locator("#company_info_stock_exchange_company_is_listed_on")
-      .fill("test value");
+      .fill(faker.company.name());
     await page.locator("#company_info_regulated_by").click();
-    await page.locator("#company_info_regulated_by").fill("test value");
+    await page.locator("#company_info_regulated_by").fill(faker.company.name());
     await page.locator("#company_info_license_number").click();
     await page.locator("#company_info_license_number").fill("999");
     await page.locator("#company_info_corporate_email").click();
     await page
       .locator("#company_info_corporate_email")
-      .fill("mailcopo@mail.com");
+      .fill(faker.internet.email());
     await page.locator("#company_info_corporate_phone").click();
-    await page.locator("#company_info_corporate_phone").fill("898989898");
+    await page
+      .locator("#company_info_corporate_phone")
+      .fill(faker.phone.number());
     await page.locator("#company_info_website").click();
-    await page.locator("#company_info_website").fill("https://google.com");
+    await page.locator("#company_info_website").fill(faker.internet.url());
     await page.getByRole("link", { name: "Save and go next" }).click();
     await page.locator("#company_info_registered_address").click();
     await page
       .locator("#company_info_registered_address")
-      .fill("Lenina, Moscow, 92");
+      .fill(faker.location.streetAddress({ useFullAddress: true }));
     await page.locator("#company_info_registered_city").click();
-    await page.locator("#company_info_registered_city").fill("Moscow");
+    await page
+      .locator("#company_info_registered_city")
+      .fill(faker.location.city());
     await page.getByRole("button").filter({ hasText: /^$/ }).first().click();
     await page.getByText("Afghanistan").nth(2).click();
     await page.locator("#company_info_registered_street").click();
-    await page.locator("#company_info_registered_street").fill("Lenina");
+    await page
+      .locator("#company_info_registered_street")
+      .fill(faker.location.street());
     await page.locator("#company_info_registered_house_number").click();
-    await page.locator("#company_info_registered_house_number").fill("11");
+    await page
+      .locator("#company_info_registered_house_number")
+      .fill(faker.location.buildingNumber());
     await page.locator("#company_info_registered_zip_code").click();
-    await page.locator("#company_info_registered_zip_code").fill("12000");
+    await page
+      .locator("#company_info_registered_zip_code")
+      .fill(faker.location.zipCode());
     await page
       .getByRole("checkbox", { name: "Is the same as Registered" })
       .check();
     await page.getByRole("link", { name: "Save and go next" }).click();
     await page.locator('input[name="directors[0][first_name]"]').click();
-    await page.locator('input[name="directors[0][first_name]"]').fill("HEHEHE");
+    await page
+      .locator('input[name="directors[0][first_name]"]')
+      .fill(faker.person.firstName());
     await page.locator('input[name="directors[0][last_name]"]').click();
-    await page.locator('input[name="directors[0][last_name]"]').fill("Lalala");
+    await page
+      .locator('input[name="directors[0][last_name]"]')
+      .fill(faker.person.lastName());
     await page.locator('input[name="directors[0][nationality]"]').click();
     await page
       .locator('input[name="directors[0][nationality]"]')
-      .fill("Russian");
+      .fill(faker.location.countryCode());
     await page.locator('input[name="directors[0][date_of_birth]"]').click();
     await page
       .locator('input[name="directors[0][date_of_birth]"]')
@@ -125,19 +141,23 @@ test.concurrent(
       .click();
     await page
       .locator('input[name="directors[0][country_of_residence]"]')
-      .fill("Russia");
+      .fill(faker.location.country());
     await page.locator('input[name="directors[0][document_type]"]').click();
     await page
       .locator('input[name="directors[0][document_type]"]')
       .fill("Passport");
     await page.locator('input[name="directors[0][number]"]').click();
-    await page.locator('input[name="directors[0][number]"]').fill("91919191");
+    await page
+      .locator('input[name="directors[0][number]"]')
+      .fill(faker.number.int().toString());
     await page.locator('input[name="directors[0][date_of_issue]"]').click();
     await page
       .locator('input[name="directors[0][date_of_issue]"]')
       .fill("11.11.2020");
     await page.locator('input[name="directors[0][issued_by]"]').click();
-    await page.locator('input[name="directors[0][issued_by]"]').fill("Russia");
+    await page
+      .locator('input[name="directors[0][issued_by]"]')
+      .fill(faker.company.name());
     await page.locator('input[name="directors[0][expiry_date]"]').click();
     await page
       .locator('input[name="directors[0][expiry_date]"]')
@@ -145,7 +165,7 @@ test.concurrent(
     await page.locator('input[name="directors[0][unit_country]"]').click();
     await page
       .locator('input[name="directors[0][unit_country]"]')
-      .fill("Russia");
+      .fill(faker.location.countryCode());
     await page
       .locator("input#directors_attachments")
       .setInputFiles("assets/image.png");
@@ -153,15 +173,15 @@ test.concurrent(
     await page.locator('input[name="beneficiaries[0][first_name]"]').click();
     await page
       .locator('input[name="beneficiaries[0][first_name]"]')
-      .fill("First name");
+      .fill(faker.person.firstName());
     await page.locator('input[name="beneficiaries[0][last_name]"]').click();
     await page
       .locator('input[name="beneficiaries[0][last_name]"]')
-      .fill("Last name");
+      .fill(faker.person.lastName());
     await page.locator('input[name="beneficiaries[0][nationality]"]').click();
     await page
       .locator('input[name="beneficiaries[0][nationality]"]')
-      .fill("Russian");
+      .fill(faker.location.countryCode());
     await page.locator('input[name="beneficiaries[0][date_of_birth]"]').click();
     await page
       .locator('input[name="beneficiaries[0][date_of_birth]"]')
@@ -171,7 +191,7 @@ test.concurrent(
       .click();
     await page
       .locator('input[name="beneficiaries[0][country_of_residence]"]')
-      .fill("Russia");
+      .fill(faker.location.country());
     await page.locator('input[name="beneficiaries[0][document_type]"]').click();
     await page
       .locator('input[name="beneficiaries[0][document_type]"]')
@@ -179,7 +199,7 @@ test.concurrent(
     await page.locator('input[name="beneficiaries[0][number]"]').click();
     await page
       .locator('input[name="beneficiaries[0][number]"]')
-      .fill("1121212");
+      .fill(faker.number.int().toString());
     await page.locator('input[name="beneficiaries[0][date_of_issue]"]').click();
     await page
       .locator('input[name="beneficiaries[0][date_of_issue]"]')
@@ -187,7 +207,7 @@ test.concurrent(
     await page.locator('input[name="beneficiaries[0][issued_by]"]').click();
     await page
       .locator('input[name="beneficiaries[0][issued_by]"]')
-      .fill("russia");
+      .fill(faker.company.name());
     await page.locator('input[name="beneficiaries[0][expiry_date]"]').click();
     await page
       .locator('input[name="beneficiaries[0][expiry_date]"]')
@@ -195,21 +215,27 @@ test.concurrent(
     await page.locator('input[name="beneficiaries[0][unit_country]"]').click();
     await page
       .locator('input[name="beneficiaries[0][unit_country]"]')
-      .fill("Russia");
+      .fill(faker.location.countryCode());
     await page
       .locator("input#directors_attachments")
       .setInputFiles("assets/image.png");
     await page.getByRole("link", { name: "Save and go next" }).click();
     await page.locator("#company_info_description").click();
-    await page.locator("#company_info_description").fill("Address value, 300");
+    await page
+      .locator("#company_info_description")
+      .fill(faker.location.streetAddress({ useFullAddress: true }));
     await page.getByRole("button").filter({ hasText: /^$/ }).first().click();
     await page.getByText("Individuals").click();
     await page.locator("#company_info_how_many_customers").click();
-    await page.locator("#company_info_how_many_customers").fill("1");
+    await page
+      .locator("#company_info_how_many_customers")
+      .fill(faker.number.int().toString());
     await page.locator("#company_info_how_many_employees").click();
-    await page.locator("#company_info_how_many_employees").fill("1");
+    await page
+      .locator("#company_info_how_many_employees")
+      .fill(faker.number.int().toString());
     await page.locator("#company_info_how_do_you_sell").click();
-    await page.locator("#company_info_how_do_you_sell").fill("By threats");
+    await page.locator("#company_info_how_do_you_sell").fill(faker.word.verb());
     await page.getByRole("button").filter({ hasText: /^$/ }).first().click();
     await page.getByText("Receive payments from").click();
     await page
@@ -227,30 +253,37 @@ test.concurrent(
       .locator("#company_info_type_of_your_future_outgoing_transfers")
       .fill("Sells");
     await page.locator("#company_info_monthly_turnover").click();
-    await page.locator("#company_info_monthly_turnover").fill("1111");
+    await page
+      .locator("#company_info_monthly_turnover")
+      .fill(faker.number.int().toString());
     await page
       .locator("#company_info_monthly_turnover_of_incoming_payments")
       .click();
     await page
       .locator("#company_info_monthly_turnover_of_incoming_payments")
-      .fill("11111");
+      .fill(faker.number.int().toString());
     await page
       .locator("#company_info_monthly_turnover_of_outgoing_payments")
       .click();
     await page
       .locator("#company_info_monthly_turnover_of_outgoing_payments")
-      .fill("11111");
+      .fill(faker.number.int().toString());
     await page.locator("#company_info_number_of_incoming_payments").click();
-    await page.locator("#company_info_number_of_incoming_payments").fill("12");
+    await page
+      .locator("#company_info_number_of_incoming_payments")
+      .fill(faker.number.int().toString());
     await page.locator("#company_info_number_of_outgoing_payments").click();
-    await page.locator("#company_info_number_of_outgoing_payments").fill("12");
+    await page
+      .locator("#company_info_number_of_outgoing_payments")
+      .fill(faker.number.int().toString());
     await page.locator("#company_info_major_partners").click();
-    await page.locator("#company_info_major_partners").fill("Google");
+    await page
+      .locator("#company_info_major_partners")
+      .fill(faker.company.name());
     await page.locator("#company_info_operations_countries_list").click();
     await page
       .locator("#company_info_operations_countries_list")
-      .fill("Russia, Serbia");
+      .fill(faker.location.country());
     await page.getByRole("button", { name: "Save and send" }).click();
-
   },
 );

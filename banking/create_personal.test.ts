@@ -27,9 +27,11 @@ test.concurrent(
       .getByRole("button", { name: "Personal Personal Description" })
       .click();
     await page.locator('input[name="first_name"]').click();
-    await page.locator('input[name="first_name"]').fill("name");
+    await page
+      .locator('input[name="first_name"]')
+      .fill(faker.person.firstName());
     await page.locator('input[name="first_name"]').press("Tab");
-    await page.locator('input[name="last_name"]').fill("last name");
+    await page.locator('input[name="last_name"]').fill(faker.person.lastName());
     await page.getByRole("combobox").selectOption("Bahrain");
     await page.locator("#password").click();
     await page.locator("#password").fill(password);
@@ -45,11 +47,13 @@ test.concurrent(
     await page.getByRole("button", { name: "Bahrain" }).click();
     await page.getByText("Algeria").first().click();
     await page.locator('input[name="city"]').click();
-    await page.locator('input[name="city"]').fill("city");
+    await page.locator('input[name="city"]').fill(faker.location.city());
     await page.locator('input[name="street"]').click();
-    await page.locator('input[name="street"]').fill("street number");
+    await page
+      .locator('input[name="street"]')
+      .fill(faker.location.street());
     await page.locator('input[name="postcode"]').click();
-    await page.locator('input[name="postcode"]').fill("992929");
+    await page.locator('input[name="postcode"]').fill(faker.location.zipCode());
     await page.locator('input[name="id_type"]').click();
     await page.locator('input[name="id_type"]').fill("Passport");
     await page.locator('input[name="passport_number"]').click();
@@ -67,14 +71,16 @@ test.concurrent(
       .click();
     await page.getByText("Afghanistan").nth(1).click();
     await page.locator('input[name="id_issued_by"]').click();
-    await page.locator('input[name="id_issued_by"]').fill("issuer");
+    await page.locator('input[name="id_issued_by"]').fill(faker.company.name());
     await page
       .locator("#passport_picture_input")
       .setInputFiles("assets/image.png");
     await page.getByRole("button").filter({ hasText: /^$/ }).click();
     await page.getByText("Aland Islands").nth(2).click();
     await page.locator('input[name="tax_number"]').click();
-    await page.locator('input[name="tax_number"]').fill("tax number");
+    await page
+      .locator('input[name="tax_number"]')
+      .fill(faker.number.int().toString());
     await page.getByRole("button", { name: "Save" }).click({ timeout: 60_000 });
   },
 );
