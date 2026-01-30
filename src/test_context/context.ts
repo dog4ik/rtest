@@ -144,10 +144,11 @@ export class Context {
   }
 
   async healthcheck(token: string) {
-    return await basic_healthcheck(
+    let hc = await basic_healthcheck(
       { business_db: this.state.business_db, core_db: this.state.core_db },
       token,
     );
+    hc.assert();
   }
 
   routing_builder(mid: number, start: string): RoutingBuilder {
