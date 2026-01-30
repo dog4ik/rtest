@@ -90,7 +90,6 @@ export class JusanPayment {
 
   create_3ds_response(req: any, post_url_base: string, secret: string) {
     this.request_data = PAYIN_REQUEST_SCHEMA.parse(req);
-    this.creq;
     return {
       type: "cardauth2",
       "3DSMethodURL": "",
@@ -99,6 +98,98 @@ export class JusanPayment {
       request: encoding.encodeBase64Url(JSON.stringify(this.creq)),
       md: encoding.encodeBase64Url(this.creq.threeDSServerTransID),
       termUrl: "https://jpay.alataucitybank.kz:1443/cgi-bin/cgi_link",
+    };
+  }
+
+  create_3ds_json_handler(post_url_base: string, secret: string): Handler {
+    return async (c) => {
+      return c.json(
+        this.create_3ds_response(
+          await c.req.parseBody(),
+          post_url_base,
+          secret,
+        ),
+      );
+    };
+  }
+
+  create_3ds_html_handler(post_url_base: string, secret: string): Handler {
+    let creq = encoding.encodeBase64Url(JSON.stringify(this.creq));
+    return async (c) => {
+      this.request_data = PAYIN_REQUEST_SCHEMA.parse(await c.req.parseBody());
+      return c.html(
+        `<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+</HEAD>
+<BODY ONLOAD="javascript:OnLoadEvent();">
+<FORM ACTION="${post_url_base}${THREEDS_HANDLER_PATH}?secret=${secret}" METHOD="post" NAME="ThreeDform" target="_self">
+<input name="creq" type="hidden" value="${creq}">
+<input name="threeDSSessionData" type="hidden" value="MGE3NDQ2Y2QtZmQ5OC00YjNlLWFlNTQtODQ5MDg3MmU4N2Q5">
+<input name="TermUrl" type="hidden" value="https://jpay.alataucitybank.kz:1443/cgi-bin/cgi_link">
+</FORM>
+<SCRIPT>
+function OnLoadEvent () {
+  document.forms[0].submit();
+}
+</SCRIPT>
+</BODY>
+</HTML>
+`,
+      );
+    };
+  }
+
+  create_3ds_html_fp_handler(post_url_base: string, secret: string): Handler {
+    let creq = encoding.encodeBase64Url(JSON.stringify(this.creq));
+    return async (c) => {
+      this.request_data = PAYIN_REQUEST_SCHEMA.parse(await c.req.parseBody());
+      return c.html(
+        `<!DOCTYPE html>
+<html>
+<head>
+<title>
+Waiting for fingerprint</title>
+</head>
+<body onload="javascript:OnLoadEvent();">
+<iframe name="iframe1" style="display:none;">
+<P>
+Please use a browser which supports IFrames!</P>
+</iframe>
+<form id="formID" name="FingerPrintForm" target="iframe1" action="https://3dsecure.bcc.kz:3443/way4acs/threeDSMethodURL" method="POST">
+<input name="threeDSMethodData" type="hidden" value="eyJ0aHJlZURTTWV0aG9kTm90aWZpY2F0aW9uVVJMIjoiaHR0cHM6Ly9qcGF5LmFsYXRhdWNpdHliYW5rLmt6OjE0NDMvY2dpLWJpbi9jZ2lfbGluayIsInRocmVlRFNTZXJ2ZXJUcmFuc0lEIjoiN2VlYzA3OWMtMTA2MC00YTMwLWJlYzMtOWY0NTFjMWI2ZDEwIn0">
+</form>
+<div id="div7" style="text-align:center;">
+<div class="loader">
+<div class="rect1">
+</div>
+<div class="rect2">
+</div>
+<div class="rect3">
+</div>
+<div class="rect4">
+</div>
+<div class="rect5">
+</div>
+</div>
+<h3>
+Please wait</h3>
+<p>
+We are getting a fingerprint of your browser...</p>
+</div>
+</body>
+<script type="text/javascript" charset="utf-8" src="https://code.jquery.com/jquery-3.4.1.min.js">
+</script>
+<script type="text/javascript">
+var sid_exp_secs = 11; function eventByTimeout(event, timeout) { if (timeout >
+0) window.setTimeout(event, timeout * 1000); } function countdown() { if (document.getElementById) { sid_exp_secs--; if( sid_exp_secs == 0 ) sidExpared(); else if( sid_exp_secs < 9 ) checkState(); else eventByTimeout('countdown()',1); } } function checkState() { var formData = { threeDSMethodData: 'eyJ0aHJlZURTTWV0aG9kTm90aWZpY2F0aW9uVVJMIjoiaHR0cHM6Ly9qcGF5LmFsYXRhdWNpdHliYW5rLmt6OjE0NDMvY2dpLWJpbi9jZ2lfbGluayIsInRocmVlRFNTZXJ2ZXJUcmFuc0lEIjoiN2VlYzA3OWMtMTA2MC00YTMwLWJlYzMtOWY0NTFjMWI2ZDEwIn0', threeDSMethodState: 'C' }; $.ajax({ type: "post", url: "https://jpay.alataucitybank.kz:1443/cgi-bin/cgi_link", data: formData, contentType: "application/x-www-form-urlencoded", success: function(responseData, textStatus, jqXHR) { if( responseData == 'OK' ) { sidExpared(); } else { eventByTimeout('countdown()',1); } }, error: function(jqXHR, textStatus, errorThrown) { sidExpared(); } }) } function sidExpared() { $("#div7").hide(); $("#formID").removeAttr("target").attr('action','https://jpay.alataucitybank.kz:1443/cgi-bin/cgi_link'); $('<input name="threeDSMethodState" type="hidden" value="N"/>
+').appendTo($('#formID')); document.forms[0].submit(); } function OnLoadEvent() { document.forms[0].submit(); if (typeof sid_exp_secs != 'undefined') countdown(); } </script>
+<style media="screen" type="text/css">
+.loader { margin: 20px auto; width: 50px; height: 40px; text-align: center; font-size: 10px; } .loader >
+div { background-color: #702f8a; height: 100%; width: 6px; display: inline-block; -webkit-animation: sk-stretchdelay 1.2s infinite ease-in-out; animation: sk-stretchdelay 1.2s infinite ease-in-out; } .loader .rect2 { -webkit-animation-delay: -1.1s; animation-delay: -1.1s; } .loader .rect3 { -webkit-animation-delay: -1.0s; animation-delay: -1.0s; } .loader .rect4 { -webkit-animation-delay: -0.9s; animation-delay: -0.9s; } .loader .rect5 { -webkit-animation-delay: -0.8s; animation-delay: -0.8s; } @-webkit-keyframes sk-stretchdelay { 0%, 40%, 100% { -webkit-transform: scaleY(0.4) } 20% { -webkit-transform: scaleY(1.0) } } @keyframes sk-stretchdelay { 0%, 40%, 100% { transform: scaleY(0.4); -webkit-transform: scaleY(0.4); } 20% { transform: scaleY(1.0); -webkit-transform: scaleY(1.0); } } </style>
+</html>
+`,
+      );
     };
   }
 
@@ -116,6 +207,9 @@ export class JusanPayment {
         "POST",
         "creq delivered using POST method",
       );
+      console.log("headers: ", c.req.raw.headers);
+      console.log("parsed: ", await c.req.parseBody());
+      console.log("body: ", await c.req.text());
       this.receiveCReq(await c.req.parseBody());
       vitest.assert(this.request_data, "request data should be defined");
       // this is bad, use browser to send post via form
