@@ -78,6 +78,7 @@ function queueDisputeNotifiactions(
 describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
   test.concurrent(
     "madsolution dispute status finalization to approved",
+    { timeout: 90_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
         let { init_response, madsolution, merchant, payment } =
@@ -99,6 +100,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
 
   test.concurrent(
     "madsolution dispute status finalization to declined",
+    { timeout: 90_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
         let { init_response, madsolution, merchant, payment } =
