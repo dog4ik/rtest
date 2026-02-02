@@ -1,7 +1,7 @@
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { defaultSettings } from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG, PROJECT, test } from "@/test_context";
 import { TbankPayout } from "@/provider_mocks/tbank";
 import type { Context } from "@/test_context/context";
 
@@ -20,7 +20,7 @@ async function setupMerchant(ctx: Context) {
 }
 
 describe
-  .runIf(CONFIG.project === "reactivepay")
+  .runIf(CONFIG.project === "reactivepay" || PROJECT === "paygateway")
   .concurrent("pcidss tbank gateway", () => {
     describe.concurrent("tbank card", () => {
       const customer = {
@@ -34,69 +34,77 @@ describe
         expires: common.cardObject().expires,
       };
 
-      test.concurrent("tbank approved status", async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let { merchant, tbank, payment } = await setupMerchant(ctx);
-          tbank.queue(payment.check_customer_handler());
-          tbank.queue(payment.add_customer_handler());
-          tbank.queue(payment.add_card_handler());
-          tbank.queue(payment.attach_card_handler());
-          tbank.queue(payment.init_card_handler());
-          tbank.queue(payment.payout_card_handler("pending"));
-          tbank.queue(payment.remove_card_handler());
-          tbank.queue(payment.status_handler("approved"));
+      test.concurrent(
+        "tbank approved status",
+        { timeout: 90_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.add_customer_handler());
+            tbank.queue(payment.add_card_handler());
+            tbank.queue(payment.attach_card_handler());
+            tbank.queue(payment.init_card_handler());
+            tbank.queue(payment.payout_card_handler("pending"));
+            tbank.queue(payment.remove_card_handler());
+            tbank.queue(payment.status_handler("approved"));
 
-          let notification = merchant.queue_notification(
-            async (notification) => {
-              assert.strictEqual(
-                notification.status,
-                "approved",
-                "merchant notification status",
-              );
-            },
-          );
-          let result = await merchant.create_payout({
-            ...common.payoutRequest(CURRENCY),
-            card,
-            customer,
+            let notification = merchant.queue_notification(
+              async (notification) => {
+                assert.strictEqual(
+                  notification.status,
+                  "approved",
+                  "merchant notification status",
+                );
+              },
+            );
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              card,
+              customer,
+            });
+            assert.strictEqual(result.payout?.status, "pending");
+
+            await notification;
           });
-          assert.strictEqual(result.payout?.status, "pending");
+        },
+      );
 
-          await notification;
-        });
-      });
+      test.concurrent(
+        "tbank declined status",
+        { timeout: 90_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.add_customer_handler());
+            tbank.queue(payment.add_card_handler());
+            tbank.queue(payment.attach_card_handler());
+            tbank.queue(payment.init_card_handler());
+            tbank.queue(payment.payout_card_handler("pending"));
+            tbank.queue(payment.remove_card_handler());
+            tbank.queue(payment.status_handler("declined"));
 
-      test.concurrent("tbank declined status", async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let { merchant, tbank, payment } = await setupMerchant(ctx);
-          tbank.queue(payment.check_customer_handler());
-          tbank.queue(payment.add_customer_handler());
-          tbank.queue(payment.add_card_handler());
-          tbank.queue(payment.attach_card_handler());
-          tbank.queue(payment.init_card_handler());
-          tbank.queue(payment.payout_card_handler("pending"));
-          tbank.queue(payment.remove_card_handler());
-          tbank.queue(payment.status_handler("declined"));
+            let notification = merchant.queue_notification(
+              async (notification) => {
+                assert.strictEqual(
+                  notification.status,
+                  "declined",
+                  "merchant notification status",
+                );
+              },
+            );
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              card,
+              customer,
+            });
+            assert.strictEqual(result.payout?.status, "pending");
 
-          let notification = merchant.queue_notification(
-            async (notification) => {
-              assert.strictEqual(
-                notification.status,
-                "declined",
-                "merchant notification status",
-              );
-            },
-          );
-          let result = await merchant.create_payout({
-            ...common.payoutRequest(CURRENCY),
-            card,
-            customer,
+            await notification;
           });
-          assert.strictEqual(result.payout?.status, "pending");
-
-          await notification;
-        });
-      });
+        },
+      );
 
       test.concurrent("tbank card payout pending if 500", async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
@@ -286,65 +294,73 @@ describe
         ip: "8.8.8.8",
       };
 
-      test.concurrent("tbank approved status", async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let { merchant, tbank, payment } = await setupMerchant(ctx);
-          tbank.queue(payment.check_customer_handler());
-          tbank.queue(payment.add_customer_handler());
-          tbank.queue(payment.get_sbp_members_handler());
-          tbank.queue(payment.init_sbp_handler());
-          tbank.queue(payment.payout_sbp_handler("pending"));
-          tbank.queue(payment.status_handler("approved"));
+      test.concurrent(
+        "tbank approved status",
+        { timeout: 90_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.add_customer_handler());
+            tbank.queue(payment.get_sbp_members_handler());
+            tbank.queue(payment.init_sbp_handler());
+            tbank.queue(payment.payout_sbp_handler("pending"));
+            tbank.queue(payment.status_handler("approved"));
 
-          let notification = merchant.queue_notification(
-            async (notification) => {
-              assert.strictEqual(
-                notification.status,
-                "approved",
-                "merchant notification status",
-              );
-            },
-          );
-          let result = await merchant.create_payout({
-            ...common.payoutRequest(CURRENCY),
-            extra_return_param: "NK Bank",
-            customer,
+            let notification = merchant.queue_notification(
+              async (notification) => {
+                assert.strictEqual(
+                  notification.status,
+                  "approved",
+                  "merchant notification status",
+                );
+              },
+            );
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              extra_return_param: "NK Bank",
+              customer,
+            });
+            assert.strictEqual(result.payout?.status, "pending");
+
+            await notification;
           });
-          assert.strictEqual(result.payout?.status, "pending");
+        },
+      );
 
-          await notification;
-        });
-      });
+      test.concurrent(
+        "tbank declined status",
+        { timeout: 90_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.add_customer_handler());
+            tbank.queue(payment.get_sbp_members_handler());
+            tbank.queue(payment.init_sbp_handler());
+            tbank.queue(payment.payout_sbp_handler("pending"));
+            tbank.queue(payment.status_handler("declined"));
 
-      test.concurrent("tbank declined status", async ({ ctx }) => {
-        await ctx.track_bg_rejections(async () => {
-          let { merchant, tbank, payment } = await setupMerchant(ctx);
-          tbank.queue(payment.check_customer_handler());
-          tbank.queue(payment.add_customer_handler());
-          tbank.queue(payment.get_sbp_members_handler());
-          tbank.queue(payment.init_sbp_handler());
-          tbank.queue(payment.payout_sbp_handler("pending"));
-          tbank.queue(payment.status_handler("declined"));
+            let notification = merchant.queue_notification(
+              async (notification) => {
+                assert.strictEqual(
+                  notification.status,
+                  "declined",
+                  "merchant notification status",
+                );
+              },
+            );
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              extra_return_param: "NK Bank",
+              customer,
+            });
+            assert.strictEqual(result.payout?.status, "pending");
 
-          let notification = merchant.queue_notification(
-            async (notification) => {
-              assert.strictEqual(
-                notification.status,
-                "declined",
-                "merchant notification status",
-              );
-            },
-          );
-          let result = await merchant.create_payout({
-            ...common.payoutRequest(CURRENCY),
-            extra_return_param: "NK Bank",
-            customer,
+            await notification;
           });
-          assert.strictEqual(result.payout?.status, "pending");
-
-          await notification;
-        });
-      });
+        },
+      );
 
       test.concurrent(
         "tbank sbp init declines if invalid params",

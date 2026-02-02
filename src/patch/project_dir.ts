@@ -25,15 +25,18 @@ export class ProjectDir {
   }
 }
 
+const PROJECT_DIR_MAP: Record<Project | string, string> = {
+  reactivepay: "rpay-engine-pcidss",
+  reactivepaystage: "rpay-engine-pcidss",
+  "8pay": "rpay-engine-8pay",
+  spinpay: "rpay-engine-spinpay",
+  paygateway: "rpay-engine-paygateway",
+};
+
 function resolveProjectDir(config: Config) {
   let repoName = (project: Project) => {
-    if (project == "reactivepay" || project === "reactivepaystage") {
-      return "rpay-engine-pcidss";
-    } else if (project == "8pay") {
-      return "rpay-engine-8pay";
-    } else if (project == "spinpay") {
-      return "rpay-engine-spinpay";
-    }
+    let dir = PROJECT_DIR_MAP[project];
+    if (dir) return dir;
     throw Error(`Unsupported project: ${project}`);
   };
 

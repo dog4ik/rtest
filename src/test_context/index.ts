@@ -11,7 +11,18 @@ import type { ProviderInstance } from "@/mock_server/instance";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
 
-export const CONFIG = config.open("configuration.toml");
+export const CONFIG = {
+  ...config.open("configuration.toml"),
+  dummyRsaPub() {
+    return this[this.project]!.dummy_rsa_public_key_path;
+  },
+  dummyRsa() {
+    return this[this.project]!.dummy_rsa_private_key_path;
+  },
+  dummyCert() {
+    return this[this.project]!.dummy_ssl_path;
+  },
+};
 export const PROJECT = CONFIG.project;
 const state = initState(CONFIG);
 

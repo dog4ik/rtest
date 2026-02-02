@@ -8,11 +8,16 @@ const DEFAULT_LOGIN_PASSWORD = {
   password: "admin@admin.admin",
 };
 
-const DEFAULT_PROJECT_CREDENTIALS = {
+const DUMMY_KEY_PLACEHOLDER = "replace with the path to the minio assert";
+
+const DEFAULT_PROJECT_CONFIG = {
   core_credentials: DEFAULT_LOGIN_PASSWORD,
   flexy_commission_credentials: DEFAULT_LOGIN_PASSWORD,
   flexy_guard_credentials: DEFAULT_LOGIN_PASSWORD,
   settings_credentials: DEFAULT_LOGIN_PASSWORD,
+  dummy_ssl_path: DUMMY_KEY_PLACEHOLDER,
+  dummy_rsa_public_key_path: DUMMY_KEY_PLACEHOLDER,
+  dummy_rsa_private_key_path: DUMMY_KEY_PLACEHOLDER,
 } as const;
 
 type NonUndefined<T> = T extends undefined ? never : T;
@@ -29,11 +34,12 @@ export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   projects_dir: "..",
   browser: {
     headless: true,
-    ws_url: null,
+    ws_url: "",
   },
-  "8pay": DEFAULT_PROJECT_CREDENTIALS,
-  reactivepay: DEFAULT_PROJECT_CREDENTIALS,
-  spinpay: DEFAULT_PROJECT_CREDENTIALS,
+  "8pay": DEFAULT_PROJECT_CONFIG,
+  reactivepay: DEFAULT_PROJECT_CONFIG,
+  spinpay: DEFAULT_PROJECT_CONFIG,
+  paygateway: DEFAULT_PROJECT_CONFIG,
   extra_mapping: {},
 } as const;
 
@@ -44,24 +50,28 @@ const LOGIN_PASSWORD_SCHEMA = z
   })
   .default(DEFAULT_LOGIN_PASSWORD);
 
-const CREDENTIALS_OBJECT = z.strictObject({
+const PROJECT_CONFIG = z.strictObject({
   core_credentials: LOGIN_PASSWORD_SCHEMA,
   settings_credentials: LOGIN_PASSWORD_SCHEMA,
   flexy_guard_credentials: LOGIN_PASSWORD_SCHEMA,
   flexy_commission_credentials: LOGIN_PASSWORD_SCHEMA,
+  dummy_ssl_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
+  dummy_rsa_public_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
+  dummy_rsa_private_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
 });
 
 const BROWSER_OBJECT = z.strictObject({
   headless: z.boolean().default(true),
-  ws_url: z.string().nullable().default(null),
+  ws_url: z.string().default(""),
 });
 
 const CONFIG_SCHEMA = z.strictObject({
   extra_mapping: z.record(z.string(), z.int().positive()).optional(),
   project: ProjectSchema.default("reactivepay"),
-  "8pay": CREDENTIALS_OBJECT.optional(),
-  reactivepay: CREDENTIALS_OBJECT.optional(),
-  spinpay: CREDENTIALS_OBJECT.optional(),
+  "8pay": PROJECT_CONFIG.optional(),
+  reactivepay: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
+  spinpay: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
+  paygateway: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
   browser: BROWSER_OBJECT.optional(),
   debug: z.boolean().default(false),
   projects_dir: z.string().default(".."),
@@ -75,11 +85,11 @@ export function parseConfig(contents: string) {
 
 export function projectCredentials(
   config: Config,
-): z.infer<typeof CREDENTIALS_OBJECT> {
+): z.infer<typeof PROJECT_CONFIG> {
   return (
     (config[config.project as keyof typeof config] as z.infer<
-      typeof CREDENTIALS_OBJECT
-    >) ?? CREDENTIALS_OBJECT.parse({})
+      typeof PROJECT_CONFIG
+    >) ?? PROJECT_CONFIG.parse({})
   );
 }
 

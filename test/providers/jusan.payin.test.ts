@@ -1,7 +1,7 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { defaultSettings } from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
+import { PROJECT, test } from "@/test_context";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import type { Context } from "@/test_context/context";
 
@@ -19,7 +19,7 @@ async function setupMerchant(ctx: Context) {
 }
 
 vitest.describe
-  .runIf(CONFIG.project === "reactivepay")
+  .runIf(PROJECT === "reactivepay" || PROJECT === "paygateway")
   .concurrent("jusan gateway", () => {
     test.concurrent("Jusan 3ds approved", async ({ ctx, browser }) => {
       await ctx.track_bg_rejections(async () => {

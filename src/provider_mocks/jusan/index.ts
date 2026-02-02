@@ -6,6 +6,7 @@ import * as encoding from "@std/encoding";
 import { z } from "zod";
 import { StatusPage, ThreeDsForm } from "./threedspage";
 import type { PrimeBusinessStatus } from "@/db/business";
+import { CONFIG } from "@/test_context";
 
 const THREEDS_HANDLER_PATH = "/3dsHandler";
 
@@ -373,8 +374,7 @@ div { background-color: #702f8a; height: 100%; width: 6px; display: inline-block
       MID: secret,
       TID: "11111111",
       class: "jusan",
-      // TODO: do something about assets
-      public_key: "sJwokM6wprvueFfXHdavDYKA",
+      public_key: CONFIG.dummyRsaPub(),
       shared_secret: "1111111111111111111111",
     };
   }

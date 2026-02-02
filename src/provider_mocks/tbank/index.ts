@@ -3,6 +3,7 @@ import * as common from "@/common";
 import { assert } from "vitest";
 import { z } from "zod";
 import type { PrimeBusinessStatus } from "@/db/business";
+import { CONFIG } from "@/test_context";
 
 type TbankStatus =
   | "NEW"
@@ -25,7 +26,7 @@ const TerminalAuthSchema = {
   TerminalKey: z.string(),
   DigestValue: z.base64(),
   SignatureValue: z.base64(),
-  X509SerialNumber: z.int(),
+  X509SerialNumber: z.coerce.string(),
 };
 
 const CheckCustomerParamsSchema = z.object({
@@ -375,12 +376,12 @@ export class TbankPayout {
 
   static settings(secret: string) {
     return {
-      certificate: "kBgTCWsY6mja7qmtv6QGEijW",
+      certificate: CONFIG.dummyCert(),
       class: "tbank",
       customer_key: "TestCustomer20",
       password: secret,
-      private_key: "XrnH18XNisNYbXU38AhnysPJ",
-      public_key: "BdfzkUsXoxs5BUc696qyNKMm",
+      private_key: CONFIG.dummyRsa(),
+      public_key: CONFIG.dummyRsaPub(),
       terminal_key: secret,
     };
   }

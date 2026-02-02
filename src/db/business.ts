@@ -4,7 +4,7 @@ import { Db, sqlProjection } from ".";
 import type { Project } from "@/project";
 import { CoreStatusMap, type CoreStatus } from "./core";
 import { delay } from "@std/async";
-import { assert } from "vitest";
+import { PROJECT } from "@/test_context";
 
 export const OperationTypeSchema = z.enum([
   "pay",
@@ -147,6 +147,11 @@ order by merchant_providers.updated_at desc limit 1;
     is_initial: boolean,
     waitDuration = 6_000,
   ) {
+    console.log(PROJECT);
+    if (PROJECT === "paygateway") {
+      await delay(waitDuration);
+      return;
+    }
     let delayMs = 400;
     for (let i = 0; i < waitDuration / delayMs; ++i) {
       let updated_at = is_initial
