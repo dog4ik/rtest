@@ -284,7 +284,7 @@ export class TbankPayout {
 
   payout_sbp_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      assert.strictEqual(c.req.path, "/a2c/v2/Payment");
+      assert.strictEqual(c.req.path, "/a2c/sbp/Payment");
       this.payout_request_params = PayoutParamsSchema.parse(await c.req.json());
       assert(this.init_sbp_request_params);
       return c.json({
@@ -325,16 +325,17 @@ export class TbankPayout {
   status_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
       this.get_status_schema = GetStatusParamsSchema.parse(await c.req.json());
-      assert(this.card);
       assert(this.customer);
-      assert(this.init_card_request_params);
+      let request_params =
+        this.init_card_request_params || this.init_sbp_request_params;
+      assert(request_params);
       return c.json({
         Success: true,
         ErrorCode: "0",
         TerminalKey: "1762332910910E2CDEMO",
         Status: TbankStatusMap[status],
         PaymentId: this.gateway_id,
-        OrderId: this.init_card_request_params.OrderId,
+        OrderId: request_params.OrderId,
       });
     };
   }
