@@ -15,11 +15,13 @@ const DEFAULT_PROJECT_CREDENTIALS = {
   settings_credentials: DEFAULT_LOGIN_PASSWORD,
 } as const;
 
-type RecursiveNonNullable<T> = {
-  [K in keyof T]-?: RecursiveNonNullable<NonNullable<T[K]>>;
+type NonUndefined<T> = T extends undefined ? never : T;
+
+type RecursiveNonUndefineable<T> = {
+  [K in keyof T]-?: RecursiveNonUndefineable<NonUndefined<T[K]>>;
 };
 
-export const DEFAULT_CONFIG: RecursiveNonNullable<
+export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   z.infer<typeof CONFIG_SCHEMA>
 > = {
   project: "reactivepay",
@@ -27,6 +29,7 @@ export const DEFAULT_CONFIG: RecursiveNonNullable<
   projects_dir: "..",
   browser: {
     headless: true,
+    ws_url: null,
   },
   "8pay": DEFAULT_PROJECT_CREDENTIALS,
   reactivepay: DEFAULT_PROJECT_CREDENTIALS,
@@ -50,6 +53,7 @@ const CREDENTIALS_OBJECT = z.strictObject({
 
 const BROWSER_OBJECT = z.strictObject({
   headless: z.boolean().default(true),
+  ws_url: z.string().nullable().default(null),
 });
 
 const CONFIG_SCHEMA = z.strictObject({
