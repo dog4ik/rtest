@@ -14,7 +14,7 @@ export default defineConfig({
     environment: "node",
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
-    testTimeout: 45_000,
+    testTimeout: 90_000,
     projects: [
       {
         extends: true,

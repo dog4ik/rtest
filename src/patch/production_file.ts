@@ -1,6 +1,4 @@
-// production_rb_patcher.ts
-
-const EXCLUDE: string[] = ["redis_url"];
+const EXCLUDE = ["redis_url", "jusan_requests_timeout"];
 
 const MAPPING_START_PORT = 64530;
 

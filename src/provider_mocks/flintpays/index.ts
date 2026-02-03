@@ -1,7 +1,11 @@
 import { z } from "zod";
 import * as common from "@/common";
 import * as vitest from "vitest";
-import type { HttpContext, MockProviderParams } from "@/mock_server/api";
+import type {
+  Handler,
+  HttpContext,
+  MockProviderParams,
+} from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
 
 export type FlintpayStatus = "created" | "confirmed" | "rejected";
@@ -95,6 +99,11 @@ export class FlintpayOperation {
       this.payout_request_data = PAYOUT_REQUEST_SCHEMA.parse(req);
     }
     return this.status_response(status);
+  }
+
+  create_response_handler(status: FlintpayStatus): Handler {
+    return async (c) =>
+      c.json(this.create_response(status, await c.req.json()));
   }
 
   static no_balance_response_handler() {

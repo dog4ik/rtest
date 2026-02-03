@@ -10,6 +10,7 @@ import { IronpayPayment } from "@/provider_mocks/ironpay";
 import type { ProviderInstance } from "@/mock_server/instance";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
+import type { Project } from "@/project";
 
 export const CONFIG = {
   ...config.open("configuration.toml"),
@@ -21,6 +22,12 @@ export const CONFIG = {
   },
   dummyCert() {
     return this[this.project]!.dummy_ssl_path;
+  },
+  in_project(projects: Project[] | Project) {
+    if (Array.isArray(projects)) {
+      return projects.includes(this.project);
+    }
+    return projects === this.project;
   },
 };
 export const PROJECT = CONFIG.project;

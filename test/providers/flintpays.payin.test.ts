@@ -58,7 +58,8 @@ vitest.describe
             await res.followFirstProcessingUrl();
             await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
-                notification.status, rp_status,
+                notification.status,
+                rp_status,
                 "merchant notification status",
               );
             });
@@ -85,7 +86,8 @@ vitest.describe
             await res.followFirstProcessingUrl();
             await merchant.queue_notification(async (notification) => {
               vitest.assert.strictEqual(
-                notification.status, rp_status,
+                notification.status,
+                rp_status,
                 "merchant notification status",
               );
             });
