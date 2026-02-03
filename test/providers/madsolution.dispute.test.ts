@@ -433,6 +433,10 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           payment.create_dispute_handler(),
         );
 
+        merchant.queue_notification((notifiaction) => {
+          assert.strictEqual(notifiaction.type, "dispute");
+          assert.strictEqual(notifiaction.status, "pending");
+        })
         await merchant.create_dispute({
           token: init_response.token,
           file_path: assets.PngImgPath,
