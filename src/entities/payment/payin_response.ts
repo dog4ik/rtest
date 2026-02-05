@@ -29,7 +29,7 @@ export class PayinResponse {
   constructor(
     private ctx: Context,
     private res: Response,
-    public json: Record<string, any>,
+    public json: any,
   ) {
     ctx.story.add_chapter("Merchant payin response", json);
     console.log("Payin response", json);

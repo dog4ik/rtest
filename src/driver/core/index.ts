@@ -11,6 +11,24 @@ export type CreateMerchant = {
   email: string;
 };
 
+export type CreateTrader = {
+  telegram: string;
+  currency: string;
+  password: string;
+  companyName: string;
+  email: string;
+  convert_to_usdt: boolean;
+};
+
+export type TraderMethodToggle = {
+  in_locked: boolean;
+  out_locked: boolean;
+  sbp_enabled: boolean;
+  card_enabled: boolean;
+  account_enabled: boolean;
+  link_enabled: boolean;
+};
+
 export class CoreDriver {
   cookies: string | null;
   base_url: string;
@@ -19,7 +37,7 @@ export class CoreDriver {
     this.base_url = base_url + "/manage";
   }
 
-  private async action(path: string, payload: {}) {
+  private async action(path: string, payload: {}, method?: string) {
     let body = new URLSearchParams();
 
     // filter out "undefined" literals from constructed urlencoded payload
@@ -28,8 +46,9 @@ export class CoreDriver {
         body.append(key, String(value));
       }
     }
+    console.log(body);
     let res = await fetch(this.base_url + path, {
-      method: "POST",
+      method: method ?? "POST",
       redirect: "manual",
       body,
       headers: {
@@ -77,7 +96,7 @@ export class CoreDriver {
 
   async create_random_merchant() {
     let uuid = randomUUID();
-    let params = {
+    let params: CreateMerchant = {
       companyName: uuid,
       email: `${uuid}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
@@ -87,7 +106,80 @@ export class CoreDriver {
     return params;
   }
 
-  async cashin(mid: number, currency: string, amount: number) {
+  async create_trader(params: CreateTrader) {
+    let form = {
+      utf8: "✓",
+      "trader[company_name]": params.companyName,
+      "trader[default_currency]": params.currency,
+      "trader[email]": params.email,
+      "trader[web_site]": params.telegram,
+      "trader[temp_password]": params.password,
+      main_address: "",
+      deposit_address: "",
+      white_list: "",
+      min_limit: "",
+      max_limit: "",
+      convert_to_usdt: params.convert_to_usdt ? "" : undefined,
+      commit: "Add+new+trader",
+    };
+
+    await this.action("/traders", form);
+  }
+
+  async create_random_trader() {
+    let uuid = randomUUID();
+    let params: CreateTrader = {
+      companyName: uuid,
+      email: `${uuid}@mail.com`,
+      password: 'c@"6J?Q3:?H@me=',
+      convert_to_usdt: true,
+      telegram: uuid,
+      currency: "RUB",
+    };
+    await this.create_trader(params);
+    return params;
+  }
+
+  async enable_trader_methods(
+    trader_id: number,
+    toggle: Partial<TraderMethodToggle>,
+  ) {
+    for (let [key, value] of Object.entries(toggle)) {
+      await this.enable_trader_method(
+        trader_id,
+        key as keyof TraderMethodToggle,
+        value,
+      );
+    }
+  }
+
+  async enable_trader_method(
+    trader_id: number,
+    key: keyof TraderMethodToggle,
+    force: boolean,
+  ) {
+    await this.action(`/traders/${trader_id}`, { [key]: force }, "PUT");
+  }
+
+  async add_supported_banks(trader_id: number, bank_list: string[]) {
+    let data = {
+      utf8: "✓",
+      _method: "patch",
+      white_list: "",
+      min_limit: "",
+      max_limit: "",
+      "bank_ids[]": bank_list,
+      commit: "Save",
+    };
+    await this.action(`/traders/${trader_id}`, data);
+  }
+
+  async cashin(
+    mid: number,
+    currency: string,
+    amount: number,
+    to_account_id?: number,
+  ) {
     let dateFormatter = new Intl.DateTimeFormat("en-CA", {
       year: "numeric",
       month: "2-digit",
@@ -107,7 +199,7 @@ export class CoreDriver {
       profile_id: mid,
       to_name: "",
       amount,
-      to_account_id: "",
+      to_account_id: to_account_id ? to_account_id.toString() : "",
       "payment_request[currency]": currency,
       date: dateFormatter.format(now),
       time: timeFormatter.format(now),

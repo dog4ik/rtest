@@ -1,4 +1,6 @@
+import { TraderDriver } from "@/driver/trader";
 import { extendMerchant } from "@/entities/merchant";
+import { extendTrader } from "@/entities/trader";
 import { RoutingBuilder } from "@/flexy_guard_builder";
 import { basic_healthcheck } from "@/healthcheck";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
@@ -6,7 +8,6 @@ import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
-import { delay } from "@std/async";
 import * as vitest from "vitest";
 
 export class Context {
@@ -66,6 +67,17 @@ export class Context {
       true,
     );
     return merchant;
+  }
+
+  async create_random_trader() {
+    let info = await this.state.core_harness.create_random_trader();
+    await this.annotate(`Created trader: ${info.email} ${info.password}`);
+    let trader = await this.state.core_db
+      .traderByEmail(info.email)
+      .then(this.with_context(extendTrader));
+    await this.state.core_harness.add_supported_banks(trader.id, ["31", "46"]);
+    await trader.driver.login(info.email, info.password);
+    return trader;
   }
 
   /**

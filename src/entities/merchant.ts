@@ -12,7 +12,6 @@ import { basic_healthcheck } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest, CurlBuilder } from "@/story/curl";
-import { delay } from "@std/async";
 import { PayinResponse } from "./payment/payin_response";
 import { PayoutResponse } from "./payment/payout_response";
 import { RuleBuilder } from "@/flexy_guard_builder";

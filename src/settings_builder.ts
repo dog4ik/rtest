@@ -148,7 +148,10 @@ export class SettingsBuilder {
    */
   withGateway(gateway: AnyRecord, alias?: string): this {
     const resolvedAlias = alias ?? `gateway_${this.nextAlias()}`;
-    if (CONFIG.project === "8pay" && gateway.wrapped_to_json_response === undefined) {
+    if (
+      CONFIG.project === "8pay" &&
+      gateway.wrapped_to_json_response === undefined
+    ) {
       gateway.wrapped_to_json_response = true;
     }
     this.settings.gateways[resolvedAlias] = gateway;

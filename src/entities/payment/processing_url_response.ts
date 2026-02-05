@@ -15,8 +15,9 @@ export const EightpayRequesiteSchema = z.object({
 
 export const TraderRequisiteSchema = z.object({
   success: z.literal(true),
-  result: z.literal(0),
-  status: z.literal(200),
+  // Trader (source=trader) response makes these 2 fields optional :=D
+  result: z.literal(0).optional(),
+  status: z.literal(200).optional(),
   token: z.string().length(32),
   processingUrl: z.url(),
   payment: z.object({

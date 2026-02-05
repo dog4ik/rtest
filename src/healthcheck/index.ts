@@ -155,10 +155,7 @@ async function validate_mid_wallets(
     (w) =>
       w.currency == (feed.target_currency || feed.currency || payment.currency),
   );
-  if (!wallet) {
-    throw Error("find wallet with currency");
-  }
-  let validator = new EntryValidator(wallet.id);
+  let validator = new EntryValidator(wallet?.id ?? 0);
   for (let entry of entries) {
     validator.feedEntryMimicRuby(entry);
   }

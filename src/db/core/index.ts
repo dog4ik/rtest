@@ -19,6 +19,27 @@ export const CoreStatusMap = {
 
 export type CoreStatus = z.infer<typeof CoreStatusSchema>;
 
+export const TraderSchema = z.object({
+  id: z.number(),
+  default_currency: z.string(),
+  traffic_blocked: z.string().nullable(),
+  company_name: z.string(),
+});
+export type Trader = z.infer<typeof TraderSchema>;
+export const TraderQuery = sqlProjection("profiles", TraderSchema);
+
+export const BankAccountSchema = z.object({
+  id: z.number(),
+  profile_id: z.number(),
+  currency: z.string().nullable(),
+  kind: z.string().nullable(),
+});
+export type BankAccount = z.infer<typeof BankAccountSchema>;
+export const BankAccountQuery = sqlProjection(
+  "bank_accounts",
+  BankAccountSchema,
+);
+
 export const MerchantSchema = z.object({
   id: z.number(),
   merchant_private_key: z.string(),
@@ -60,7 +81,7 @@ export const FeedSchema = z.object({
   type: FeedTypeSchema,
   to_profile_id: z.int(),
   from_profile_id: z.int(),
-  trader_id: z.int().nullable(),
+  trader_id: z.coerce.number().nullable(),
   agent_id: z.int().nullable(),
   source: z.string().nullable(),
   payment_object: z.object().nullable(),
@@ -86,6 +107,11 @@ export class CoreDb extends Db {
     return await this.fetch_one(MerchantSchema, query);
   }
 
+  async traderByEmail(email: string) {
+    let query = `select ${TraderQuery.select(this.project)} from profiles where profiles.email = '${email}'`;
+    return await this.fetch_one(TraderSchema, query);
+  }
+
   async profileWallets(mid: number) {
     let query = `select ${WalletQuery.select(this.project)} from wallets where wallets.profile_id = '${mid}'`;
     return await this.fetch_all(WalletQuery.schema, query);
@@ -99,6 +125,11 @@ export class CoreDb extends Db {
   async feed(token: string) {
     let query = `select ${FeedQuery.select(this.project)} from feeds where feeds.api_payment_token = '${token}'`;
     return await this.fetch_one(FeedQuery.schema, query);
+  }
+
+  async bank_accounts(profile_id: number) {
+    let query = `select ${BankAccountQuery.select(this.project)} from bank_accounts where bank_accounts.profile_id = '${profile_id}'`;
+    return await this.fetch_all(BankAccountQuery.schema, query);
   }
 
   async entries(token: string) {
