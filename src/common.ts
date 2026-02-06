@@ -1,8 +1,9 @@
+import type { Bank } from "./driver/trader";
 import type { HttpContext } from "./mock_server/api";
 
 type BankAccount = {
   requisite_type?: "card" | "sbp" | "link" | "account";
-  bank_name?: string;
+  bank_name?: Bank;
   account_holder?: string;
   account_number?: string;
 };
@@ -62,6 +63,7 @@ export const rrn = "601115349038";
 export const fullName = "Satoru Gojo";
 export const bankName = "Сбербанк";
 export const accountNumber = "7355608";
+export const email = "email@mail.com";
 export const androidUserAgent =
   "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36";
 export const iosUserAgent =
@@ -74,7 +76,7 @@ export function paymentRequest(currency: string): PaymentRequest {
     amount,
     currency,
     customer: {
-      email: "test@email.com",
+      email,
     },
     product: "test product",
   };

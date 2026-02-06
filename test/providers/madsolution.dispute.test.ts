@@ -95,6 +95,10 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         });
 
         await Promise.all(notifications);
+        await merchant
+          .wallets()
+          .then((v) => v.find((v) => v.currency === CURRENCY))
+          .then((v) => assert.strictEqual(v?.available, common.amount / 100));
       }),
   );
 
@@ -151,6 +155,10 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         await dispute_creation;
 
         await Promise.all(notifications);
+        await merchant
+          .wallets()
+          .then((v) => v.find((v) => v.currency === CURRENCY))
+          .then((v) => assert.strictEqual(v?.available, 0));
       }),
   );
 
@@ -185,6 +193,10 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         await dispute_creation;
 
         await Promise.all(notifications);
+        await merchant
+          .wallets()
+          .then((v) => v.find((v) => v.currency === CURRENCY))
+          .then((v) => assert.strictEqual(v?.available, common.amount / 100));
       }),
   );
 
@@ -219,12 +231,12 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         );
 
         await dispute_creation;
+
+        await Promise.all(notifications);
         let wallet = await merchant
           .wallets()
           .then((v) => v.find((v) => v.currency === CURRENCY));
         assert.strictEqual(wallet?.available, new_amount / 100);
-
-        await Promise.all(notifications);
       }),
   );
 
@@ -436,7 +448,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         merchant.queue_notification((notifiaction) => {
           assert.strictEqual(notifiaction.type, "dispute");
           assert.strictEqual(notifiaction.status, "pending");
-        })
+        });
         await merchant.create_dispute({
           token: init_response.token,
           file_path: assets.PngImgPath,
@@ -498,5 +510,32 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         });
         await Promise.race([delay(5_000), dispute_approve]);
       }),
+  );
+
+  test.skip("prompt dispute", { timeout: 120_000 }, ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let { madsolution, merchant, payment } =
+        await setupFailedTransaction(ctx);
+
+      let dispute_creation = madsolution.queue(
+        payment.create_dispute_handler(),
+      );
+      let create = merchant.queue_notification((notification) => {
+        assert.strictEqual(notification.type, "dispute");
+        assert.strictEqual(notification.status, "pending");
+      });
+      let approve = merchant.queue_notification((notification) => {
+        assert.strictEqual(notification.type, "dispute");
+        assert.strictEqual(notification.status, "approved");
+      });
+      await create.then(async () => {
+        await delay(7_000);
+        await payment.send_dispute_callback("APPROVED");
+      });
+
+      await dispute_creation;
+
+      await approve;
+    }),
   );
 });
