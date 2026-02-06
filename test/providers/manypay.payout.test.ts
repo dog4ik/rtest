@@ -18,8 +18,9 @@ import {
   providers,
   SettingsBuilder,
 } from "@/settings_builder";
-import { CONFIG } from "@/test_context";
+import { CONFIG, test } from "@/test_context";
 import { assert } from "vitest";
+import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
 
@@ -322,3 +323,46 @@ dataFlowTest(
   },
   OPTS,
 );
+
+test
+  .runIf(CONFIG.extra_mapping?.["manypay"])
+  .concurrent("concurrent status and callback", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      await merchant.cashin(CURRENCY, common.amount / 100);
+      await merchant.set_settings(
+        providers(CURRENCY, ManypayPayout.settings(ctx.uuid)),
+      );
+      let suite = manypaySuite();
+      let payout = suite.gw;
+      let manypay = ctx.mock_server(suite.mock_options(ctx.uuid));
+      manypay.queue(
+        payout.create_handler(ManypayStatusMap.PENDING),
+      );
+
+      let notification = merchant.queue_notification((n) => {
+        assert.strictEqual(
+          n.status,
+          "approved",
+          "merchant should get approved notifaction",
+        );
+      });
+
+      let res = await merchant.create_payout({
+        ...common.payoutRequest(CURRENCY),
+        card: { pan: common.visaCard },
+      });
+      await res.followFirstProcessingUrl();
+
+      let status = manypay
+        .queue(payout.status_handler(ManypayStatusMap.SUCCESSFUL))
+        .then(async () => {
+          await payout.send_callback(ManypayStatusMap.SUCCESSFUL);
+        });
+      await status;
+      await notification;
+
+      await delay(1_000);
+      let payment = await ctx.get_payment(res.token);
+      assert.strictEqual(payment.status, "approved");
+    }),
+  );

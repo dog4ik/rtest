@@ -232,9 +232,9 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
           !options?.skip_healthcheck &&
           ["pay", "payout"].includes(callback.type)
         ) {
-          (
-            await basic_healthcheck({ business_db, core_db }, callback.token)
-          ).assert();
+          let hc = await basic_healthcheck({ business_db, core_db }, callback.token);
+          console.log(hc.toString());
+          hc.assert();
         } else {
           console.log("Skipping transaction healthcheck");
         }
