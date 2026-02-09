@@ -16,7 +16,8 @@
     "test": "vitest --ui --watch --project default",
     "test:all": "vitest --ui --watch --project all",
     "patch": "tsx ./patch/index.ts",
-    "init": "tsx ./init/index.ts"
+    "init": "tsx ./scripts/init.ts",
+    "cleanup": "tsx ./scripts/cleanup.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^10.2.0",
