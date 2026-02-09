@@ -91,7 +91,7 @@ function smsParserTest({
     .runIf(CONFIG.in_project(["reactivepay"]))
     .concurrent(
       `sms parser ${bank}`,
-      { timeout: 120_000 },
+      { timeout: 60_000 },
       ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader();
@@ -141,4 +141,13 @@ smsParserTest({
   sim: "com.idamob.tinkoff.android",
   text: (amount) =>
     `Пополнение на ${(amount / 100).toString().replace(".", ",")} ₽`,
+});
+
+smsParserTest({
+  requisite_type: "sbp",
+  bank: "tbank",
+  from: "T-Bank",
+  sim: "com.idamob.tinkoff.android",
+  text: (amount) =>
+    `Пополнение на ${(amount / 100).toString().replace(".", ",")} ₽ СБП`,
 });
