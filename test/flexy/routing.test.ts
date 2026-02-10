@@ -8,6 +8,7 @@ import * as common from "@/common";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { Context } from "@/test_context/context";
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
+import { IronpayPayment } from "@/provider_mocks/ironpay";
 
 const CURRENCY = "RUB";
 
@@ -63,6 +64,57 @@ describe.runIf(PROJECT === "8pay").concurrent("routing", () => {
           .send_callback("CANCELED")
           .then(() => console.log("sent callback"));
       }, 11_000);
+
+      await handlers;
+      await notification;
+    });
+  });
+});
+
+describe.runIf(PROJECT === "spinpay").concurrent("routing", () => {
+  test.concurrent("Basic routing spinpay", async ({ ctx }) => {
+    await ctx.track_bg_rejections(async () => {
+      let merchant = await ctx.create_random_merchant();
+      let brusnika = ctx.mock_server(BrusnikaPayment.mock_params(ctx.uuid));
+      let ironpay = ctx.mock_server(IronpayPayment.mock_params(ctx.uuid));
+      ironpay.queue(IronpayPayment.login_handler(ctx.uuid));
+      let settings = new SettingsBuilder()
+        .addP2P(CURRENCY, "brus", "brus")
+        .withGateway(BrusnikaPayment.settings(ctx.uuid), "brus")
+        .withGateway(IronpayPayment.settings(ctx.uuid), "iron")
+        .withGateway(MadsolutionPayment.settings(ctx.uuid), "mad")
+        .build();
+      await merchant.set_settings(settings);
+      console.dir(settings, { depth: Infinity });
+
+      let routing_rules = ctx
+        .routing_builder(merchant.id, "brus")
+        .addStatusRoute("iron");
+      await routing_rules.save();
+      console.dir(routing_rules.rules, { depth: Infinity });
+
+      let ironpay_payment = new IronpayPayment();
+      let handlers = Promise.all([
+        brusnika.queue(BrusnikaPayment.no_requisites_handler()),
+        ironpay.queue(ironpay_payment.create_handler()),
+      ]);
+      let notification = merchant.queue_notification((callback) => {
+        assert.strictEqual(callback.status, "declined");
+      });
+
+      let result = await merchant.create_payment({
+        ...common.paymentRequest(CURRENCY),
+        bank_account: { requisite_type: "card" },
+      });
+      await result
+        .followFirstProcessingUrl()
+        .then((r) => r.as_trader_requisites());
+      // ironpay.queue(ironpay_payment.status_handler("Approved"));
+      setTimeout(() => {
+        ironpay_payment
+          .send_callback("Approved", ctx.uuid)
+          .then(() => console.log("sent callback"));
+      }, 10_000);
 
       await handlers;
       await notification;

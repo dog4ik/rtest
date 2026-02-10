@@ -54,7 +54,6 @@ function manypaySuite() {
     gw,
   } satisfies Callback & Status & { gw: ManypayPayout };
 }
-manypaySuite().gw;
 
 const OPTS: TestCaseOptions = { skip_if: !CONFIG.extra_mapping?.["manypay"] };
 
