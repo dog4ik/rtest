@@ -1,14 +1,12 @@
 import * as common from "@/common";
-import {
-  IronpayMethodMap,
-  IronpayPayment,
-} from "@/provider_mocks/ironpay";
+import { IronpayMethodMap, IronpayPayment } from "@/provider_mocks/ironpay";
 import { payinSuite } from "@/provider_mocks/ironpay";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
   payformDataFlowTest,
   statusFinalizationSuite,
+  type P2PSuite,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
 import { CONFIG, PROJECT } from "@/config";
@@ -18,10 +16,11 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
-function ironpaySuite() {
-  let suite = payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" });
+function ironpaySuite(): P2PSuite<IronpayPayment> {
+  let suite = payinSuite(CURRENCY);
   return {
     ...suite,
+    settings: (secret) => providers(CURRENCY, suite.settings(secret)),
     request(): common.PaymentRequest {
       if (PROJECT === "8pay") {
         return {
@@ -73,7 +72,7 @@ test.concurrent("ironpay no requisities decline", async ({ ctx }) => {
 
 describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
   dataFlowTest("sbp bank_account", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -99,7 +98,7 @@ describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
   });
 
   dataFlowTest("card bank_account", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -127,7 +126,7 @@ describe.skipIf(CONFIG.project === "8pay").concurrent("ironpay pcidss", () => {
 
 describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   dataFlowTest("sbp extra_return_param", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -149,7 +148,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   });
 
   dataFlowTest("payment_method", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...IronpayPayment.settings(secret),
@@ -171,7 +170,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   });
 
   dataFlowTest("use_settings_method_priority", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...IronpayPayment.settings(secret),
@@ -195,7 +194,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   });
 
   dataFlowTest("card extra_return_param", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -217,7 +216,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   });
 
   payformDataFlowTest("card", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...IronpayPayment.settings(secret),
@@ -243,7 +242,7 @@ describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
   });
 
   payformDataFlowTest("sbp", {
-    ...payinSuite(CURRENCY, { spinpay: PROJECT === "spinpay" }),
+    ...ironpaySuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...IronpayPayment.settings(secret),

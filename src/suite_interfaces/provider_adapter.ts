@@ -58,7 +58,9 @@ export class ProviderAdapter<G = unknown> {
 
   /** Queue no-requisites handler (for routing/decline tests) */
   queueNoRequisites(): Promise<unknown> {
-    return this.provider.queue(this.suite.no_requisites_handler());
+    return this.provider.queue(
+      this.suite.no_requisites_handler(this.provider, this.secret),
+    );
   }
 
   /** Send callback to the system */
@@ -77,7 +79,6 @@ export class ProviderAdapter<G = unknown> {
       assert.strictEqual(c.status, "declined");
     });
   }
-
 
   /** Create a payment or payout depending on suite type, handling cashin for payouts */
   async createTransaction() {

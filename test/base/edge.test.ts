@@ -117,10 +117,11 @@ test.concurrent(
       });
 
       await merchant.cashout("RUB", common.amount / 100);
-      let refundRes = await merchant.create_refund({
+      let err = await merchant.create_refund_err({
         token: res.token,
         amount: common.amount,
       });
+      err.as_common_error().assert_error([{ code: "amount_no_money" }]);
 
       await refund_notification;
 

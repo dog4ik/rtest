@@ -6,6 +6,7 @@ import {
   dataFlowTest,
   payformDataFlowTest,
   statusFinalizationSuite,
+  providersSuite,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
 import { CONFIG, PROJECT } from "@/config";
@@ -15,8 +16,10 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
-callbackFinalizationSuite(payinSuite);
-statusFinalizationSuite(payinSuite);
+let brusnikaSuite = () => providersSuite(CURRENCY, payinSuite);
+
+callbackFinalizationSuite(brusnikaSuite);
+statusFinalizationSuite(brusnikaSuite);
 
 test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
   await ctx.track_bg_rejections(async () => {
@@ -45,7 +48,7 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
 
 describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   dataFlowTest("extra_return_param sbp", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     request() {
       return { ...common.paymentRequest(CURRENCY), extra_return_param: "SBP" };
     },
@@ -63,7 +66,7 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   });
 
   dataFlowTest("extra_return_param cards", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     request() {
       return {
         ...common.paymentRequest(CURRENCY),
@@ -84,7 +87,7 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   });
 
   payformDataFlowTest("card", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     settings: (secret) =>
       providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
@@ -109,7 +112,7 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   });
 
   payformDataFlowTest("sbp", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     settings: (secret) =>
       providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
@@ -135,7 +138,7 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   });
 
   dataFlowTest("payment_method", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
@@ -157,7 +160,7 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
   });
 
   dataFlowTest("use_settings_method_priority", {
-    ...payinSuite(CURRENCY),
+    ...brusnikaSuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...BrusnikaPayment.settings(secret),
@@ -185,7 +188,7 @@ describe
   .skipIf(CONFIG.project === "8pay")
   .concurrent("brusnika pcidss requisite", () => {
     dataFlowTest("bank_account sbp", {
-      ...payinSuite(CURRENCY),
+      ...brusnikaSuite(),
       request() {
         return {
           ...common.paymentRequest(CURRENCY),
@@ -207,7 +210,7 @@ describe
     });
 
     dataFlowTest("bank_account card", {
-      ...payinSuite(CURRENCY),
+      ...brusnikaSuite(),
       request() {
         return {
           ...common.paymentRequest(CURRENCY),

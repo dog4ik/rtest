@@ -5,7 +5,11 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import { CONFIG } from "@/config";
 import { test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
-import { SettingsBuilder } from "@/settings_builder";
+import {
+  defaultSettings,
+  providers,
+  SettingsBuilder,
+} from "@/settings_builder";
 import type { Context } from "@/test_context/context";
 import type { ProviderInstance } from "@/mock_server/instance";
 import { delay } from "@std/async";
@@ -441,17 +445,6 @@ export function routingFinalizationSuite(
         let { merchant, chain } = await setupRoutingChain(ctx, currency, links);
         console.log({ merchant, chain_descriptor, type: "before" });
         let approved_notification = merchant.queue_notification((n) => {
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
-          console.log("MERCHANT NOTIFICATION");
           assert.strictEqual(n.status, "approved");
         });
         let last_link = links[links.length - 1] as Routable & Callback;
@@ -468,4 +461,32 @@ export function routingFinalizationSuite(
         await approved_notification;
       }),
   );
+}
+
+/**
+ * Factory for creating suite that uses full default settings
+ * FIX: This is stupid, find a better way to decide what settings type should be used with the suite
+ */
+export function defaultSuite<
+  T extends { settings: (secret: string) => Record<string, any> },
+>(currency: string, suite: (currency?: string) => T): T {
+  let target = suite(currency);
+  return {
+    ...target,
+    settings: (secret: string) =>
+      defaultSettings(currency, target.settings(secret)),
+  };
+}
+
+/**
+ * Factory for creating suite that uses full providers settings
+ */
+export function providersSuite<
+  T extends { settings: (secret: string) => Record<string, any> },
+>(currency: string, suite: (currency?: string) => T): T {
+  let target = suite(currency);
+  return {
+    ...target,
+    settings: (secret: string) => providers(currency, target.settings(secret)),
+  };
 }

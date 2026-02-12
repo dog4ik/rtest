@@ -105,6 +105,18 @@ export function p2pPaymentRequest(currency: string, requisite_type: Requisite) {
   }
 }
 
+export function maskCard(card: string): string {
+  if (card.length < 10) {
+    return card;
+  }
+
+  const first6 = card.slice(0, 6);
+  const last4 = card.slice(-4);
+  const masked = "*".repeat(card.length - 10);
+
+  return first6 + masked + last4;
+}
+
 export function nginx500(c: HttpContext): Response {
   c.status(500);
   return c.html(`<!DOCTYPE html>
@@ -132,6 +144,24 @@ export function cardObject(): CardObject {
     pan: visaCard,
     holder: "Test holder",
     expires: "02/2077",
+  };
+}
+
+export function browserObject() {
+  return {
+    accept_header: "application/json, text/plain, */*",
+    color_depth: "24",
+    ip: "102.129.158.25",
+    java_enabled: "false",
+    javascript_enabled: "true",
+    language: "en",
+    screen_height: "960",
+    screen_width: "1536",
+    tz: "-180",
+    user_agent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    window_height: "839",
+    window_width: "1536",
   };
 }
 

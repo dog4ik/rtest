@@ -13,10 +13,13 @@ import {
   dataFlowTest,
   payformDataFlowTest,
   statusFinalizationSuite,
+  providersSuite,
 } from "@/suite_interfaces";
 
 const CURRENCY = "RUB";
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
+
+let millenniumSuite = () => providersSuite(CURRENCY, payinSuite);
 
 async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   let uuid = crypto.randomUUID();
@@ -34,7 +37,7 @@ async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
 
 describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
   payformDataFlowTest("cards", {
-    ...payinSuite(CURRENCY),
+    ...millenniumSuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...MillenniumTransaction.settings(secret),
@@ -60,7 +63,7 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
   });
 
   payformDataFlowTest("sbp", {
-    ...payinSuite(CURRENCY),
+    ...millenniumSuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...MillenniumTransaction.settings(secret),
@@ -86,7 +89,7 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
   });
 
   payformDataFlowTest("qr", {
-    ...payinSuite(CURRENCY),
+    ...millenniumSuite(),
     settings(secret) {
       return providers(CURRENCY, {
         ...MillenniumTransaction.settings(secret),
@@ -115,7 +118,7 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
 });
 
 function millennumSuite() {
-  return payinSuite(CURRENCY);
+  return millenniumSuite();
 }
 
 describe
@@ -166,7 +169,7 @@ describe
     statusFinalizationSuite(millennumSuite);
 
     dataFlowTest("extra_return_param sbp", {
-      ...payinSuite(CURRENCY),
+      ...millenniumSuite(),
       settings: (secret) =>
         providers(CURRENCY, {
           ...MillenniumTransaction.settings(secret),
@@ -189,7 +192,7 @@ describe
     });
 
     dataFlowTest("extra_return_param cards", {
-      ...payinSuite(CURRENCY),
+      ...millenniumSuite(),
       settings: (secret) =>
         providers(CURRENCY, {
           ...MillenniumTransaction.settings(secret),
