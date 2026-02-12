@@ -7,6 +7,7 @@ import {
 } from "./traderFetchClient";
 import { assert } from "vitest";
 import type { Context } from "@/test_context/context";
+import type { PrimeBusinessStatus } from "@/db/business";
 
 const BANKLIST = [
   "sberbank",
@@ -227,6 +228,13 @@ export class TraderDriver {
         params: { path: { id: feed_id } },
       })
       .then(throwResponseErrors);
+  }
+
+  async update_dispute(id: number, status: PrimeBusinessStatus) {
+    return await this.client.PUT("/api/disputes/{id}", {
+      params: { path: { id } },
+      body: { status },
+    });
   }
 
   async decline_transaction(feed_id: number) {

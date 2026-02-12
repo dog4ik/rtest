@@ -1,7 +1,8 @@
 import * as common from "@/common";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT, test } from "@/test_context";
+import { CONFIG, PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { assert } from "vitest";
 
 const CURRENCY = "RUB";

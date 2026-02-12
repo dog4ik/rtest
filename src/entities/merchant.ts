@@ -51,7 +51,6 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     settings_service,
     business_url,
     mock_servers,
-    guard_service,
     commission_service,
   } = ctx.shared_state();
   async function wallets() {
@@ -62,6 +61,12 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     ctx.story.add_chapter(`MID ${merchant.id} cashin`, `${currency} ${amount}`);
     return core_harness.cashin(merchant.id, currency, amount);
   }
+
+  async function cashout(currency: string, amount: number) {
+    ctx.story.add_chapter(`MID ${merchant.id} cashout`, `${currency} ${amount}`);
+    return core_harness.cashout(merchant.id, currency, amount);
+  }
+
 
   async function set_limits(min: number, max: number) {
     let rule = new RuleBuilder()
@@ -74,7 +79,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         },
       })
       .build();
-    return guard_service.add_rule(rule, `Mid limits`, 1);
+    return ctx.add_flexy_guard_rule(rule, `Mid ${merchant.id} limits`, 1);
   }
 
   /**
@@ -276,6 +281,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     wallets,
     set_limits,
     cashin,
+    cashout,
     set_settings,
     create_payment_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req),
@@ -291,6 +297,8 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       create_payout(req).then((r) => r.as_error().as_common_error()),
     create_refund: (req: RefundRequest) =>
       create_refund(req).then((r) => r.as_ok()),
+    create_refund_err: (req: RefundRequest) =>
+      create_refund(req).then((r) => r.as_error()),
     create_dispute: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_ok()),
     create_dispute_err: (req: DisputeRequest) =>

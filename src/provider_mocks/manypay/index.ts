@@ -2,6 +2,10 @@ import { err_bad_status } from "@/fetch_utils";
 import { z } from "zod";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { assert } from "vitest";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { Status, Callback } from "@/suite_interfaces";
+import * as common from "@/common";
+import { SettingsBuilder } from "@/settings_builder";
 
 export const ManypayStatusMap = {
   ACTIVE: 1,
@@ -12,7 +16,8 @@ export const ManypayStatusMap = {
   VALIDATION: 6,
 } as const;
 
-export type ManypayStatus = (typeof ManypayStatusMap)[keyof typeof ManypayStatusMap];
+export type ManypayStatus =
+  (typeof ManypayStatusMap)[keyof typeof ManypayStatusMap];
 
 const PayoutRequestSchema = z.object({
   amount: z.number(),
@@ -193,4 +198,35 @@ export class ManypayPayout {
       },
     };
   }
+}
+
+export function payoutSuite(
+  currency = "RUB",
+): Callback<ManypayPayout> & Status<ManypayPayout> {
+  let gw = new ManypayPayout();
+  let statusMap: Record<PrimeBusinessStatus, ManypayStatus> = {
+    approved: ManypayStatusMap.SUCCESSFUL,
+    declined: ManypayStatusMap.CANCELED,
+    pending: ManypayStatusMap.PENDING,
+  };
+  return {
+    type: "payout",
+    send_callback: async (status, _) => {
+      await gw.send_callback(statusMap[status]);
+    },
+    create_handler: (s) => gw.create_handler(statusMap[s]),
+    mock_options: ManypayPayout.mock_params,
+    request: () => ({
+      ...common.payoutRequest(currency),
+      card: { pan: common.visaCard },
+    }),
+    settings: (secret) =>
+      new SettingsBuilder()
+        .addP2P(currency, "manypay")
+        .withGateway(ManypayPayout.settings(secret), "manypay")
+        .withGatewayParam("skip_card_payout_validation", true)
+        .build(),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
+    gw,
+  };
 }

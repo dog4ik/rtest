@@ -1,58 +1,23 @@
-import type { PrimeBusinessStatus } from "@/db/business";
 import * as common from "@/common";
-import {
-  ManypayPayout,
-  type ManypayStatus,
-  ManypayStatusMap,
-} from "@/provider_mocks/manypay";
+import { ManypayPayout, ManypayStatusMap } from "@/provider_mocks/manypay";
+import { payoutSuite } from "@/provider_mocks/manypay";
 import {
   callbackFinalizationSuite,
+  concurrentCallbackSuite,
   dataFlowTest,
   statusFinalizationSuite,
-  type Callback,
-  type Status,
   type TestCaseOptions,
 } from "@/suite_interfaces";
-import {
-  defaultSettings,
-  providers,
-  SettingsBuilder,
-} from "@/settings_builder";
-import { CONFIG, test } from "@/test_context";
-import { assert } from "vitest";
+import { defaultSettings, providers } from "@/settings_builder";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
+import { assert, describe } from "vitest";
 import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
 
 function manypaySuite() {
-  let gw = new ManypayPayout();
-  let statusMap: Record<PrimeBusinessStatus, ManypayStatus> = {
-    approved: ManypayStatusMap.SUCCESSFUL,
-    declined: ManypayStatusMap.CANCELED,
-    pending: ManypayStatusMap.PENDING,
-  };
-  return {
-    type: "payout",
-    send_callback: async function (status, _) {
-      await gw.send_callback(statusMap[status]);
-    },
-    create_handler: (s) => gw.create_handler(statusMap[s]),
-    mock_options: ManypayPayout.mock_params,
-    request: function () {
-      return {
-        ...common.payoutRequest(CURRENCY),
-        card: { pan: common.visaCard },
-      };
-    },
-    settings: (secret) =>
-      new SettingsBuilder()
-        .addP2P(CURRENCY, "manypay")
-        .withGateway(ManypayPayout.settings(secret), "manypay")
-        .withGatewayParam("skip_card_payout_validation", true)
-        .build(),
-    status_handler: (s) => gw.status_handler(statusMap[s]),
-    gw,
-  } satisfies Callback & Status & { gw: ManypayPayout };
+  return payoutSuite(CURRENCY);
 }
 
 const OPTS: TestCaseOptions = { skip_if: !CONFIG.extra_mapping?.["manypay"] };
@@ -63,7 +28,7 @@ statusFinalizationSuite(manypaySuite, OPTS);
 dataFlowTest(
   "bank_list mapping",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return defaultSettings(CURRENCY, {
         ...ManypayPayout.settings(secret),
@@ -94,7 +59,7 @@ dataFlowTest(
 dataFlowTest(
   "bank_list mapping miss",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return defaultSettings(CURRENCY, {
         ...ManypayPayout.settings(secret),
@@ -125,7 +90,7 @@ dataFlowTest(
 dataFlowTest(
   "bank_list mapping default",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return defaultSettings(CURRENCY, {
         ...ManypayPayout.settings(secret),
@@ -157,7 +122,7 @@ dataFlowTest(
 dataFlowTest(
   "bank_list mapping default empty bank",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return defaultSettings(CURRENCY, {
         ...ManypayPayout.settings(secret),
@@ -188,7 +153,7 @@ dataFlowTest(
 dataFlowTest(
   "card extra_return_param",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     request() {
       return {
         ...common.payoutRequest(CURRENCY),
@@ -211,7 +176,7 @@ dataFlowTest(
 dataFlowTest(
   "card no bank",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     request() {
       return {
         ...common.payoutRequest(CURRENCY),
@@ -233,7 +198,7 @@ dataFlowTest(
 dataFlowTest(
   "sbp extra_return_param",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     request() {
       let req = common.payoutRequest(CURRENCY);
       return {
@@ -260,7 +225,7 @@ dataFlowTest(
 dataFlowTest(
   "sbp bank_account",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return providers(CURRENCY, ManypayPayout.settings(secret));
     },
@@ -293,7 +258,7 @@ dataFlowTest(
 dataFlowTest(
   "card bank_account",
   {
-    ...manypaySuite(),
+    ...payoutSuite(CURRENCY),
     settings(secret) {
       return providers(CURRENCY, ManypayPayout.settings(secret));
     },
@@ -331,12 +296,10 @@ test
       await merchant.set_settings(
         providers(CURRENCY, ManypayPayout.settings(ctx.uuid)),
       );
-      let suite = manypaySuite();
+      let suite = payoutSuite(CURRENCY);
       let payout = suite.gw;
       let manypay = ctx.mock_server(suite.mock_options(ctx.uuid));
-      manypay.queue(
-        payout.create_handler(ManypayStatusMap.PENDING),
-      );
+      manypay.queue(payout.create_handler(ManypayStatusMap.PENDING));
 
       let notification = merchant.queue_notification((n) => {
         assert.strictEqual(
@@ -365,3 +328,9 @@ test
       assert.strictEqual(payment.status, "approved");
     }),
   );
+
+describe
+  .runIf(CONFIG.extra_mapping?.["manypay"])
+  .concurrent("concurrent calbacks", () => {
+    concurrentCallbackSuite(manypaySuite);
+  });

@@ -12,7 +12,8 @@ import {
   type Status,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { PROJECT, test } from "@/test_context";
+import { PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import { EightpayRequesiteSchema } from "@/entities/payment/processing_url_response";

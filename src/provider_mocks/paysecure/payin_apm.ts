@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { assert } from "vitest";
 import { z } from "zod";
 import { sign } from "./signature";
-import { CONFIG } from "@/test_context";
+import { CONFIG } from "@/config";
 
 export type PaysecureStatus =
   | "paid"

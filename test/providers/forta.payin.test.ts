@@ -1,47 +1,33 @@
-import type { PrimeBusinessStatus } from "@/db/business";
-import { z } from "zod";
 import * as common from "@/common";
-import { FortaPayment, type FortaPaymentStatus } from "@/provider_mocks/forta";
+import { FortaPayment } from "@/provider_mocks/forta";
+import { payinSuite } from "@/provider_mocks/forta";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
   payformDataFlowTest,
-  type Callback,
   type PayformDataFlow,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT, test } from "@/test_context";
+import { CONFIG, PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { assert, describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { err_bad_status } from "@/fetch_utils";
 import { EightpayTpayQrForm, type Platform } from "@/pages/8pay_tpayform";
+import { z } from "zod";
 
 const CURRENCY = "RUB";
 
 function fortaSuite() {
-  let gw = new FortaPayment();
-  let statusMap: Record<PrimeBusinessStatus, FortaPaymentStatus> = {
-    approved: "PAID",
-    declined: "CANCELED",
-    pending: "INPROGRESS",
-  };
+  let suite = payinSuite(CURRENCY);
   return {
-    send_callback: async function (status, secret) {
-      await gw.send_callback(statusMap[status], secret);
-    },
-    create_handler: (s) => gw.create_handler(statusMap[s]),
-    mock_options: FortaPayment.mock_params,
-    type: "payin",
-    request: function () {
-      return common.paymentRequest(CURRENCY);
-    },
-    settings: (secret) =>
+    ...suite,
+    settings: (secret: string) =>
       providers(CURRENCY, {
         ...FortaPayment.settings(secret),
         wrapped_to_json_response: true,
       }),
-    gw,
-  } satisfies Callback & { gw: FortaPayment };
+  };
 }
 
 describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
@@ -95,11 +81,6 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
   describe.concurrent("forta 8pay requisite", () => {
     dataFlowTest("extra_return_param sbp", {
       ...fortaSuite(),
-      settings: (secret) =>
-        providers(CURRENCY, {
-          ...FortaPayment.settings(secret),
-          wrapped_to_json_response: true,
-        }),
       request() {
         return {
           ...common.paymentRequest(CURRENCY),
@@ -121,11 +102,6 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
 
     dataFlowTest("extra_return_param cards", {
       ...fortaSuite(),
-      settings: (secret) =>
-        providers(CURRENCY, {
-          ...FortaPayment.settings(secret),
-          wrapped_to_json_response: true,
-        }),
       request() {
         return {
           ...common.paymentRequest(CURRENCY),
@@ -147,11 +123,6 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
 
     dataFlowTest("extra_return_param tbank", {
       ...fortaSuite(),
-      settings: (secret) =>
-        providers(CURRENCY, {
-          ...FortaPayment.settings(secret),
-          wrapped_to_json_response: true,
-        }),
       request() {
         return {
           ...common.paymentRequest(CURRENCY),
@@ -185,7 +156,7 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
 
 describe.runIf(PROJECT == "8pay").concurrent("forta 8pay form", () => {
   payformDataFlowTest("card", {
-    ...fortaSuite(),
+    ...payinSuite(CURRENCY),
     settings: (secret) =>
       providers(CURRENCY, {
         ...FortaPayment.settings(secret),
@@ -210,7 +181,7 @@ describe.runIf(PROJECT == "8pay").concurrent("forta 8pay form", () => {
   });
 
   payformDataFlowTest("sbp", {
-    ...fortaSuite(),
+    ...payinSuite(CURRENCY),
     settings: (secret) =>
       providers(CURRENCY, {
         ...FortaPayment.settings(secret),
@@ -238,7 +209,7 @@ describe.runIf(PROJECT == "8pay").concurrent("forta 8pay form", () => {
   });
 
   const tpaySuite = (platform: Platform): PayformDataFlow => ({
-    ...fortaSuite(),
+    ...payinSuite(CURRENCY),
     settings: (secret) =>
       providers(CURRENCY, {
         ...FortaPayment.settings(secret),

@@ -1,6 +1,7 @@
 import * as common from "@/common";
 import { traderSetttings, type Bank, type Requisite } from "@/driver/trader";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
 import { assert, describe } from "vitest";
 
 describe

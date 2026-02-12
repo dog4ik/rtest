@@ -1,4 +1,4 @@
-import { CONFIG } from "./test_context";
+import { CONFIG } from "@/config";
 
 export type AnyRecord = Record<string, any>;
 

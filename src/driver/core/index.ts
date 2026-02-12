@@ -29,6 +29,18 @@ export type TraderMethodToggle = {
   link_enabled: boolean;
 };
 
+const DateFormatter = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const TimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 export class CoreDriver {
   cookies: string | null;
   base_url: string;
@@ -53,6 +65,21 @@ export class CoreDriver {
       body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        cookie: this.cookies ?? "",
+      },
+    }).then(err_bad_status);
+    let cookie = res.headers.get("set-cookie");
+    if (cookie !== null) {
+      this.cookies = cookie;
+    }
+  }
+
+  private async form_action(path: string, body: FormData, method?: string) {
+    let res = await fetch(this.base_url + path, {
+      method: method ?? "POST",
+      redirect: "manual",
+      body,
+      headers: {
         cookie: this.cookies ?? "",
       },
     }).then(err_bad_status);
@@ -180,18 +207,6 @@ export class CoreDriver {
     amount: number,
     to_account_id?: number,
   ) {
-    let dateFormatter = new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-
-    let timeFormatter = new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-
     let now = new Date();
     let params = {
       utf8: "",
@@ -201,12 +216,37 @@ export class CoreDriver {
       amount,
       to_account_id: to_account_id ? to_account_id.toString() : "",
       "payment_request[currency]": currency,
-      date: dateFormatter.format(now),
-      time: timeFormatter.format(now),
+      date: DateFormatter.format(now),
+      time: TimeFormatter.format(now),
       description: "",
       commit: "Create",
     };
     await this.action("/transfers?direction=in", params);
+  }
+
+  async cashout(
+    mid: number,
+    currency: string,
+    amount: number,
+  ) {
+    let now = new Date();
+    let form = new FormData();
+    form.append("utf8", "✓");
+    form.append("profile_id", mid);
+    form.append("recipient_name", "");
+    form.append("amount", amount);
+    form.append("payment_request[currency]", currency);
+    form.append("date", DateFormatter.format(now));
+    form.append("time", TimeFormatter.format(now));
+    form.append("description", "");
+
+    // For the empty file attachment
+    const emptyBlob = new Blob([], { type: "application/octet-stream" });
+    form.append("payment_request[attachments][]", emptyBlob, "");
+
+    form.append("commit", "Создать");
+
+    await this.form_action("/transfers?direction=out", form);
   }
 
   // TODO: status is not a CoreStatus, it should be string.

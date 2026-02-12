@@ -1,9 +1,11 @@
-import { CONFIG, test } from "@/test_context";
-import * as millennium from "@/provider_mocks/millennium";
+import { CONFIG, PROJECT } from "@/config";
+import { test } from "@/test_context";
 import * as common from "@/common";
-import { providers } from "@/settings_builder";
 import { describe } from "vitest";
-import type { Context } from "@/test_context/context";
+import { ProviderAdapter } from "@/suite_interfaces/provider_adapter";
+import * as millennium from "@/provider_mocks/millennium";
+import * as flintpays from "@/provider_mocks/flintpays";
+import type { P2PSuite } from "@/suite_interfaces";
 
 function payoutRequest(currency?: string) {
   return {
@@ -12,26 +14,32 @@ function payoutRequest(currency?: string) {
   };
 }
 
-async function setupMerchant(ctx: Context) {
-  let merchant = await ctx.create_random_merchant();
-  await merchant.set_settings(
-    providers("RUB", millennium.MillenniumTransaction.settings(ctx.uuid)),
-  );
-  ctx.mock_server(millennium.MillenniumTransaction.mock_params(ctx.uuid));
+function payoutSuite(): P2PSuite<unknown> {
+  if (PROJECT === "spinpay") {
+    return flintpays.payoutSuite();
+  } else {
+    return millennium.payoutSuite();
+  }
+}
 
-  return merchant;
+function payinSuite(): P2PSuite<unknown> {
+  if (PROJECT === "spinpay") {
+    return flintpays.payinSuite();
+  } else {
+    return millennium.payinSuite();
+  }
 }
 
 describe.concurrent("errors before processingUrl", () => {
   test.concurrent("fields validation", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
-      let merchant = await setupMerchant(ctx);
-      let err = await merchant.create_payout_err({
+      let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+      let err = await adapter.merchant.create_payout_err({
         product: "Tests",
         order_number: "993463668022",
         currency: "RUB",
         card: {
-          pan: "4627342642639018",
+          pan: common.visaCard,
         },
         customer: {
           ip: "127.0.0.1",
@@ -46,24 +54,34 @@ describe.concurrent("errors before processingUrl", () => {
 
   test.concurrent("payout no balance", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
-      let merchant = await setupMerchant(ctx);
-      let error = await merchant.create_payout_err(payoutRequest());
-      error.assert_error([
-        { code: "amount_less_than_balance", kind: "processing_error" },
-      ]);
+      if (PROJECT === "spinpay") {
+        let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+        let res = await adapter.merchant.create_payout(payoutRequest());
+        let error = await res
+          .followFirstProcessingUrl()
+          .then((r) => r.as_error());
+        error.assert_error([
+          { code: "amount_not_enough_money", kind: "amount" },
+        ]);
+      } else {
+        let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+        let error = await adapter.merchant.create_payout_err(payoutRequest());
+        error.assert_error([
+          { code: "amount_less_than_balance", kind: "processing_error" },
+        ]);
+      }
     });
   });
 
   test.concurrent("payout unexpected currency", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
-      let merchant = await ctx.create_random_merchant();
-      await merchant.set_settings(
-        providers("RUB", millennium.MillenniumTransaction.settings(ctx.uuid)),
+      let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+      let error = await adapter.merchant.create_payout_err(
+        payoutRequest("EUR"),
       );
-      let error = await merchant.create_payout_err(payoutRequest("EUR"));
       error.assert_error([
         {
-          code: `absent_keys:Currency EUR is not active for merchant ${merchant.merchant_private_key}`,
+          code: `absent_keys:Currency EUR is not active for merchant ${adapter.merchant.merchant_private_key}`,
           kind: "settings_error",
         },
       ]);
@@ -77,10 +95,10 @@ describe
   .concurrent("errors after processingUrl", () => {
     test.concurrent("payout traffic blocked", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
-        let merchant = await setupMerchant(ctx);
-        await merchant.block_traffic();
-        await merchant.cashin("RUB", common.amount / 100);
-        let res = await merchant.create_payout(payoutRequest());
+        let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+        await adapter.merchant.block_traffic();
+        await adapter.merchant.cashin("RUB", common.amount / 100);
+        let res = await adapter.merchant.create_payout(payoutRequest());
         let error = await res
           .followFirstProcessingUrl()
           .then((r) => r.as_error());
@@ -90,10 +108,13 @@ describe
 
     test.concurrent("payout flexy limit", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
-        let merchant = await setupMerchant(ctx);
-        await merchant.cashin("RUB", (common.amount / 100) * 100);
-        await merchant.set_limits(100, 1000);
-        let res = await merchant.create_payout(payoutRequest());
+        let adapter = await ProviderAdapter.create(ctx, payoutSuite());
+        await adapter.merchant.cashin("RUB", (common.amount / 100) * 100);
+        await adapter.merchant.set_limits(100, 1000);
+        let res = await adapter.merchant.create_payout(payoutRequest());
+        let ress = await adapter
+          .createAndFollow()
+          .then((v) => v.processing_response?.as_error() ?? v.create_response);
         let error = await res
           .followFirstProcessingUrl()
           .then((r) => r.as_error());
@@ -107,21 +128,25 @@ describe
 
     test.concurrent("payin traffic blocked", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
-        let merchant = await setupMerchant(ctx);
-        await merchant.block_traffic();
-        let res = await merchant.create_payment(common.paymentRequest("RUB"));
+        let adapter = await ProviderAdapter.create(ctx, payinSuite());
+        await adapter.merchant.block_traffic();
+        let res = await adapter.merchant.create_payment(
+          common.paymentRequest("RUB"),
+        );
         let error = await res
           .followFirstProcessingUrl()
           .then((r) => r.as_error());
-        error.assert_error([{ code: "traffic_blocked" }]);
+        error.assert_error([{ code: "traffic_blocked", kind: "api_error" }]);
       });
     });
 
     test.concurrent("payin flexy limit", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
-        let merchant = await setupMerchant(ctx);
-        await merchant.set_limits(100, 1000);
-        let res = await merchant.create_payment(common.paymentRequest("RUB"));
+        let adapter = await ProviderAdapter.create(ctx, payinSuite());
+        await adapter.merchant.set_limits(100, 1000);
+        let res = await adapter.merchant.create_payment(
+          common.paymentRequest("RUB"),
+        );
         let error = await res
           .followFirstProcessingUrl()
           .then((r) => r.as_error());

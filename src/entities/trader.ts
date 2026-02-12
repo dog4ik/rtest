@@ -17,6 +17,7 @@ export function extendTrader(ctx: Context, trader: Trader) {
     wallets,
     driver,
     finalizeTransaction,
+    finalize_dispute,
     enable_trader_method,
     ...trader,
   };
@@ -50,6 +51,14 @@ async function finalizeTransaction(
     await this.driver.decline_transaction(feed.id);
   }
   return feed;
+}
+
+async function finalize_dispute(
+  this: ExtendedTrader,
+  dispute_id: number,
+  status: "approved" | "declined",
+) {
+  return this.driver.update_dispute(dispute_id, status);
 }
 
 async function setup(this: ExtendedTrader, params: Partial<SetupParams>) {

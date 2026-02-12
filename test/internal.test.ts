@@ -1,4 +1,5 @@
-import { CONFIG, test } from "@/test_context";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
 import { delay } from "@std/async";
 
 test.fails("test should fail after it finishes", async ({ ctx, skip }) => {

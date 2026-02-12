@@ -1,6 +1,7 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
 import { defaultSettings } from "@/settings_builder";
 import {
   DalapayTransaction,

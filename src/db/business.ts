@@ -4,7 +4,7 @@ import { Db, sqlProjection } from ".";
 import type { Project } from "@/project";
 import { CoreStatusMap, type CoreStatus } from "./core";
 import { delay } from "@std/async";
-import { PROJECT } from "@/test_context";
+import { PROJECT } from "@/config";
 
 export const OperationTypeSchema = z.enum([
   "pay",

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { assert } from "vitest";
 import { ErrorResponse } from "./error_response";
 import type { Context } from "@/test_context/context";
-import { CONFIG } from "@/test_context";
+import { CONFIG } from "@/config";
 
 export const EightpayRequesiteSchema = z.object({
   id: z.string().nonempty(),

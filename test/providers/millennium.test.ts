@@ -1,12 +1,11 @@
 import { describe, assert } from "vitest";
 import * as common from "@/common";
 import * as playwright from "playwright/test";
-import { CONFIG, PROJECT, test } from "@/test_context";
+import { CONFIG, PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { providers } from "@/settings_builder";
-import {
-  MillenniumTransaction,
-  type MillenniumStatus,
-} from "@/provider_mocks/millennium";
+import { MillenniumTransaction } from "@/provider_mocks/millennium";
+import { payinSuite } from "@/provider_mocks/millennium";
 import type { Context } from "@/test_context/context";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import {
@@ -14,10 +13,7 @@ import {
   dataFlowTest,
   payformDataFlowTest,
   statusFinalizationSuite,
-  type Callback,
-  type Status,
 } from "@/suite_interfaces";
-import type { PrimeBusinessStatus } from "@/db/business";
 
 const CURRENCY = "RUB";
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
@@ -38,7 +34,7 @@ async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
 
 describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
   payformDataFlowTest("cards", {
-    ...millennumSuite(),
+    ...payinSuite(CURRENCY),
     settings(secret) {
       return providers(CURRENCY, {
         ...MillenniumTransaction.settings(secret),
@@ -64,7 +60,7 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
   });
 
   payformDataFlowTest("sbp", {
-    ...millennumSuite(),
+    ...payinSuite(CURRENCY),
     settings(secret) {
       return providers(CURRENCY, {
         ...MillenniumTransaction.settings(secret),
@@ -89,22 +85,21 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
     },
   });
 
-  test.concurrent("millennium qr payform", async ({ ctx, browser }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, millennium, payment } = await setupMerchant(ctx, false);
-      millennium.queue(async (c) =>
-        c.json(payment.payin_create_response("WAIT", await c.req.json())),
-      );
-      millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
-
-      let result = await merchant.create_payment({
+  payformDataFlowTest("qr", {
+    ...payinSuite(CURRENCY),
+    settings(secret) {
+      return providers(CURRENCY, {
+        ...MillenniumTransaction.settings(secret),
+        wrapped_to_json_response: false,
+      });
+    },
+    request() {
+      return {
         ...common.paymentRequest(CURRENCY),
         extra_return_param: "SBP_aquiring",
-      });
-
-      let page = await browser.newPage();
-      await page.goto(result.firstProcessingUrl());
-
+      };
+    },
+    async check_pf_page(page) {
       let pf = new EightpayRequisitesPage(page);
       await Promise.all([
         playwright.expect(pf.amountSpan()).toBeVisible(),
@@ -115,45 +110,17 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
           .expect(pf.qrPayLink())
           .toHaveAttribute("href", common.redirectPayUrl),
       ]);
-
-      await merchant.queue_notification(async (notification) => {
-        assert.strictEqual(
-          notification.status,
-          "approved",
-          "merchant notification status",
-        );
-      });
-    });
+    },
   });
 });
 
 function millennumSuite() {
-  let gw = new MillenniumTransaction();
-  let statusMap: Record<PrimeBusinessStatus, MillenniumStatus> = {
-    approved: "ACCEPTED",
-    declined: "CANCELLED",
-    pending: "WAIT",
-  };
-  return {
-    type: "payin",
-    send_callback: async function (status, unique_secret) {
-      await gw.send_callback(statusMap[status], unique_secret);
-    },
-    create_handler: gw.payin_create_handler.bind(gw),
-    mock_options: MillenniumTransaction.mock_params,
-    request: function () {
-      return common.paymentRequest(CURRENCY);
-    },
-    settings: (secret) =>
-      providers(CURRENCY, MillenniumTransaction.settings(secret)),
-    status_handler: gw.status_handler.bind(gw),
-    gw,
-  } satisfies Callback & Status & { gw: MillenniumTransaction };
+  return payinSuite(CURRENCY);
 }
 
 describe
   .runIf(PROJECT === "8pay" || PROJECT === "reactivepay")
-  .concurrent(() => {
+  .concurrent("millennium pending url", () => {
     test.todo("millennium pending url", async ({ ctx, browser }) => {
       await ctx.track_bg_rejections(async () => {
         let { merchant, millennium, payment, uuid } = await setupMerchant(
@@ -199,7 +166,7 @@ describe
     statusFinalizationSuite(millennumSuite);
 
     dataFlowTest("extra_return_param sbp", {
-      ...millennumSuite(),
+      ...payinSuite(CURRENCY),
       settings: (secret) =>
         providers(CURRENCY, {
           ...MillenniumTransaction.settings(secret),
@@ -222,7 +189,7 @@ describe
     });
 
     dataFlowTest("extra_return_param cards", {
-      ...millennumSuite(),
+      ...payinSuite(CURRENCY),
       settings: (secret) =>
         providers(CURRENCY, {
           ...MillenniumTransaction.settings(secret),

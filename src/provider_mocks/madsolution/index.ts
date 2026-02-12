@@ -4,6 +4,9 @@ import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
 import { CurlBuilder } from "@/story/curl";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { P2PSuite } from "@/suite_interfaces";
+import { providers } from "@/settings_builder";
 
 const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP"]);
 
@@ -381,4 +384,26 @@ export class MadsolutionPayment {
       return c.json(MadsolutionPayment.no_requisites_response());
     };
   }
+}
+
+export function payinSuite(currency = "RUB"): P2PSuite<MadsolutionPayment> {
+  let gw = new MadsolutionPayment();
+  const StatusMapping: Record<PrimeBusinessStatus, MadsolutionStatus> = {
+    approved: "CONFIRMED",
+    declined: "CANCELED",
+    pending: "PENDING",
+  };
+  return {
+    type: "payin",
+    send_callback: async (status, _) => {
+      await gw.send_callback(StatusMapping[status]);
+    },
+    create_handler: (s) => gw.create_handler(StatusMapping[s]),
+    mock_options: MadsolutionPayment.mock_params,
+    request: () => common.p2pPaymentRequest(currency, "card"),
+    settings: (secret) => MadsolutionPayment.settings(secret),
+    status_handler: (s) => gw.status_handler(StatusMapping[s]),
+    no_requisites_handler: MadsolutionPayment.no_requisites_handler,
+    gw,
+  };
 }

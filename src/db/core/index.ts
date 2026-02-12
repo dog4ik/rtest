@@ -69,7 +69,7 @@ export const FeedTypeSchema = z.enum([
 ]);
 export type FeedType = z.infer<typeof FeedTypeSchema>;
 
-export const FeedSchema = z.object({
+const FeedFields = {
   id: z.int(),
   api_payment_token: z.string().nullable(),
   reference_token: z.string().nullable(),
@@ -90,7 +90,9 @@ export const FeedSchema = z.object({
   updated_at: z.date(),
   commission_amount: z.float64().nullable(),
   commission_provider_amount: z.float64().nullable(),
-});
+};
+
+export const FeedSchema = z.object(FeedFields);
 export type Feed = z.infer<typeof FeedSchema>;
 export const FeedQuery = sqlProjection("feeds", FeedSchema);
 
@@ -125,6 +127,20 @@ export class CoreDb extends Db {
   async feed(token: string) {
     let query = `select ${FeedQuery.select(this.project)} from feeds where feeds.api_payment_token = '${token}'`;
     return await this.fetch_one(FeedQuery.schema, query);
+  }
+
+  async disputes(token: string) {
+    let query = `select ${FeedQuery.select(this.project)}, disputes.id as "dispute_id", disputes.amount as "dispute_amount" from feeds
+join disputes on disputes.feed_id = feeds.id
+where feeds.reference_token = '${token}'`;
+    return await this.fetch_all(
+      z.object({
+        ...FeedFields,
+        dispute_id: z.int(),
+        dispute_amount: z.number(),
+      }),
+      query,
+    );
   }
 
   async bank_accounts(profile_id: number) {

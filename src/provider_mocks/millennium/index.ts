@@ -9,6 +9,8 @@ import type {
 import { err_bad_status } from "@/fetch_utils";
 import type { PrimeBusinessStatus } from "@/db/business";
 import { CurlBuilder } from "@/story/curl";
+import type { P2PSuite } from "@/suite_interfaces";
+import { defaultSettings, providers } from "@/settings_builder";
 
 import crypto from "node:crypto";
 
@@ -247,4 +249,41 @@ export class MillenniumTransaction {
       },
     };
   }
+}
+
+export function payinSuite(currency = "RUB"): P2PSuite<MillenniumTransaction> {
+  let gw = new MillenniumTransaction();
+  return {
+    type: "payin",
+    send_callback: async (status, secret) => {
+      await gw.send_callback(StatusMapping[status], secret);
+    },
+    create_handler: (s) => gw.payin_create_handler(s),
+    mock_options: MillenniumTransaction.mock_params,
+    request: () => common.p2pPaymentRequest(currency, "card"),
+    settings: (secret) => MillenniumTransaction.settings(secret),
+    status_handler: (s) => gw.status_handler(s),
+    no_requisites_handler: () => MillenniumTransaction.no_requisites_handler(),
+    gw,
+  };
+}
+
+export function payoutSuite(currency = "RUB"): P2PSuite<MillenniumTransaction> {
+  let gw = new MillenniumTransaction();
+  return {
+    type: "payout",
+    send_callback: async (status, secret) => {
+      await gw.send_callback(StatusMapping[status], secret);
+    },
+    create_handler: (s) => gw.payout_create_handler(s),
+    mock_options: MillenniumTransaction.mock_params,
+    request: () => ({
+      ...common.payoutRequest(currency),
+      card: { pan: common.visaCard },
+    }),
+    settings: (secret) => MillenniumTransaction.settings(secret),
+    status_handler: (s) => gw.status_handler(s),
+    no_requisites_handler: () => MillenniumTransaction.no_requisites_handler(),
+    gw,
+  };
 }

@@ -5,6 +5,9 @@ import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { assert } from "vitest";
 import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { P2PSuite } from "@/suite_interfaces";
+import { providers } from "@/settings_builder";
 
 const BankSchema = z.enum(["ANY", "SBP", "SBP_TG", "tpay"]);
 
@@ -221,4 +224,29 @@ export class FortaPayment {
       },
     };
   }
+}
+
+export function payinSuite(currency = "RUB"): P2PSuite<FortaPayment> {
+  let gw = new FortaPayment();
+  let statusMap: Record<PrimeBusinessStatus, FortaPaymentStatus> = {
+    approved: "PAID",
+    declined: "CANCELED",
+    pending: "INPROGRESS",
+  };
+  return {
+    type: "payin",
+    send_callback: async (status, secret) => {
+      await gw.send_callback(statusMap[status], secret);
+    },
+    create_handler: (s) => gw.create_handler(statusMap[s]),
+    mock_options: FortaPayment.mock_params,
+    request: () => common.p2pPaymentRequest(currency, "card"),
+    settings: (secret) => FortaPayment.settings(secret),
+    status_handler: (s) => {
+      // Forta doesn't have a native status handler, return create_handler as status
+      return gw.create_handler(statusMap[s]);
+    },
+    no_requisites_handler: () => FortaPayment.no_requisites_handler(),
+    gw,
+  };
 }

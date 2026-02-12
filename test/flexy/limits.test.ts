@@ -1,4 +1,5 @@
-import { CONFIG, test } from "@/test_context";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
 import { describe, assert, assertType } from "vitest";
 import * as common from "@/common";
 import { JusanPayment } from "@/provider_mocks/jusan";

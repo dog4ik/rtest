@@ -2,11 +2,12 @@ import type { Context } from "@/test_context/context";
 import { assert } from "vitest";
 import { z } from "zod";
 import { ErrorResponse } from "./error_response";
+import { PROJECT } from "@/config";
 
 const DisputeResponseSchema = z.object({
   success: z.literal(true),
   result: z.literal(0),
-  status: z.literal("declined"),
+  status: PROJECT == "8pay" ? z.literal("declined") : z.literal(200),
 });
 
 export class DisputeResponse {

@@ -1,4 +1,5 @@
-import type { Bank } from "./driver/trader";
+import { PROJECT } from "./config";
+import type { Bank, Requisite } from "./driver/trader";
 import type { HttpContext } from "./mock_server/api";
 
 type BankAccount = {
@@ -80,6 +81,28 @@ export function paymentRequest(currency: string): PaymentRequest {
     },
     product: "test product",
   };
+}
+
+export function p2pPaymentRequest(currency: string, requisite_type: Requisite) {
+  if (PROJECT === "8pay") {
+    const Mapping: Record<Requisite, string> = {
+      sbp: "SBP",
+      account: "",
+      card: "Cards",
+      link: "SBP_aquiring",
+    };
+    return {
+      ...paymentRequest(currency),
+      extra_return_param: Mapping[requisite_type],
+    };
+  } else {
+    return {
+      ...paymentRequest(currency),
+      bank_account: {
+        requisite_type: requisite_type,
+      },
+    };
+  }
 }
 
 export function nginx500(c: HttpContext): Response {

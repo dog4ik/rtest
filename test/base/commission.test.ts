@@ -5,6 +5,7 @@ import { test } from "@/test_context";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { providers } from "@/settings_builder";
 import { delay } from "@std/async";
+import { CONFIG } from "@/config";
 
 const CURRENCY = "RUB";
 let AMOUNT = 1000_00;
@@ -118,52 +119,54 @@ test.concurrent("brusnika(p2p) payin commission", async ({ ctx, brusnika }) => {
   assert.strictEqual(wallet.held, 0);
 });
 
-test.concurrent("default refund commission", async ({ ctx }) => {
-  let merchant = await ctx.create_random_merchant();
-  await merchant.set_settings(default_provider.fullSettings("RUB"));
-  await merchant.cashin("RUB", (common.amount / 100) * 0.1);
-  await merchant.set_commission({
-    operation: "RefundRequest",
-    self_rate: "10",
-    currency: "RUB",
-  });
+test
+  .skipIf(CONFIG.in_project("8pay"))
+  .concurrent("default refund commission", async ({ ctx }) => {
+    let merchant = await ctx.create_random_merchant();
+    await merchant.set_settings(default_provider.fullSettings("RUB"));
+    await merchant.cashin("RUB", (common.amount / 100) * 0.1);
+    await merchant.set_commission({
+      operation: "RefundRequest",
+      self_rate: "10",
+      currency: "RUB",
+    });
 
-  // merchant should get 3 notifications
-  let approveNotifiaction = merchant.queue_notification((n) => {
-    assert.strictEqual(n.status, "approved");
-  });
-  let refundNotification = merchant.queue_notification(
-    (n) => {
-      assert.strictEqual(n.status, "refunded");
-    },
-    { skip_healthcheck: true },
-  );
-  let refundApprovedNotificication = merchant.queue_notification(
-    (n) => {
+    // merchant should get 3 notifications
+    let approveNotifiaction = merchant.queue_notification((n) => {
       assert.strictEqual(n.status, "approved");
-      assert.strictEqual(n.type, "refund");
-    },
-    { skip_healthcheck: true },
-  );
+    });
+    let refundNotification = merchant.queue_notification(
+      (n) => {
+        assert.strictEqual(n.status, "refunded");
+      },
+      { skip_healthcheck: true },
+    );
+    let refundApprovedNotificication = merchant.queue_notification(
+      (n) => {
+        assert.strictEqual(n.status, "approved");
+        assert.strictEqual(n.type, "refund");
+      },
+      { skip_healthcheck: true },
+    );
 
-  let res = await merchant.create_payment(
-    default_provider.request("RUB", common.amount, "pay", true),
-  );
-  assert.strictEqual(res.payment.status, "approved");
+    let res = await merchant.create_payment(
+      default_provider.request("RUB", common.amount, "pay", true),
+    );
+    assert.strictEqual(res.payment.status, "approved");
 
-  let refundRes = await merchant.create_refund({ token: res.token });
-  let originalFeed = await ctx.get_feed(res.token);
-  assert.strictEqual(originalFeed.status, 4);
-  assert.strictEqual(originalFeed.commission_amount, 0);
-  let refundFeed = await ctx.get_feed(refundRes.refund.token);
-  assert.strictEqual(refundFeed.type, "RefundRequest");
-  assert.strictEqual(refundFeed.status, 1);
-  let wallet = (await merchant.wallets())[0];
-  assert.strictEqual(wallet.currency, CURRENCY);
-  assert.strictEqual(wallet.available, 0);
-  assert.strictEqual(wallet.held, 0);
+    let refundRes = await merchant.create_refund({ token: res.token });
+    let originalFeed = await ctx.get_feed(res.token);
+    assert.strictEqual(originalFeed.status, 4);
+    assert.strictEqual(originalFeed.commission_amount, 0);
+    let refundFeed = await ctx.get_feed(refundRes.refund.token);
+    assert.strictEqual(refundFeed.type, "RefundRequest");
+    assert.strictEqual(refundFeed.status, 1);
+    let wallet = (await merchant.wallets())[0];
+    assert.strictEqual(wallet.currency, CURRENCY);
+    assert.strictEqual(wallet.available, 0);
+    assert.strictEqual(wallet.held, 0);
 
-  await approveNotifiaction;
-  await refundNotification;
-  await refundApprovedNotificication;
-});
+    await approveNotifiaction;
+    await refundNotification;
+    await refundApprovedNotificication;
+  });

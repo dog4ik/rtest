@@ -6,7 +6,7 @@ import * as encoding from "@std/encoding";
 import { z } from "zod";
 import { StatusPage, ThreeDsForm } from "./threedspage";
 import type { PrimeBusinessStatus } from "@/db/business";
-import { CONFIG } from "@/test_context";
+import { CONFIG } from "@/config";
 
 const THREEDS_HANDLER_PATH = "/3dsHandler";
 

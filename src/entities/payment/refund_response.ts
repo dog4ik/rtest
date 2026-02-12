@@ -2,6 +2,7 @@ import { BusinessStatusSchema } from "@/db/business";
 import type { Context } from "@/test_context/context";
 import { assert } from "vitest";
 import { z } from "zod";
+import { ErrorResponse } from "./error_response";
 
 const NestedRefundSchema = z.object({
   token: z.string().length(32),
@@ -40,5 +41,10 @@ export class RefundResponse {
       );
     }
     return parsed.data;
+  }
+
+  as_error() {
+    assert.strictEqual(this.res.status, 403, "error should have 403 status");
+    return new ErrorResponse(this.res, this.json);
   }
 }

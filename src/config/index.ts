@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import z from "zod";
 import * as toml from "@std/toml";
-import { ProjectSchema } from "@/project";
+import { ProjectSchema, type Project } from "@/project";
 
 const DEFAULT_LOGIN_PASSWORD = {
   login: "admin@admin.admin",
@@ -105,3 +105,23 @@ export function open(path: string) {
     return CONFIG_SCHEMA.parse({});
   }
 }
+
+export const CONFIG = {
+  ...open("configuration.toml"),
+  dummyRsaPub() {
+    return this[this.project]!.dummy_rsa_public_key_path;
+  },
+  dummyRsa() {
+    return this[this.project]!.dummy_rsa_private_key_path;
+  },
+  dummyCert() {
+    return this[this.project]!.dummy_ssl_path;
+  },
+  in_project(projects: Project[] | Project) {
+    if (Array.isArray(projects)) {
+      return projects.includes(this.project);
+    }
+    return projects === this.project;
+  },
+};
+export const PROJECT = CONFIG.project;

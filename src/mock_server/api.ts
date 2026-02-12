@@ -32,7 +32,11 @@ export function spawn_provider_server(port: number): ProviderServerInstance {
         return await handler(c);
       }
     }
-    return c.json({ message: "unregistered server handler" });
+    return c.json({
+      message: "unregistered server handler",
+      path: c.req.path,
+      method: c.req.method,
+    });
   });
 
   let server = serve({
@@ -56,7 +60,11 @@ export function spawn_merchant_server(): MerchantServerInstance {
     if (handler !== undefined) {
       return await handler(c);
     }
-    return c.json({ message: "unregistered server handler" });
+    return c.json({
+      message: "unregistered merchant server handler",
+      path: c.req.path,
+      method: c.req.method,
+    });
   });
 
   let server = serve({

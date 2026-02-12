@@ -13,7 +13,7 @@ import {
   type Status,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { CONFIG } from "@/test_context";
+import { CONFIG } from "@/config";
 import { assert, describe } from "vitest";
 
 const CURRENCY = "RUB";

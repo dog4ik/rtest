@@ -1,6 +1,7 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
-import { CONFIG, test } from "@/test_context";
+import { CONFIG } from "@/config";
+import { test } from "@/test_context";
 import { providers } from "@/settings_builder";
 import { FlintpayOperation } from "@/provider_mocks/flintpays";
 import type { Context } from "@/test_context/context";

@@ -60,7 +60,7 @@ export class Context {
     let merchantInfo = await this.state.core_harness.create_random_merchant();
     let merchant = await this.state.core_db
       .merchantByEmail(merchantInfo.email)
-      .then(this.with_context(extendMerchant));
+      .then((m) => extendMerchant(this, m));
     await this.state.business_db.wait_for_settings_update(
       now,
       merchant.id,
@@ -149,6 +149,10 @@ export class Context {
 
   async get_feed(api_payment_token: string) {
     return await this.state.core_db.feed(api_payment_token);
+  }
+
+  async get_disputes(api_payment_token: string) {
+    return await this.state.core_db.disputes(api_payment_token);
   }
 
   async get_payment_by_gw_token(token: string) {

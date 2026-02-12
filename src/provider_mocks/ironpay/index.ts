@@ -4,6 +4,10 @@ import * as common from "@/common";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { assert } from "vitest";
 import { err_bad_status } from "@/fetch_utils";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { P2PSuite } from "@/suite_interfaces";
+import { providers } from "@/settings_builder";
+import { PROJECT } from "@/config";
 
 export type IronpayStatus = "Pending" | "Canceled" | "Approved";
 
@@ -232,4 +236,33 @@ export class IronpayPayment {
       },
     };
   }
+}
+
+export function payinSuite(
+  currency = "RUB",
+): P2PSuite<IronpayPayment> {
+  let gw = new IronpayPayment();
+  let statusMap: Record<PrimeBusinessStatus, IronpayStatus> = {
+    approved: "Approved",
+    declined: "Canceled",
+    pending: "Pending",
+  };
+  return {
+    type: "payin",
+    send_callback: async (status, secret) => {
+      await gw.send_callback(statusMap[status], secret);
+    },
+    create_handler: (_, ctx) => {
+      if (PROJECT === "spinpay") {
+        ctx.provider.queue(IronpayPayment.login_handler(ctx.ctx.uuid));
+      }
+      return gw.create_handler();
+    },
+    mock_options: IronpayPayment.mock_params,
+    request: () => common.paymentRequest(currency),
+    settings: (secret) => IronpayPayment.settings(secret),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
+    no_requisites_handler: () => IronpayPayment.no_requisites_handler(),
+    gw,
+  };
 }

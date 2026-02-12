@@ -1,7 +1,8 @@
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { defaultSettings } from "@/settings_builder";
-import { CONFIG, PROJECT, test } from "@/test_context";
+import { CONFIG, PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { TbankPayout } from "@/provider_mocks/tbank";
 import type { Context } from "@/test_context/context";
 

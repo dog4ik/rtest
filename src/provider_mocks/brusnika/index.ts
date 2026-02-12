@@ -8,6 +8,9 @@ import type {
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { P2PSuite } from "@/suite_interfaces";
+import { providers } from "@/settings_builder";
 
 const PAYMENT_METHOD_SCHEMA = z.enum([
   "toCard",
@@ -224,4 +227,26 @@ export class BrusnikaPayment {
       filter_fn: (req) => BrusnikaPayment.filter_fn(secret, req),
     };
   }
+}
+
+export function payinSuite(currency = "RUB"): P2PSuite<BrusnikaPayment> {
+  let gw = new BrusnikaPayment();
+  let statusMap: Record<PrimeBusinessStatus, BrusnikaPaymentStatus> = {
+    approved: "success",
+    declined: "failed",
+    pending: "in_progress",
+  };
+  return {
+    type: "payin",
+    send_callback: async (status, _) => {
+      await gw.send_callback(statusMap[status]);
+    },
+    create_handler: (s) => gw.create_handler(statusMap[s]),
+    mock_options: BrusnikaPayment.mock_params,
+    request: () => common.p2pPaymentRequest(currency, "card"),
+    settings: (secret) => BrusnikaPayment.settings(secret),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
+    no_requisites_handler: () => BrusnikaPayment.no_requisites_handler(),
+    gw,
+  };
 }

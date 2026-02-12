@@ -3,7 +3,7 @@ import * as common from "@/common";
 import { assert } from "vitest";
 import { z } from "zod";
 import type { PrimeBusinessStatus } from "@/db/business";
-import { CONFIG } from "@/test_context";
+import { CONFIG } from "@/config";
 
 type TbankStatus =
   | "NEW"

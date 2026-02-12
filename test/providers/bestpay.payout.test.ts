@@ -1,5 +1,5 @@
 import * as common from "@/common";
-import { assert } from "vitest";
+import { assert, describe } from "vitest";
 import { providers } from "@/settings_builder";
 import { BestpayPayout, type OperationStatus } from "@/provider_mocks/bestpay";
 import {
@@ -10,6 +10,7 @@ import {
   type Status,
 } from "@/suite_interfaces";
 import type { PrimeBusinessStatus } from "@/db/business";
+import { CONFIG } from "@/config";
 
 const CURRENCY = "BDT";
 
@@ -49,25 +50,29 @@ function bestpaySuite() {
   } satisfies Callback & Status & { gw: BestpayPayout };
 }
 
-dataFlowTest("default bank mapping", {
-  ...bestpaySuite(),
-  settings(secret) {
-    return providers(CURRENCY, {
-      ...BestpayPayout.settings(secret),
-      bank_code: {
-        OkWallet: 2006,
-        ROCKET: 2002,
+describe
+  .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
+  .concurrent("best payout test", () => {
+    dataFlowTest("default bank mapping", {
+      ...bestpaySuite(),
+      settings(secret) {
+        return providers(CURRENCY, {
+          ...BestpayPayout.settings(secret),
+          bank_code: {
+            OkWallet: 2006,
+            ROCKET: 2002,
+          },
+        });
+      },
+      after_create_check() {
+        let req = this.gw.request_data;
+        assert.strictEqual(req?.Details.BankCode, "2002");
+        assert.strictEqual(req?.Details.AccountName, common.fullName);
+        assert.strictEqual(req?.Details.AccountNo, common.accountNumber);
+        assert.strictEqual(req?.Currency, CURRENCY);
       },
     });
-  },
-  after_create_check() {
-    let req = this.gw.request_data;
-    assert.strictEqual(req?.Details.BankCode, "2002");
-    assert.strictEqual(req?.Details.AccountName, common.fullName);
-    assert.strictEqual(req?.Details.AccountNo, common.accountNumber);
-    assert.strictEqual(req?.Currency, CURRENCY);
-  },
-});
 
-statusFinalizationSuite(bestpaySuite);
-callbackFinalizationSuite(bestpaySuite);
+    statusFinalizationSuite(bestpaySuite);
+    callbackFinalizationSuite(bestpaySuite);
+  });

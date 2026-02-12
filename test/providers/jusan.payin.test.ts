@@ -1,7 +1,8 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { defaultSettings } from "@/settings_builder";
-import { PROJECT, test } from "@/test_context";
+import { PROJECT } from "@/config";
+import { test } from "@/test_context";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import type { Context } from "@/test_context/context";
 

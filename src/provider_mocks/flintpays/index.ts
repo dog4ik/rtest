@@ -7,6 +7,9 @@ import type {
   MockProviderParams,
 } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
+import type { P2PSuite } from "@/suite_interfaces";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { providers } from "@/settings_builder";
 
 export type FlintpayStatus = "created" | "confirmed" | "rejected";
 
@@ -69,6 +72,10 @@ export class FlintpayOperation {
       payment_bill_url: null,
       payment_data: this.paymentData(),
     };
+  }
+
+  status_handler(status: FlintpayStatus): Handler {
+    return (c) => c.json(this.status_response(status));
   }
 
   private paymentData() {
@@ -205,4 +212,50 @@ export class FlintpayOperation {
       },
     };
   }
+}
+
+const StatusMapping: Record<PrimeBusinessStatus, FlintpayStatus> = {
+  approved: "confirmed",
+  declined: "rejected",
+  pending: "created",
+};
+
+export function payoutSuite(currency = "RUB"): P2PSuite<FlintpayOperation> {
+  let gw = new FlintpayOperation("withdrawal");
+  return {
+    type: "payout",
+    send_callback: async (status, _) => {
+      await gw.send_callback(StatusMapping[status]);
+    },
+    create_handler: (s) => gw.create_response_handler(StatusMapping[s]),
+    mock_options: FlintpayOperation.mock_params,
+    request: () => ({
+      ...common.payoutRequest(currency),
+      card: { pan: common.visaCard },
+    }),
+    settings: (secret) =>
+      providers(currency, FlintpayOperation.settings(secret)),
+    status_handler: (s) => gw.status_handler(StatusMapping[s]),
+    no_requisites_handler: () =>
+      FlintpayOperation.no_balance_response_handler(),
+    gw,
+  };
+}
+
+export function payinSuite(currency = "RUB"): P2PSuite<FlintpayOperation> {
+  let gw = new FlintpayOperation("deposit");
+  return {
+    type: "payin",
+    send_callback: async (status, _) => {
+      await gw.send_callback(StatusMapping[status]);
+    },
+    create_handler: (s) => gw.create_response_handler(StatusMapping[s]),
+    mock_options: FlintpayOperation.mock_params,
+    request: () => common.p2pPaymentRequest(currency, "card"),
+    settings: (secret) => FlintpayOperation.settings(secret),
+    status_handler: (s) => gw.status_handler(StatusMapping[s]),
+    no_requisites_handler: () =>
+      FlintpayOperation.no_balance_response_handler(),
+    gw,
+  };
 }
