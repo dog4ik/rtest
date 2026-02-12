@@ -58,6 +58,12 @@ describe
     );
 
     routingFinalizationSuite(
+      [iron.payinSuite(), brus.payinSuite()],
+      req(),
+      check,
+    );
+
+    routingFinalizationSuite(
       [brus.payinSuite(), flint.payinSuite(), iron.payinSuite()],
       req(),
       check,

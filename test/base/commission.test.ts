@@ -86,7 +86,6 @@ test.concurrent("brusnika(p2p) payin commission", async ({ ctx, brusnika }) => {
   await merchant.set_settings(
     providers(CURRENCY, {
       ...BrusnikaPayment.settings(ctx.uuid),
-      wrapped_to_json_response: true,
     }),
   );
   await merchant.set_commission({
@@ -97,9 +96,8 @@ test.concurrent("brusnika(p2p) payin commission", async ({ ctx, brusnika }) => {
   });
   await merchant
     .create_payment({
-      ...common.paymentRequest(CURRENCY),
+      ...common.p2pPaymentRequest(CURRENCY, "card"),
       amount: AMOUNT,
-      extra_return_param: "card",
     })
     .then((p) => p.followFirstProcessingUrl());
 

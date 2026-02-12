@@ -29,24 +29,61 @@ const CASES = [
 ] as const;
 
 for (let [dalapay_status, rp_status] of CASES) {
-  test.concurrent(
-    `callback finalization to ${rp_status}`,
-    { timeout: 30_000 },
-    async ({ ctx }) => {
+  test
+    .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
+    .concurrent(
+      `callback finalization to ${rp_status}`,
+      { timeout: 30_000 },
+      async ({ ctx }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, dalapay, payment } = await setupMerchant(ctx);
+          dalapay.queue(async (c) => {
+            setTimeout(() => {
+              payment.send_callback(dalapay_status);
+            }, CALLBACK_DELAY);
+            return c.json(
+              payment.create_response(
+                OperationStatusMap.IN_PROGRESS,
+                await c.req.json(),
+              ),
+            );
+          });
+          dalapay.queue(payment.status_handler(OperationStatusMap.IN_PROGRESS));
+          let result = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            customer: {
+              email: "test@email.com",
+              country: "EU",
+              first_name: "test",
+              last_name: "testov",
+              phone: common.phoneNumber,
+            },
+          });
+          vitest.assert.strictEqual(
+            result.payment.status,
+            "pending",
+            "merchant response payment status",
+          );
+          await merchant.queue_notification(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
+          });
+        });
+      },
+    );
+
+  test
+    .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
+    .concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
         let { merchant, dalapay, payment } = await setupMerchant(ctx);
-        dalapay.queue(async (c) => {
-          setTimeout(() => {
-            payment.send_callback(dalapay_status);
-          }, CALLBACK_DELAY);
-          return c.json(
-            payment.create_response(
-              OperationStatusMap.IN_PROGRESS,
-              await c.req.json(),
-            ),
-          );
-        });
-        dalapay.queue(payment.status_handler(OperationStatusMap.IN_PROGRESS));
+        dalapay.queue(payment.create_handler(OperationStatusMap.IN_PROGRESS));
+
+        dalapay.queue(payment.status_handler(dalapay_status));
+
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           customer: {
@@ -70,38 +107,5 @@ for (let [dalapay_status, rp_status] of CASES) {
           );
         });
       });
-    },
-  );
-
-  test.concurrent(`status finalization to ${rp_status}`, async ({ ctx }) => {
-    await ctx.track_bg_rejections(async () => {
-      let { merchant, dalapay, payment } = await setupMerchant(ctx);
-      dalapay.queue(payment.create_handler(OperationStatusMap.IN_PROGRESS));
-
-      dalapay.queue(payment.status_handler(dalapay_status));
-
-      let result = await merchant.create_payment({
-        ...common.paymentRequest(CURRENCY),
-        customer: {
-          email: "test@email.com",
-          country: "EU",
-          first_name: "test",
-          last_name: "testov",
-          phone: common.phoneNumber,
-        },
-      });
-      vitest.assert.strictEqual(
-        result.payment.status,
-        "pending",
-        "merchant response payment status",
-      );
-      await merchant.queue_notification(async (notification) => {
-        vitest.assert.strictEqual(
-          notification.status,
-          rp_status,
-          "merchant notification status",
-        );
-      });
     });
-  });
 }
