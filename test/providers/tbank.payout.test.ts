@@ -5,6 +5,7 @@ import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import { TbankPayout } from "@/provider_mocks/tbank";
 import type { Context } from "@/test_context/context";
+import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
 
@@ -470,6 +471,34 @@ describe
             tbank.queue(payment.get_sbp_members_handler());
             tbank.queue(payment.init_sbp_handler());
             tbank.queue(payment.invalid_params_handler());
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              customer,
+              extra_return_param: "NK Bank",
+            });
+            let business_payment = await ctx.get_payment(result.token);
+            assert.strictEqual(business_payment.status, "pending");
+            await ctx.healthcheck(result.token);
+          });
+        },
+      );
+
+      test.concurrent(
+        "tbank sbp payout pending if time out",
+        { timeout: 120_000 },
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.add_customer_handler());
+            tbank.queue(payment.get_sbp_members_handler());
+            tbank.queue(payment.init_sbp_handler());
+            tbank.queue(async (c) => {
+              await delay(70_000);
+              return payment.payout_sbp_handler("pending")(c);
+            });
+            tbank.queue(payment.status_handler("declined"));
+
             let result = await merchant.create_payout({
               ...common.payoutRequest(CURRENCY),
               customer,
