@@ -7,6 +7,7 @@ import {
   payformDataFlowTest,
   statusFinalizationSuite,
   providersSuite,
+  maskedSuite,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
 import { CONFIG, PROJECT } from "@/config";
@@ -16,7 +17,9 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
-let brusnikaSuite = () => providersSuite(CURRENCY, payinSuite);
+let brusnikaSuite = () => providersSuite(CURRENCY, payinSuite());
+let maskedBrusnikaSuite = () =>
+  providersSuite(CURRENCY, maskedSuite(payinSuite()));
 
 callbackFinalizationSuite(brusnikaSuite);
 statusFinalizationSuite(brusnikaSuite);
@@ -47,6 +50,14 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
 });
 
 describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
+  callbackFinalizationSuite(maskedBrusnikaSuite, {
+    tag: "masked_provider",
+  });
+
+  statusFinalizationSuite(maskedBrusnikaSuite, {
+    tag: "masked_provider",
+  });
+
   dataFlowTest("extra_return_param sbp", {
     ...brusnikaSuite(),
     request() {

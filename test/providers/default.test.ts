@@ -22,3 +22,31 @@ test.concurrent("default approved payout", async ({ ctx }) => {
   );
   assert(response.payout?.status == "approved");
 });
+
+test.concurrent("default approved refund", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+
+  await merchant.set_settings(default_provider.fullSettings("RUB"));
+  await merchant.cashin("RUB", common.amount / 100);
+  let approve_notifiaction = merchant.queue_notification((c) => {
+    assert.strictEqual(c.type, "pay");
+    assert.strictEqual(c.status, "approved");
+  });
+  let response = await merchant.create_payment(
+    default_provider.request("RUB", common.amount, "pay", true),
+  );
+  assert(response.payment?.status == "approved");
+  await approve_notifiaction;
+
+  let approve_refund = merchant.queue_notification((c) => {
+    assert.strictEqual(c.type, "refund");
+    assert.strictEqual(c.status, "approved");
+  });
+  let payment_refunded = merchant.queue_notification((c) => {
+    assert.strictEqual(c.type, "pay");
+    assert.strictEqual(c.status, "refunded");
+  });
+  await merchant.create_refund({ token: response.token });
+  await approve_refund;
+  await payment_refunded;
+});

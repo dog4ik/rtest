@@ -17,6 +17,7 @@ import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_re
 
 export type TestCaseOptions = {
   skip_if?: boolean;
+  tag?: string;
 };
 
 export type TestCaseContext = {
@@ -125,7 +126,7 @@ function callbackFinalizationTest<T>(
   test
     .skipIf(opts?.skip_if)
     .concurrent(
-      `${alias} callback finalization to ${target_status}`,
+      `${alias} callback finalization to ${target_status}${opts?.tag ? ` (${opts.tag})` : ""}`,
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let { create_transaction, merchant, provider, suite_ctx } =
@@ -168,7 +169,7 @@ function statusFinalizationTest<T>(
   test
     .skipIf(opts?.skip_if)
     .concurrent(
-      `${alias} status finalization to ${target_status}`,
+      `${alias} status finalization to ${target_status}${opts?.tag ? ` (${opts.tag})` : ""}`,
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
           let { provider, merchant, create_transaction, suite_ctx } =
@@ -469,12 +470,11 @@ export function routingFinalizationSuite(
  */
 export function defaultSuite<
   T extends { settings: (secret: string) => Record<string, any> },
->(currency: string, suite: (currency?: string) => T): T {
-  let target = suite(currency);
+>(currency: string, suite: T): T {
   return {
-    ...target,
+    ...suite,
     settings: (secret: string) =>
-      defaultSettings(currency, target.settings(secret)),
+      defaultSettings(currency, suite.settings(secret)),
   };
 }
 
@@ -483,10 +483,24 @@ export function defaultSuite<
  */
 export function providersSuite<
   T extends { settings: (secret: string) => Record<string, any> },
->(currency: string, suite: (currency?: string) => T): T {
-  let target = suite(currency);
+>(currency: string, suite: T): T {
   return {
-    ...target,
-    settings: (secret: string) => providers(currency, target.settings(secret)),
+    ...suite,
+    settings: (secret: string) => providers(currency, suite.settings(secret)),
+  };
+}
+
+/**
+ * Factory for creating suite that has masked_provider setting
+ */
+export function maskedSuite<
+  T extends { settings: (secret: string) => Record<string, any> },
+>(suite: T): T {
+  return {
+    ...suite,
+    settings: (secret: string) => ({
+      ...suite.settings(secret),
+      masked_provider: true,
+    }),
   };
 }

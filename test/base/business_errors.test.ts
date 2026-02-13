@@ -20,17 +20,17 @@ function payoutRequest(currency?: string) {
 
 function payoutSuite(curr: string): P2PSuite<unknown> {
   if (PROJECT === "spinpay") {
-    return providersSuite(curr, flintpays.payoutSuite);
+    return providersSuite(curr, flintpays.payoutSuite());
   } else {
-    return defaultSuite(curr, millennium.payoutSuite);
+    return defaultSuite(curr, millennium.payoutSuite());
   }
 }
 
 function payinSuite(curr: string): P2PSuite<unknown> {
   if (PROJECT === "spinpay") {
-    return providersSuite(curr, flintpays.payinSuite);
+    return providersSuite(curr, flintpays.payinSuite());
   } else {
-    return providersSuite(curr, millennium.payinSuite);
+    return providersSuite(curr, millennium.payinSuite());
   }
 }
 

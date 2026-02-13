@@ -14,12 +14,15 @@ import {
   payformDataFlowTest,
   statusFinalizationSuite,
   providersSuite,
+  maskedSuite,
 } from "@/suite_interfaces";
 
 const CURRENCY = "RUB";
 const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
-let millenniumSuite = () => providersSuite(CURRENCY, payinSuite);
+let millenniumSuite = () => providersSuite(CURRENCY, payinSuite());
+let maskedMillenniumSuite = () =>
+  providersSuite(CURRENCY, maskedSuite(payinSuite()));
 
 async function setupMerchant(ctx: Context, wrapped_to_json_response: boolean) {
   let uuid = crypto.randomUUID();
@@ -167,6 +170,15 @@ describe
 
     callbackFinalizationSuite(millennumSuite);
     statusFinalizationSuite(millennumSuite);
+
+    callbackFinalizationSuite(maskedMillenniumSuite, {
+      tag: "masked_provider",
+      skip_if: PROJECT != "8pay",
+    });
+    statusFinalizationSuite(maskedMillenniumSuite, {
+      tag: "masked_provider",
+      skip_if: PROJECT != "8pay",
+    });
 
     dataFlowTest("extra_return_param sbp", {
       ...millenniumSuite(),

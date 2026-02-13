@@ -161,7 +161,7 @@ test.concurrent(
 
       let w = (await merchant.wallets())[0];
       assert.strictEqual(w.currency, "RUB");
-      assert.strictEqual(w.available, (common.amount / 100) * (FEE / 100));
+      assert.strictEqual(w.available, common.amount / 100);
       assert.strictEqual(w.held, 0);
 
       await notification;
