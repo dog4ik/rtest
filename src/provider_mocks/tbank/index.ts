@@ -60,6 +60,9 @@ const InitCardRequestSchema = z.object({
   OrderId: z.string(),
   Amount: z.number(),
   CardId: z.string(),
+  DATA: z.object({
+    codeVO: z.string().min(1),
+  }),
   ...TerminalAuthSchema,
 });
 
@@ -379,6 +382,7 @@ export class TbankPayout {
       certificate: CONFIG.dummyCert(),
       class: "tbank",
       customer_key: "TestCustomer20",
+      code_vo: "12345",
       password: secret,
       private_key: CONFIG.dummyRsa(),
       public_key: CONFIG.dummyRsaPub(),

@@ -207,7 +207,7 @@ describe
         },
       );
       test.concurrent(
-        "tbank card payout declined if known error",
+        "tbank card payout pending if known error",
         async ({ ctx }) => {
           await ctx.track_bg_rejections(async () => {
             let { merchant, tbank, payment } = await setupMerchant(ctx);
@@ -217,6 +217,25 @@ describe
             tbank.queue(payment.attach_card_handler());
             tbank.queue(payment.init_card_handler());
             tbank.queue(payment.invalid_params_handler());
+            let result = await merchant.create_payout({
+              ...common.payoutRequest(CURRENCY),
+              card,
+              customer,
+            });
+            let business_payment = await ctx.get_payment(result.token);
+            assert.strictEqual(business_payment.status, "pending");
+            await ctx.healthcheck(result.token);
+          });
+        },
+      );
+
+      test.concurrent(
+        "tbank card add_customer declined if known error",
+        async ({ ctx }) => {
+          await ctx.track_bg_rejections(async () => {
+            let { merchant, tbank, payment } = await setupMerchant(ctx);
+            tbank.queue(payment.check_customer_handler());
+            tbank.queue(payment.shop_blocked_error_handler());
             let result = await merchant.create_payout({
               ...common.payoutRequest(CURRENCY),
               card,
@@ -442,7 +461,7 @@ describe
       );
 
       test.concurrent(
-        "tbank sbp payout declined if known error",
+        "tbank sbp payout pending if known error",
         async ({ ctx }) => {
           await ctx.track_bg_rejections(async () => {
             let { merchant, tbank, payment } = await setupMerchant(ctx);
@@ -457,7 +476,7 @@ describe
               extra_return_param: "NK Bank",
             });
             let business_payment = await ctx.get_payment(result.token);
-            assert.strictEqual(business_payment.status, "declined");
+            assert.strictEqual(business_payment.status, "pending");
             await ctx.healthcheck(result.token);
           });
         },
