@@ -1,4 +1,8 @@
-const EXCLUDE = ["redis_url", "jusan_requests_timeout"];
+const EXCLUDE = [
+  "redis_url",
+  "jusan_requests_timeout",
+  "consider_all_requests_local",
+];
 
 const MAPPING_START_PORT = 64530;
 

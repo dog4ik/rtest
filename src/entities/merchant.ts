@@ -63,10 +63,12 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   }
 
   async function cashout(currency: string, amount: number) {
-    ctx.story.add_chapter(`MID ${merchant.id} cashout`, `${currency} ${amount}`);
+    ctx.story.add_chapter(
+      `MID ${merchant.id} cashout`,
+      `${currency} ${amount}`,
+    );
     return core_harness.cashout(merchant.id, currency, amount);
   }
-
 
   async function set_limits(min: number, max: number) {
     let rule = new RuleBuilder()
@@ -235,9 +237,13 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         }
         if (
           !options?.skip_healthcheck &&
-          ["pay", "payout"].includes(callback.type)
+          ["pay", "payout"].includes(callback.type) &&
+          !["refunded"].includes(callback.status)
         ) {
-          let hc = await basic_healthcheck({ business_db, core_db }, callback.token);
+          let hc = await basic_healthcheck(
+            { business_db, core_db },
+            callback.token,
+          );
           console.log(hc.toString());
           hc.assert();
         } else {

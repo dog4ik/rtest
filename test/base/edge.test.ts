@@ -1,10 +1,12 @@
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import * as common from "@/common";
-import { providers } from "@/settings_builder";
+import { defaultSettings, providers } from "@/settings_builder";
 import * as default_gateway from "@/provider_mocks/default";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert } from "vitest";
+import { CONFIG } from "@/config";
+import { payinSuite, RoyalpayPayment } from "@/provider_mocks/royalpay";
 
 test.concurrent(
   "payin insufficient balance p2p",
@@ -116,7 +118,6 @@ test.concurrent(
         assert.strictEqual(c.status, "declined");
       });
 
-      await merchant.cashout("RUB", common.amount / 100);
       let err = await merchant.create_refund_err({
         token: res.token,
         amount: common.amount,
@@ -168,3 +169,99 @@ test.concurrent(
     });
   },
 );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay"]))
+  .concurrent(
+    "pending refund holds highest of 2 commission rules (royalpay)",
+    { timeout: 120_000 },
+    async ({ ctx, merchant }) => {
+      await ctx.track_bg_rejections(async () => {
+        let royalpay = ctx.mock_server(RoyalpayPayment.mock_params(ctx.uuid));
+        let suite = payinSuite("EUR");
+        let payment = new RoyalpayPayment();
+        await merchant.set_settings(
+          defaultSettings("EUR", RoyalpayPayment.settings(ctx.uuid)),
+        );
+
+        ctx.annotate(`MID: ${merchant.id}`);
+
+        let transaction_notification = merchant.queue_notification(
+          (notification) => {
+            assert.strictEqual(notification.status, "approved");
+          },
+        );
+        royalpay
+          .queue(payment.create_handler())
+          .then(() => payment.send_callback("ok", ctx.uuid));
+
+        const FEE = 10;
+        let commission_amount_double_fee = (common.amount / 100) * ((FEE / 100) * 2);
+        let commission_amount_fee = (common.amount / 100) * (FEE / 100);
+        console.log({ commission_amount: commission_amount_double_fee });
+        await merchant.cashin("EUR", commission_amount_double_fee);
+        await Promise.all([
+          merchant.set_commission({
+            self_rate: FEE.toString(),
+            status: "1",
+            operation: "RefundRequest",
+          }),
+          merchant.set_commission({
+            self_rate: (FEE * 2).toString(),
+            status: "2",
+            operation: "RefundRequest",
+          }),
+        ]);
+        let res = await merchant.create_payment(suite.request());
+        await transaction_notification;
+
+        let transaction_refunded = merchant.queue_notification(
+          (notification) => {
+            assert.strictEqual(notification.type, "pay");
+            assert.strictEqual(notification.status, "refunded");
+          },
+        );
+
+        let refund_approved = merchant.queue_notification((notification) => {
+          assert.strictEqual(notification.type, "refund");
+          assert.strictEqual(notification.status, "approved");
+        });
+
+        royalpay
+          .queue(payment.create_refund_handler("pending"))
+          .then(async () => {
+            await delay(5_000);
+            return payment.send_refund_callback("ok", ctx.uuid);
+          });
+
+        await merchant.create_refund({
+          token: res.token,
+        });
+
+        let wallet = (await merchant.wallets())[0];
+        assert.strictEqual(wallet.currency, "EUR");
+        assert.strictEqual(wallet.available, 0, "available should be 0");
+        assert.strictEqual(
+          wallet.held,
+          common.amount / 100 + commission_amount_double_fee,
+          "held should be amount + commission",
+        );
+
+        await transaction_refunded;
+        await refund_approved;
+
+        let w = (await merchant.wallets())[0];
+        assert.strictEqual(w.currency, "EUR");
+        assert.strictEqual(
+          w.available,
+          commission_amount_fee,
+          "available should be empty after successful refund",
+        );
+        assert.strictEqual(
+          w.held,
+          0,
+          "held should be empty afetr secusseful refund",
+        );
+      });
+    },
+  );

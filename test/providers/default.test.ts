@@ -2,6 +2,8 @@ import * as default_provider from "@/provider_mocks/default";
 import * as common from "@/common";
 import { test } from "@/test_context";
 import { assert } from "vitest";
+import type { Notification } from "@/entities/merchant_notification";
+import { delay } from "@std/async";
 
 test.concurrent("default approved payin", async ({ ctx }) => {
   let merchant = await ctx.create_random_merchant();
@@ -50,3 +52,54 @@ test.concurrent("default approved refund", async ({ ctx }) => {
   await approve_refund;
   await payment_refunded;
 });
+
+test.concurrent(
+  "default approved partial refund with commission 2",
+  async ({ ctx }) => {
+    let merchant = await ctx.create_random_merchant();
+
+    await merchant.set_settings(default_provider.fullSettings("RUB"));
+    const COMMISSION_RATE = 0.1;
+    let amount = 100_00
+    let partial_amount = amount / 2;
+    let commission_amount = (partial_amount / 100) * COMMISSION_RATE;
+    await merchant.cashin("RUB", commission_amount * 3 - 1);
+    await merchant.set_commission({
+      self_rate: (COMMISSION_RATE * 100).toString(),
+      operation: "RefundRequest",
+    });
+
+    let approve_notifiaction = merchant.queue_notification((c) => {
+      assert.strictEqual(c.type, "pay");
+      assert.strictEqual(c.status, "approved");
+    });
+    let response = await merchant.create_payment(
+      default_provider.request("RUB", amount, "pay", true),
+    );
+    assert(response.payment?.status == "approved");
+    await approve_notifiaction;
+
+    await merchant.create_refund({
+      token: response.token,
+      amount: partial_amount,
+    });
+
+    await ctx.annotate(JSON.stringify(await merchant.wallets()))
+
+    await delay(7_000);
+    await merchant.create_refund({
+      token: response.token,
+      amount: partial_amount,
+    });
+    await delay(2_000);
+    await ctx.annotate(JSON.stringify(await merchant.wallets()))
+    let wallet = (await merchant.wallets())[0];
+    assert.strictEqual(wallet.currency, "RUB");
+    assert.strictEqual(
+      wallet.available,
+      amount / 100 - (partial_amount / 100 + commission_amount),
+      "available should be 0 after refund",
+    );
+    assert.strictEqual(wallet.held, 0, "held should be 0 after refund");
+  },
+);

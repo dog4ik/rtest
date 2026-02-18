@@ -46,7 +46,7 @@ describe
           .then(() => delay(2_000))
           .then(() => payment.send_callback("ok", ctx.uuid));
         royalpay
-          .queue(payment.refund_handler("pending"))
+          .queue(payment.create_refund_handler("pending"))
           .then(() => delay(5_000))
           .then(() => payment.send_refund_callback("ok", ctx.uuid));
 

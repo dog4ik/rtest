@@ -306,7 +306,7 @@ export class RoyalpayPayment {
     await this._send(payload, url, secret);
   }
 
-  refund_response(status: PrimeBusinessStatus, request: any) {
+  create_refund_response(status: PrimeBusinessStatus, request: any) {
     this.refund_request_data = RefundRequestSchema.parse(request);
     this.refund_gateway_id =
       Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
@@ -336,11 +336,14 @@ export class RoyalpayPayment {
     };
   }
 
-  refund_handler(status: PrimeBusinessStatus): Handler {
+  create_refund_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
       assert.strictEqual(c.req.path, "/refund/create");
       assert.strictEqual(c.req.method, "POST");
-      return c.json(this.refund_response(status, await c.req.json()), 201);
+      return c.json(
+        this.create_refund_response(status, await c.req.json()),
+        201,
+      );
     };
   }
 
