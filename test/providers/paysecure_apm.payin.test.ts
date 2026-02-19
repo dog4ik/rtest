@@ -15,6 +15,7 @@ import {
 import { providers } from "@/settings_builder";
 import { CONFIG } from "@/config";
 import { assert, describe } from "vitest";
+import { test } from "@/test_context";
 
 const CURRENCY = "RUB";
 
@@ -61,4 +62,38 @@ describe
   .concurrent("paysecure apm", () => {
     callbackFinalizationSuite(paysecureSuite);
     statusFinalizationSuite(paysecureSuite);
+
+    function convertToSuite(convert_to: string) {
+      let suite = paysecureSuite();
+      return {
+        ...suite,
+        settings: (secret) => {
+          let settings = suite.settings(secret);
+          settings["convert_to"] = convert_to;
+          return settings;
+        },
+        request: () => {
+          return { ...suite.request(), currency: "EUR" };
+        },
+      } satisfies Callback<PaysecureApmPayment> & Status<PaysecureApmPayment>;
+    }
+    callbackFinalizationSuite(() => convertToSuite("RUB"), {
+      tag: "convert_to",
+    });
+    test.concurrent("gw connect payin convert_to", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let suite = convertToSuite("RUB");
+        let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+        provider.queue(suite.gw.create_purchase_handler("payment_in_process"));
+        await merchant.cashin("EUR", 500);
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        let res = await merchant.create_payment(suite.request());
+
+        assert.notStrictEqual(
+          res.payment.amount,
+          res.payment.gateway_amount,
+          "gateway amount with convert to should not match amount",
+        );
+      }),
+    );
   });
