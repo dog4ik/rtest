@@ -4,6 +4,7 @@ import * as mil from "@/provider_mocks/millennium";
 import * as brus from "@/provider_mocks/brusnika";
 import * as iron from "@/provider_mocks/ironpay";
 import * as forta from "@/provider_mocks/forta";
+import * as argos from "@/provider_mocks/argos";
 import * as flint from "@/provider_mocks/flintpays";
 import { SettingsBuilder } from "@/settings_builder";
 import { CONFIG } from "@/config";
@@ -133,8 +134,20 @@ describe
       req(),
       check,
     );
+
     routingFinalizationSuite(
       [mad.payinSuite(), iron.payinSuite(), brus.payinSuite()],
+      req(),
+      check,
+    );
+
+    routingFinalizationSuite(
+      [
+        mad.payinSuite(),
+        iron.payinSuite(),
+        argos.payinSuite(),
+        brus.payinSuite(),
+      ],
       req(),
       check,
     );

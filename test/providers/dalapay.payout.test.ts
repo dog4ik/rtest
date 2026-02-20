@@ -1,6 +1,6 @@
 import * as vitest from "vitest";
 import * as common from "@/common";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 import { test } from "@/test_context";
 import { defaultSettings } from "@/settings_builder";
 import {
@@ -8,9 +8,10 @@ import {
   OperationStatusMap,
 } from "@/provider_mocks/dalapay";
 import type { Context } from "@/test_context/context";
+import { CALLBACK_DELAY } from "@/suite_interfaces";
+import { delay } from "@std/async";
 
 const CURRENCY = "CDF";
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
@@ -38,19 +39,12 @@ for (let [dalapay_status, rp_status] of CASES) {
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
           let { merchant, dalapay, payout } = await setupMerchant(ctx);
-          dalapay.queue(async (c) => {
-            setTimeout(
-              () => payout.send_callback(dalapay_status),
-              CALLBACK_DELAY,
-            );
-
-            return c.json(
-              payout.create_response(
-                OperationStatusMap.IN_PROGRESS,
-                await c.req.json(),
-              ),
-            );
-          });
+          dalapay
+            .queue(payout.create_handler(OperationStatusMap.IN_PROGRESS))
+            .then(async () => {
+              await delay(CALLBACK_DELAY);
+              await payout.send_callback(dalapay_status);
+            });
 
           dalapay.queue(payout.status_handler(OperationStatusMap.IN_PROGRESS));
           await merchant.create_payout({

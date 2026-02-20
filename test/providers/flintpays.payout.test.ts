@@ -7,9 +7,9 @@ import { FlintpayOperation } from "@/provider_mocks/flintpays";
 import type { Context } from "@/test_context/context";
 import type { FlintpayStatus } from "@/provider_mocks/flintpays";
 import { delay } from "@std/async";
+import { CALLBACK_DELAY } from "@/suite_interfaces";
 
 const CURRENCY = "TJS";
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
@@ -23,16 +23,11 @@ async function setupMerchant(ctx: Context) {
   return { merchant, flintpays, payout, uuid };
 }
 
-// FIX(pcidss): frequent requests with the same card triggers 500 error.
-function randomCard() {
-  return (Math.random() * Math.pow(10, 16)).toString().padStart(16, "1");
-}
-
 function payoutRequest() {
   return {
     ...common.payoutRequest(CURRENCY),
     card: {
-      pan: randomCard(),
+      pan: common.visaCard,
     },
   };
 }
@@ -52,14 +47,12 @@ vitest.describe
         async ({ ctx }) => {
           await ctx.track_bg_rejections(async () => {
             let { merchant, flintpays, payout } = await setupMerchant(ctx);
-            flintpays.queue(async (c) => {
-              setTimeout(() => {
-                payout.send_callback(flintpay_status);
-              }, CALLBACK_DELAY);
-              return c.json(
-                payout.create_response("created", await c.req.json()),
-              );
-            });
+            flintpays
+              .queue(payout.create_response_handler("created"))
+              .then(async () => {
+                await delay(CALLBACK_DELAY);
+                await payout.send_callback(flintpay_status);
+              });
 
             flintpays.queue(async (c) => {
               return c.json(payout.status_response("created"));

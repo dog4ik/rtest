@@ -10,7 +10,6 @@ import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
 
 const PAYMENT_METHOD_SCHEMA = z.enum([
   "toCard",

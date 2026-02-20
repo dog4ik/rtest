@@ -53,8 +53,8 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     mock_servers,
     commission_service,
   } = ctx.shared_state();
-  async function wallets() {
-    return core_db.profileWallets(merchant.id);
+  async function wallets(currency?: string) {
+    return core_db.profileWallets(merchant.id, currency);
   }
 
   async function cashin(currency: string, amount: number) {

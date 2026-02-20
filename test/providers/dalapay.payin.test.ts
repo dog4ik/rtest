@@ -8,9 +8,10 @@ import {
   OperationStatusMap,
 } from "@/provider_mocks/dalapay";
 import type { Context } from "@/test_context/context";
+import { CALLBACK_DELAY } from "@/suite_interfaces";
+import { delay } from "@std/async";
 
 const CURRENCY = "CDF";
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
@@ -37,17 +38,12 @@ for (let [dalapay_status, rp_status] of CASES) {
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
           let { merchant, dalapay, payment } = await setupMerchant(ctx);
-          dalapay.queue(async (c) => {
-            setTimeout(() => {
-              payment.send_callback(dalapay_status);
-            }, CALLBACK_DELAY);
-            return c.json(
-              payment.create_response(
-                OperationStatusMap.IN_PROGRESS,
-                await c.req.json(),
-              ),
-            );
-          });
+          dalapay
+            .queue(payment.create_handler(OperationStatusMap.IN_PROGRESS))
+            .then(async () => {
+              await delay(CALLBACK_DELAY);
+              await payment.send_callback(dalapay_status);
+            });
           dalapay.queue(payment.status_handler(OperationStatusMap.IN_PROGRESS));
           let result = await merchant.create_payment({
             ...common.paymentRequest(CURRENCY),

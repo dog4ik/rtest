@@ -58,6 +58,7 @@ async function finalize_dispute(
   dispute_id: number,
   status: "approved" | "declined",
 ) {
+  this.ctx.story.add_chapter("Finalizing trader dispute", `${dispute_id} to ${status}`);
   return this.driver.update_dispute(dispute_id, status);
 }
 

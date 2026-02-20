@@ -8,9 +8,9 @@ import { test } from "@/test_context";
 import { delay } from "@std/async";
 import type { Context } from "@/test_context/context";
 import type { ExtendedMerchant } from "@/entities/merchant";
+import { CALLBACK_DELAY } from "@/suite_interfaces";
 
 const CURRENCY = "RUB";
-const CALLBACK_DELAY = 5_000;
 
 async function setupTransaction(
   ctx: Context,

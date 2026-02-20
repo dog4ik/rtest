@@ -72,7 +72,7 @@ export interface Routable extends TestCaseBase {
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 // FIX(pcidss): Brusnika does not allow sending callback 5s after creation.
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 7_000;
+export const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 500;
 // const CALLBACK_DELAY = 1_500;
 
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
@@ -440,7 +440,7 @@ export function routingFinalizationSuite(
 
   test.concurrent(
     `Routing: ${chain_descriptor}`,
-    { timeout: 30_000 },
+    { timeout: 45_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
         let { merchant, chain } = await setupRoutingChain(ctx, currency, links);

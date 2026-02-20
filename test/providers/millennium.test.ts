@@ -1,7 +1,7 @@
 import { describe, assert } from "vitest";
 import * as common from "@/common";
 import * as playwright from "playwright/test";
-import { CONFIG, PROJECT } from "@/config";
+import { PROJECT } from "@/config";
 import { test } from "@/test_context";
 import { providers } from "@/settings_builder";
 import { MillenniumTransaction } from "@/provider_mocks/millennium";
@@ -15,10 +15,11 @@ import {
   statusFinalizationSuite,
   providersSuite,
   maskedSuite,
+  CALLBACK_DELAY,
 } from "@/suite_interfaces";
+import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 let millenniumSuite = () => providersSuite(CURRENCY, payinSuite());
 let maskedMillenniumSuite = () =>
@@ -126,23 +127,20 @@ function millennumSuite() {
 
 describe
   .runIf(PROJECT === "8pay" || PROJECT === "reactivepay")
-  .concurrent("millennium pending url", () => {
+  .concurrent("millennium gateway", () => {
     test.todo("millennium pending url", async ({ ctx, browser }) => {
       await ctx.track_bg_rejections(async () => {
         let { merchant, millennium, payment, uuid } = await setupMerchant(
           ctx,
           false,
         );
-        millennium.queue(async (c) => {
-          setTimeout(() => {
-            payment.send_callback("CANCELLED", uuid);
-          }, CALLBACK_DELAY);
-
-          return c.json(
-            payment.payin_create_response("WAIT", await c.req.json()),
-          );
-        });
-        millennium.queue((c) => c.json(payment.status_response("ACCEPTED")));
+        millennium
+          .queue(payment.payin_create_handler("pending"))
+          .then(async () => {
+            await delay(CALLBACK_DELAY);
+            await payment.send_callback("CANCELLED", uuid);
+          });
+        millennium.queue(payment.status_handler("approved"));
 
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),

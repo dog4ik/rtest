@@ -77,6 +77,7 @@ const FeedFields = {
   target_amount: z.float64().nullable(),
   currency: z.string().nullable(),
   target_currency: z.string().nullable(),
+  target_currency_rate: z.number().nullable(),
   status: CoreStatusSchema,
   type: FeedTypeSchema,
   to_profile_id: z.int(),
@@ -114,8 +115,11 @@ export class CoreDb extends Db {
     return await this.fetch_one(TraderSchema, query);
   }
 
-  async profileWallets(mid: number) {
+  async profileWallets(mid: number, currency?: string) {
     let query = `select ${WalletQuery.select(this.project)} from wallets where wallets.profile_id = '${mid}'`;
+    if (currency) {
+      query += ` and wallets.currency = '${currency}'`;
+    }
     return await this.fetch_all(WalletQuery.schema, query);
   }
 

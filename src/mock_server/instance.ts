@@ -27,7 +27,13 @@ export class ProviderInstance {
         await this.try_write_gateway_request(c.req);
         let res = await handler(c);
         await this.try_write_gateway_response(res.clone());
-        resolve(undefined);
+        let socket = (c.env?.incoming as import("http").IncomingMessage)
+          ?.socket;
+        if (socket && !socket.destroyed) {
+          socket.once("close", resolve);
+        } else {
+          resolve(undefined);
+        }
         return res;
       } catch (error) {
         reject(error);

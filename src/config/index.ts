@@ -41,6 +41,7 @@ export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   spinpay: DEFAULT_PROJECT_CONFIG,
   paygateway: DEFAULT_PROJECT_CONFIG,
   extra_mapping: {},
+  flexy_flexy: false,
 } as const;
 
 const LOGIN_PASSWORD_SCHEMA = z
@@ -75,6 +76,7 @@ const CONFIG_SCHEMA = z.strictObject({
   browser: BROWSER_OBJECT.optional(),
   debug: z.boolean().default(false),
   projects_dir: z.string().default(".."),
+  flexy_flexy: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof CONFIG_SCHEMA>;

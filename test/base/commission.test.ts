@@ -122,7 +122,8 @@ test
   .concurrent("default refund commission", async ({ ctx }) => {
     let merchant = await ctx.create_random_merchant();
     await merchant.set_settings(default_provider.fullSettings("RUB"));
-    await merchant.cashin("RUB", (common.amount / 100) * 0.1);
+    let commission_amount = (common.amount / 100) * 0.1;
+    await merchant.cashin("RUB", commission_amount);
     await merchant.set_commission({
       operation: "RefundRequest",
       self_rate: "10",
@@ -133,19 +134,13 @@ test
     let approveNotifiaction = merchant.queue_notification((n) => {
       assert.strictEqual(n.status, "approved");
     });
-    let refundNotification = merchant.queue_notification(
-      (n) => {
-        assert.strictEqual(n.status, "refunded");
-      },
-      { skip_healthcheck: true },
-    );
-    let refundApprovedNotificication = merchant.queue_notification(
-      (n) => {
-        assert.strictEqual(n.status, "approved");
-        assert.strictEqual(n.type, "refund");
-      },
-      { skip_healthcheck: true },
-    );
+    let refundNotification = merchant.queue_notification((n) => {
+      assert.strictEqual(n.status, "refunded");
+    });
+    let refundApprovedNotificication = merchant.queue_notification((n) => {
+      assert.strictEqual(n.status, "approved");
+      assert.strictEqual(n.type, "refund");
+    });
 
     let res = await merchant.create_payment(
       default_provider.request("RUB", common.amount, "pay", true),
@@ -153,18 +148,135 @@ test
     assert.strictEqual(res.payment.status, "approved");
 
     let refundRes = await merchant.create_refund({ token: res.token });
+    await approveNotifiaction;
+    await refundNotification;
+    await refundApprovedNotificication;
+
     let originalFeed = await ctx.get_feed(res.token);
     assert.strictEqual(originalFeed.status, 4);
     assert.strictEqual(originalFeed.commission_amount, 0);
     let refundFeed = await ctx.get_feed(refundRes.refund.token);
     assert.strictEqual(refundFeed.type, "RefundRequest");
     assert.strictEqual(refundFeed.status, 1);
+    assert.strictEqual(refundFeed.commission_amount, commission_amount);
     let wallet = (await merchant.wallets())[0];
     assert.strictEqual(wallet.currency, CURRENCY);
     assert.strictEqual(wallet.available, 0);
     assert.strictEqual(wallet.held, 0);
-
-    await approveNotifiaction;
-    await refundNotification;
-    await refundApprovedNotificication;
   });
+
+test.concurrent("refund commission with convert_to", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+  let settings = default_provider.fullSettings("EUR") as Record<string, any>;
+  settings["convert_to"] = "EUR";
+  await merchant.set_settings(settings);
+  let commission_amount = (common.amount / 100) * 0.1;
+  let cashin_amount = 150;
+  await merchant.cashin("EUR", cashin_amount);
+  ctx.annotate(`Commission amount: ${commission_amount}`);
+  await merchant.set_commission({
+    operation: "RefundRequest",
+    self_rate: "10",
+    currency: "RUB",
+  });
+
+  // merchant should get 3 notifications
+  let approveNotifiaction = merchant.queue_notification((n) => {
+    assert.strictEqual(n.status, "approved");
+  });
+  let refundNotification = merchant.queue_notification((n) => {
+    assert.strictEqual(n.status, "refunded");
+  });
+  let refundApprovedNotificication = merchant.queue_notification((n) => {
+    assert.strictEqual(n.status, "approved");
+    assert.strictEqual(n.type, "refund");
+  });
+
+  let res = await merchant.create_payment(
+    default_provider.request("RUB", common.amount, "pay", true),
+  );
+  assert.strictEqual(res.payment.status, "approved");
+
+  let refundRes = await merchant.create_refund({ token: res.token });
+  await approveNotifiaction;
+  await refundNotification;
+  await refundApprovedNotificication;
+
+  let originalFeed = await ctx.get_feed(res.token);
+  assert.strictEqual(originalFeed.status, 4);
+  assert(originalFeed.target_amount);
+  assert.strictEqual(originalFeed.commission_amount, 0);
+  let refundFeed = await ctx.get_feed(refundRes.refund.token);
+
+  assert.strictEqual(refundFeed.status, 1);
+  assert.isNotNull(refundFeed.target_currency_rate);
+  assert.notStrictEqual(refundFeed.target_currency_rate, 1);
+  assert.notStrictEqual(refundFeed.target_currency_rate, 0);
+
+  assert.strictEqual(
+    refundFeed.commission_amount,
+    originalFeed.target_amount * 0.1,
+  );
+
+  let wallet = (await merchant.wallets("EUR"))[0];
+  assert.strictEqual(wallet.currency, "EUR");
+  assert.approximately(
+    wallet.available,
+    cashin_amount - originalFeed.target_amount * 0.1,
+    0.01,
+  );
+
+  assert.strictEqual(wallet.held, 0);
+});
+
+test.concurrent("commission with convert_to", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+  let settings = default_provider.fullSettings("EUR") as Record<string, any>;
+  settings["convert_to"] = "EUR";
+  await merchant.set_settings(settings);
+  let commission_amount = (common.amount / 100) * 0.1;
+  ctx.annotate(`Commission amount: ${commission_amount}`);
+  await merchant.set_commission({
+    operation: "PayinRequest",
+    self_rate: "10",
+    currency: "RUB",
+  });
+
+  // merchant should get 3 notifications
+  let approveNotifiaction = merchant.queue_notification((n) => {
+    assert.strictEqual(n.status, "approved");
+  });
+
+  let res = await merchant.create_payment(
+    default_provider.request("RUB", common.amount, "pay", true),
+  );
+  assert.strictEqual(res.payment.status, "approved");
+
+  let feed = await ctx.get_feed(res.token);
+  assert.strictEqual(feed.status, 1);
+  assert.isNotNull(feed.target_currency_rate);
+  assert.notStrictEqual(feed.target_currency_rate, 1);
+  assert.notStrictEqual(feed.target_currency_rate, 0);
+
+  assert.approximately(
+    feed.commission_amount!,
+    commission_amount / feed.target_currency_rate,
+    0.01,
+  );
+  assert.approximately(
+    feed.target_amount!,
+    common.amount / 100 / feed.target_currency_rate,
+    0.01,
+  );
+  let wallet = (await merchant.wallets())[0];
+  assert.strictEqual(wallet.currency, "EUR");
+  assert.approximately(
+    wallet.available,
+    (common.amount / 100 - commission_amount) / feed.target_currency_rate,
+    0.01,
+  );
+
+  assert.strictEqual(wallet.held, 0);
+
+  await approveNotifiaction;
+});

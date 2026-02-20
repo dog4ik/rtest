@@ -6,9 +6,10 @@ import { providers } from "@/settings_builder";
 import { FlintpayOperation } from "@/provider_mocks/flintpays";
 import type { Context } from "@/test_context/context";
 import type { FlintpayStatus } from "@/provider_mocks/flintpays";
+import { CALLBACK_DELAY } from "@/suite_interfaces";
+import { delay } from "@std/async";
 
 const CURRENCY = "TJS";
-const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 4_000;
 
 async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
@@ -43,18 +44,14 @@ vitest.describe
         async ({ ctx }) => {
           await ctx.track_bg_rejections(async () => {
             let { merchant, flintpays, payment } = await setupMerchant(ctx);
-            flintpays.queue(async (c) => {
-              setTimeout(() => {
-                payment.send_callback(flintpay_status);
-              }, CALLBACK_DELAY);
-              return c.json(
-                payment.create_response("created", await c.req.json()),
-              );
-            });
+            flintpays
+              .queue(payment.create_response_handler("created"))
+              .then(async () => {
+                await delay(CALLBACK_DELAY);
+                await payment.send_callback(flintpay_status);
+              });
 
-            flintpays.queue(async (c) => {
-              return c.json(payment.status_response("created"));
-            });
+            flintpays.queue(payment.status_handler("created"));
             let res = await merchant.create_payment(paymentRequest());
             await res.followFirstProcessingUrl();
             await merchant.queue_notification(async (notification) => {
@@ -73,15 +70,8 @@ vitest.describe
         async ({ ctx }) => {
           await ctx.track_bg_rejections(async () => {
             let { merchant, flintpays, payment } = await setupMerchant(ctx);
-            flintpays.queue(async (c) => {
-              return c.json(
-                payment.create_response("created", await c.req.json()),
-              );
-            });
-
-            flintpays.queue((c) =>
-              c.json(payment.status_response(flintpay_status)),
-            );
+            flintpays.queue(payment.create_response_handler("created"));
+            flintpays.queue(payment.status_handler(flintpay_status));
 
             let res = await merchant.create_payment(paymentRequest());
             await res.followFirstProcessingUrl();
