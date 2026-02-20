@@ -41,6 +41,18 @@ export const TraderRequisiteSchema = z.object({
       phone: z.string(),
     })
     .optional(),
+  link: z
+    .object({
+      url: z.url(),
+    })
+    .optional(),
+  account: z
+    .object({
+      number: z.string(),
+      name: z.string(),
+      bank: z.string(),
+    })
+    .optional(),
 });
 
 export class ProcessingUrlResponse {

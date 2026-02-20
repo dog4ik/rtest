@@ -101,7 +101,7 @@ async function setup(this: ExtendedTrader, params: Partial<SetupParams>) {
         profile_id: await get_profile_id(),
         requisite_type: "sbp",
         requisite_value: common.phoneNumber,
-        title: "Test phone",
+        title: common.fullName,
       })
       .then((r) => this.driver.activate_requisite(r.id!));
     await this.enable_trader_method("sbp_enabled");
@@ -113,7 +113,7 @@ async function setup(this: ExtendedTrader, params: Partial<SetupParams>) {
         profile_id: await get_profile_id(),
         requisite_type: "account",
         requisite_value: common.accountNumber,
-        title: "Test account",
+        title: common.fullName,
       })
       .then((r) => this.driver.activate_requisite(r.id!));
     await this.enable_trader_method("account_enabled");

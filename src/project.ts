@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-const ProjectValues = ["reactivepay", "8pay", "paygateway", "spinpay"] as const;
+const ProjectValues = [
+  "reactivepay",
+  "8pay",
+  "paygateway",
+  "spinpay",
+  "a2",
+] as const;
 
 export type Project = (typeof ProjectValues)[number];
 

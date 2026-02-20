@@ -5,7 +5,7 @@ import { test } from "@/test_context";
 import { assert, describe } from "vitest";
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay"]))
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
   .concurrent("trader tests", { timeout: 120_000 }, () => {
     test.concurrent("sms parser with 2 devices", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
@@ -89,7 +89,7 @@ function smsParserTest({
   requisite_type,
 }: SmsTestParams) {
   test
-    .runIf(CONFIG.in_project(["reactivepay"]))
+    .runIf(CONFIG.in_project(["reactivepay", "a2"]))
     .concurrent(
       `sms parser ${bank}`,
       { timeout: 60_000 },

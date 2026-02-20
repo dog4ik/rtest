@@ -40,6 +40,7 @@ export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   reactivepay: DEFAULT_PROJECT_CONFIG,
   spinpay: DEFAULT_PROJECT_CONFIG,
   paygateway: DEFAULT_PROJECT_CONFIG,
+  a2: DEFAULT_PROJECT_CONFIG,
   extra_mapping: {},
   flexy_flexy: false,
 } as const;
@@ -73,6 +74,7 @@ const CONFIG_SCHEMA = z.strictObject({
   reactivepay: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
   spinpay: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
   paygateway: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
+  a2: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
   browser: BROWSER_OBJECT.optional(),
   debug: z.boolean().default(false),
   projects_dir: z.string().default(".."),

@@ -8,6 +8,7 @@ import {
 import { assert } from "vitest";
 import type { Context } from "@/test_context/context";
 import type { PrimeBusinessStatus } from "@/db/business";
+import type { P2PSuite, TestCaseBase } from "@/suite_interfaces";
 
 const BANKLIST = [
   "sberbank",
@@ -276,5 +277,39 @@ export function traderSetttings(list: number[]) {
         wrapped_to_json_response: true,
       },
     },
+  };
+}
+
+export function payinSuite(currency = "RUB"): TestCaseBase<{}> {
+  return {
+    request() {
+      return common.p2pPaymentRequest(currency, "card");
+    },
+    mock_options() {
+      throw Error("trader gateway can't have a server instance");
+    },
+    settings() {
+      throw Error("trader gateway doesn't have default settings");
+    },
+    create_handler() {
+      return () => {
+        throw Error("trader gateway does can't handle requests");
+      };
+    },
+    gw: {},
+    type: "payin",
+  };
+}
+
+export function payoutSuite(currency = "RUB"): TestCaseBase<{}> {
+  return {
+    ...payinSuite(currency),
+    request() {
+      return {
+        ...common.payoutRequest(currency),
+        card: { pan: common.visaCard },
+      };
+    },
+    type: "payout",
   };
 }

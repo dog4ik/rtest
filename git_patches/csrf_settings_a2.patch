@@ -1,0 +1,23 @@
+diff --git a/services/settings/config/initializers/rails_admin.rb b/services/settings/config/initializers/rails_admin.rb
+index b59359ec..6ee19396 100644
+--- a/services/settings/config/initializers/rails_admin.rb
++++ b/services/settings/config/initializers/rails_admin.rb
+@@ -10,6 +10,10 @@ RailsAdmin::ApplicationHelper.module_eval do
+   end
+ end
+ 
++RailsAdmin::ApplicationController.class_eval do
++  skip_before_action :verify_authenticity_token
++end
++
+ RailsAdmin.config do |config|
+   config.authenticate_with do
+     path = request.path
+@@ -230,6 +234,7 @@ RailsAdmin.config do |config|
+   config.navigation_static_links = {
+     'Logout' => '/auth/logout'
+   }
++  config.forgery_protection_settings = {with: :null_session}
+ end
+ 
+ class RailsAdmin::Config::Fields::Types::Json

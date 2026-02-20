@@ -1,7 +1,8 @@
-import { type Credentials } from "..";
+import { authorize_client, get_redirect_location, type Credentials } from "..";
 import { randomUUID } from "node:crypto";
 import type { CoreStatus } from "@/db/core";
 import { err_bad_status } from "@/fetch_utils";
+import { PROJECT } from "@/config";
 
 export type CreateMerchant = {
   phone?: string;
@@ -58,7 +59,12 @@ export class CoreDriver {
         body.append(key, String(value));
       }
     }
-    console.log(body);
+    console.log({
+      body,
+      cookie: this.cookies,
+      method,
+      url: this.base_url + path,
+    });
     let res = await fetch(this.base_url + path, {
       method: method ?? "POST",
       redirect: "manual",
@@ -89,7 +95,20 @@ export class CoreDriver {
     }
   }
 
+  async keycloak_login(credentials: Credentials) {
+    this.cookies = await authorize_client(
+      credentials,
+      await get_redirect_location(
+        "http://localhost:3000/auth/keycloakopenid_admin",
+      ),
+    );
+    console.log({ cookies: this.cookies });
+  }
+
   async login(credentials: Credentials) {
+    if (PROJECT === "a2") {
+      return await this.keycloak_login(credentials);
+    }
     const form = {
       utf8: "✓",
       authenticity_token: "TODO",
@@ -224,11 +243,7 @@ export class CoreDriver {
     await this.action("/transfers?direction=in", params);
   }
 
-  async cashout(
-    mid: number,
-    currency: string,
-    amount: number,
-  ) {
+  async cashout(mid: number, currency: string, amount: number) {
     let now = new Date();
     let form = new FormData();
     form.append("utf8", "✓");

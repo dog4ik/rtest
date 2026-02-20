@@ -1,6 +1,7 @@
 import * as encoding from "@std/encoding";
-import { type Credentials } from "..";
+import { authorize_client, get_redirect_location, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
+import { PROJECT } from "@/config";
 
 export class SettingsDriver {
   private base_url: string;
@@ -11,6 +12,17 @@ export class SettingsDriver {
   ) {
     this.base_url = base_url + "/settings/admin";
     this.cookies = "";
+  }
+
+  async login() {
+    if (PROJECT === "a2") {
+      this.cookies = await authorize_client(
+        this.credentials,
+        await get_redirect_location(
+          "http://localhost:6001/settings/managers/auth/keycloakopenid",
+        ),
+      );
+    }
   }
 
   private async action(path: string, payload: {}) {
