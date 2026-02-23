@@ -51,6 +51,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
         c as [...Routable[], Routable & Callback],
         req(),
         check,
+        true,
       );
     }
   });

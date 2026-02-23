@@ -432,6 +432,7 @@ export function routingFinalizationSuite(
   check_merchant_response?: (
     response: ProcessingUrlResponse,
   ) => Promise<unknown>,
+  is_masked = false,
 ) {
   let currency = request.currency;
   let chain_descriptor = links
@@ -439,7 +440,7 @@ export function routingFinalizationSuite(
     .join(" -> ");
 
   test.concurrent(
-    `Routing: ${chain_descriptor}`,
+    `Routing: ${chain_descriptor}${is_masked ? "(masked)" : ""}`,
     { timeout: 45_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
