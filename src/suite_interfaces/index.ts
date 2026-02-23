@@ -440,7 +440,7 @@ export function routingFinalizationSuite(
     .join(" -> ");
 
   test.concurrent(
-    `Routing: ${chain_descriptor}${is_masked ? "(masked)" : ""}`,
+    `Routing: ${chain_descriptor}${is_masked ? " (masked)" : " (default)"}`,
     { timeout: 45_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
