@@ -20,7 +20,6 @@ export async function initState(config: Config) {
   let p = config.project;
   let business_url = "http://localhost:4000";
   let core_harness = new CoreDriver("http://localhost:3000");
-
   let project_dir = new ProjectDir(config);
 
   let credentials = projectCredentials(config);
@@ -28,6 +27,11 @@ export async function initState(config: Config) {
   let settings_service = new SettingsDriver(
     "http://127.0.0.1:6001",
     credentials.settings_credentials,
+  );
+
+  let commission_service = new FlexyCommission(
+    "http://127.0.0.1:7082",
+    credentials.flexy_commission_credentials,
   );
 
   let [core_db, business_db, settings_db, mapping, browser] = await Promise.all(
@@ -42,6 +46,7 @@ export async function initState(config: Config) {
       createBrowser(),
       core_harness.login(credentials.core_credentials),
       settings_service.login(),
+      commission_service.login(credentials.flexy_commission_credentials),
     ],
   );
 
@@ -59,10 +64,7 @@ export async function initState(config: Config) {
     settings_db: new SettingsDb(settings_db, p),
     core_harness,
     settings_service,
-    commission_service: new FlexyCommission(
-      "http://127.0.0.1:7082",
-      credentials.flexy_commission_credentials,
-    ),
+    commission_service,
     guard_service: new FlexyGuardHarness(
       "http://127.0.0.1:7081",
       credentials.flexy_guard_credentials,

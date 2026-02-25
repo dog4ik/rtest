@@ -113,6 +113,17 @@ export async function basic_healthcheck(
     "feeds.payment_object_json",
   );
 
+  assert.isNotNull(core.target_amount, "target amount should not be null");
+  assert(core.target_amount > 0, "target amount should not be 0");
+  if (core.target_currency_rate !== null) {
+    assert.approximately(
+      core.target_amount,
+      core.amount / core.target_currency_rate,
+      0.01,
+      "target amount should be equal to amount / rate",
+    );
+  }
+
   let status = new Match(core.status, businessOfCoreStatus(business.status));
   let amount = new Match(core.amount, business.amount / 100);
 

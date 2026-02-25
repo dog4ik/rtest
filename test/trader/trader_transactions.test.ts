@@ -20,6 +20,7 @@ describe
           operation: "PayinRequest",
           self_rate: "10",
           currency: "RUB",
+          comment: "trader with commission",
         });
         await merchant.set_settings(traderSetttings([trader.id]));
         let approve_cb = merchant.queue_notification((n) => {
@@ -34,6 +35,47 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
+
+        await delay(TRADER_DELAY);
+        let feed = await trader.finalizeTransaction(res.token, "approved");
+        await approve_cb;
+
+        let wallets = await trader.wallets();
+        assert.strictEqual(
+          wallets.main.available,
+          common.amount / 100 -
+            (feed.target_amount! + (feed.commission_amount ?? 0)),
+        );
+        assert.strictEqual(wallets.main.held, 0);
+      }),
+    );
+
+    test.concurrent("approve double processingUrl", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader();
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", common.amount / 100);
+        await merchant.set_commission({
+          operation: "PayinRequest",
+          self_rate: "10",
+          currency: "RUB",
+          comment: "trader with commission",
+        });
+        await merchant.set_settings(traderSetttings([trader.id]));
+        let approve_cb = merchant.queue_notification((n) => {
+          assert.strictEqual(n.status, "approved");
+        });
+        let res = await merchant.create_payment({
+          ...common.paymentRequest("RUB"),
+          bank_account: {
+            requisite_type: "card",
+          },
+        });
+        let [first, second] = await Promise.all([
+          res.followFirstProcessingUrl().then((r) => r.as_raw_json()),
+          res.followFirstProcessingUrl().then((r) => r.as_raw_json()),
+        ]);
+        console.log({first, second});
 
         await delay(TRADER_DELAY);
         let feed = await trader.finalizeTransaction(res.token, "approved");
@@ -138,10 +180,10 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
-          assert(res.card, "card filed should not be empty");
-          assert.strictEqual(res.card.pan, common.visaCard);
-          assert.strictEqual(res.card.bank, "sberbank");
-          assert.strictEqual(res.card.name, common.fullName);
+        assert(res.card, "card filed should not be empty");
+        assert.strictEqual(res.card.pan, common.visaCard);
+        assert.strictEqual(res.card.bank, "sberbank");
+        assert.strictEqual(res.card.name, common.fullName);
       }),
     );
 
@@ -160,8 +202,8 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
-          assert(res.link, "link filed should not be empty");
-          assert.strictEqual(res.link.url, common.redirectPayUrl);
+        assert(res.link, "link filed should not be empty");
+        assert.strictEqual(res.link.url, common.redirectPayUrl);
       }),
     );
 
@@ -180,10 +222,10 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
-          assert(res.sbp, "sbp filed should not be empty");
-          assert.strictEqual(res.sbp.name, common.fullName);
-          assert.strictEqual(res.sbp.bank, "sberbank");
-          assert.strictEqual(res.sbp.phone, common.phoneNumber);
+        assert(res.sbp, "sbp filed should not be empty");
+        assert.strictEqual(res.sbp.name, common.fullName);
+        assert.strictEqual(res.sbp.bank, "sberbank");
+        assert.strictEqual(res.sbp.phone, common.phoneNumber);
       }),
     );
 
@@ -202,10 +244,38 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
-          assert(res.account, "account filed should not be empty");
-          assert.strictEqual(res.account.name, common.fullName);
-          assert.strictEqual(res.account.bank, "sberbank");
-          assert.strictEqual(res.account.number, common.accountNumber);
+        assert(res.account, "account filed should not be empty");
+        assert.strictEqual(res.account.name, common.fullName);
+        assert.strictEqual(res.account.bank, "sberbank");
+        assert.strictEqual(res.account.number, common.accountNumber);
+      }),
+    );
+
+    test.concurrent("card payout data flow", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader();
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.cashin("USDT", common.amount / 100);
+        await trader.cashin("main", "USDT", common.amount / 100);
+        let res = await merchant
+          .create_payout({
+            ...common.payoutRequest("RUB"),
+            bank_account: {
+              requisite_type: "card",
+            },
+            customer: {
+              email: common.email,
+              ip: "8.8.8.8",
+              first_name: "test",
+              last_name: "test",
+            },
+            card: {
+              pan: common.visaCard,
+            },
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_raw_json());
       }),
     );
   });

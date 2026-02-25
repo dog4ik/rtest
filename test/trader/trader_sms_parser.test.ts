@@ -74,8 +74,8 @@ describe
   });
 
 type SmsTestParams = {
-  from: string;
-  text: (amount: number) => string;
+  from: string | ((amount: number) => string);
+  text: string | ((amount: number) => string);
   sim: string;
   bank: Bank;
   requisite_type: Requisite;
@@ -123,8 +123,8 @@ function smsParserTest({
 
           let sms_res = await trader.driver.send_sms({
             uuid: device_id,
-            from,
-            text: text(common.amount),
+            from: typeof from === "function" ? from(common.amount) : from,
+            text: typeof text === "function" ? text(common.amount) : text,
             sim,
           });
 
@@ -151,4 +151,12 @@ smsParserTest({
   sim: "com.idamob.tinkoff.android",
   text: (amount) =>
     `Пополнение на ${(amount / 100).toString().replace(".", ",")} ₽ СБП`,
+});
+
+smsParserTest({
+  requisite_type: "card",
+  bank: "otp",
+  from: (amount) => `💸 ${(amount / 100).toFixed(2)} ₴ ОТП Банк`,
+  sim: "ru.otpbank.mobile",
+  text: `Баланс: 5100.00 ₴`,
 });

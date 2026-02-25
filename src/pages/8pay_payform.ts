@@ -94,7 +94,7 @@ export class EightpayRequisitesPage {
     } else if (type === "card") {
       await expect(this.pageTitle()).toBeVisible();
       await expect(this.pageTitle()).toHaveText("Оплата по номеру карты");
-      await expect(this.p.getByText(formatPan(number))).toBeVisible();
+      await expect(this.p.getByText(formatPan(number)).first()).toBeVisible();
     }
     const normalize = (s: string) => s.replace("\u00A0", " ").trim();
     let amountText = (await this.amountSpan().textContent()) ?? "";
