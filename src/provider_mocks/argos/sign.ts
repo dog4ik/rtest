@@ -52,14 +52,14 @@ export function buildSignatureInput(fields: Input): string {
 /**
  * Verifies a signature against the expected value.
  */
-export function verifySignature(
-  data: Input,
-  key: string,
-  expectedSignature: string,
-): boolean {
-  const computed = createSignature(data, key);
-  return computed === expectedSignature;
-}
+// export function verifySignature(
+//   data: Input,
+//   key: string,
+//   expectedSignature: string,
+// ): boolean {
+//   const computed = createSignature(data, key);
+//   return computed === expectedSignature;
+// }
 
 export function decryptAES128(text: string, key: string): string {
   const keyBuffer = Buffer.from(key);
