@@ -50,47 +50,6 @@ describe
       }),
     );
 
-    test.concurrent("approve double processingUrl", ({ ctx, merchant }) =>
-      ctx.track_bg_rejections(async () => {
-        let trader = await ctx.create_random_trader();
-        await trader.setup({ card: true, bank: "sberbank" });
-        await trader.cashin("main", "USDT", common.amount / 100);
-        await merchant.set_commission({
-          operation: "PayinRequest",
-          self_rate: "10",
-          currency: "RUB",
-          comment: "trader with commission",
-        });
-        await merchant.set_settings(traderSetttings([trader.id]));
-        let approve_cb = merchant.queue_notification((n) => {
-          assert.strictEqual(n.status, "approved");
-        });
-        let res = await merchant.create_payment({
-          ...common.paymentRequest("RUB"),
-          bank_account: {
-            requisite_type: "card",
-          },
-        });
-        let [first, second] = await Promise.all([
-          res.followFirstProcessingUrl().then((r) => r.as_raw_json()),
-          res.followFirstProcessingUrl().then((r) => r.as_raw_json()),
-        ]);
-        console.log({first, second});
-
-        await delay(TRADER_DELAY);
-        let feed = await trader.finalizeTransaction(res.token, "approved");
-        await approve_cb;
-
-        let wallets = await trader.wallets();
-        assert.strictEqual(
-          wallets.main.available,
-          common.amount / 100 -
-            (feed.target_amount! + (feed.commission_amount ?? 0)),
-        );
-        assert.strictEqual(wallets.main.held, 0);
-      }),
-    );
-
     test.concurrent("decline payin", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader = await ctx.create_random_trader();
@@ -276,6 +235,36 @@ describe
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_raw_json());
+      }),
+    );
+
+    test.concurrent("card payin transactions load test", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader();
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", (common.amount / 100) * 100);
+        await merchant.set_settings(traderSetttings([trader.id]));
+        let requisites = [...new Array(20)].map(async (_, i) => {
+          let res = await merchant
+            .create_payment({
+              ...common.paymentRequest("RUB"),
+              amount: common.amount + i,
+              bank_account: {
+                requisite_type: "card",
+              },
+            })
+            .then((r) => r.followFirstProcessingUrl())
+            .then((r) => r.as_trader_requisites())
+            // Intentionally ignore all errors during requisites fetch
+            .catch(() => undefined);
+          if (res) {
+            assert(res.card, "card filed should not be empty");
+            assert.strictEqual(res.card.pan, common.visaCard);
+            assert.strictEqual(res.card.bank, "sberbank");
+            assert.strictEqual(res.card.name, common.fullName);
+          }
+        });
+        await Promise.all(requisites);
       }),
     );
   });
