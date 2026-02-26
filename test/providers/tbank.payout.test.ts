@@ -117,6 +117,8 @@ describe
           tbank.queue(payment.attach_card_handler());
           tbank.queue(payment.init_card_handler());
           tbank.queue(common.nginx500);
+          tbank.queue(common.nginx500);
+          tbank.queue(common.nginx500);
           let result = await merchant.create_payout({
             ...common.payoutRequest(CURRENCY),
             card,
@@ -169,6 +171,7 @@ describe
             tbank.queue(
               payment.custom_error_handler(8008, "unknown error happened"),
             );
+            tbank.queue(payment.remove_card_handler());
             let result = await merchant.create_payout({
               ...common.payoutRequest(CURRENCY),
               card,
@@ -195,6 +198,7 @@ describe
             tbank.queue(
               payment.custom_error_handler(8008, "unknown error happened"),
             );
+            tbank.queue(payment.remove_card_handler());
             let result = await merchant.create_payout({
               ...common.payoutRequest(CURRENCY),
               card,
@@ -218,6 +222,7 @@ describe
             tbank.queue(payment.attach_card_handler());
             tbank.queue(payment.init_card_handler());
             tbank.queue(payment.invalid_params_handler());
+            tbank.queue(payment.remove_card_handler());
             let result = await merchant.create_payout({
               ...common.payoutRequest(CURRENCY),
               card,

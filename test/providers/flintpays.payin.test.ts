@@ -30,7 +30,7 @@ function paymentRequest() {
   };
 }
 vitest.describe
-  .skipIf(CONFIG.project === "8pay")
+  .runIf(CONFIG.in_project(["8pay", "reactivepay"]))
   .concurrent("flintpays payin gateway", () => {
     const CASES = [
       ["confirmed" as FlintpayStatus, "approved"],
