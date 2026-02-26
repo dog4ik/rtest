@@ -3,6 +3,9 @@ import { z } from "zod";
 import * as sign from "./signature";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
+import type { P2PSuite } from "@/suite_interfaces";
+import type { PrimeBusinessStatus } from "@/db/business";
+import * as common from "@/common";
 
 export const OperationStatusMap = {
   UNDEFINED: -1,
@@ -30,6 +33,7 @@ const RequestDataSchema = z.object({
   extra: z.object({
     customer_name: z.string(),
     customer_email: z.email().optional(),
+    otp: z.string().optional(),
   }),
   signature: z.string(),
 });
@@ -144,7 +148,7 @@ export class DalapayTransaction {
     return {
       bank_list: {
         Airtel: 2002,
-        Orange: 2001,
+        "Orange Money": 827,
         Africel: 2004,
         Vodacom: 2003,
         default: 2002,
@@ -165,4 +169,42 @@ export class DalapayTransaction {
       },
     };
   }
+}
+
+export function payinSuite(currency = "CDF"): P2PSuite<DalapayTransaction> {
+  let gw = new DalapayTransaction();
+  let statusMap: Record<PrimeBusinessStatus, OperationStatus> = {
+    approved: OperationStatusMap.SUCCESS,
+    declined: OperationStatusMap.FAILED,
+    pending: OperationStatusMap.IN_PROGRESS,
+  };
+  return {
+    type: "payin",
+    send_callback: async (status, _) => {
+      await gw.send_callback(statusMap[status]);
+    },
+    create_handler: (s) => gw.create_handler(statusMap[s]),
+    mock_options: DalapayTransaction.mock_params,
+    request: () => ({
+      amount: common.amount,
+      currency,
+      customer: {
+        country: "CD",
+        email: common.email,
+        first_name: common.firstName,
+        ip: common.ip,
+        last_name: common.lastName,
+        phone: common.phoneNumber,
+      },
+      extra_return_param: "Orange Money",
+      order_number: "Test order",
+      product: "deposit",
+    }),
+    settings: (secret) => DalapayTransaction.settings(secret),
+    status_handler: (s) => gw.status_handler(statusMap[s]),
+    no_requisites_handler: () => {
+      throw Error("No requestites handler in not available for dalapay");
+    },
+    gw,
+  };
 }
