@@ -429,9 +429,12 @@ async function setupRoutingChain(
 export function routingFinalizationSuite(
   links: [...Routable[], Routable & Callback],
   request: PaymentRequest,
-  check_merchant_response?: (
-    response: ProcessingUrlResponse,
-  ) => Promise<unknown>,
+  checks?: {
+    check_merchant_requisites?: (
+      response: ProcessingUrlResponse,
+    ) => Promise<unknown>;
+    check_merchant_payform?: (page: playwright.Page) => Promise<unknown>;
+  },
   is_masked = false,
 ) {
   let currency = request.currency;
@@ -454,8 +457,8 @@ export function routingFinalizationSuite(
         let res = await merchant
           .create_payment(request)
           .then((p) => p.followFirstProcessingUrl());
-        if (check_merchant_response) {
-          await check_merchant_response(res);
+        if (checks?.check_merchant_requisites) {
+          await checks.check_merchant_requisites(res);
         }
         await Promise.all(chain);
         await delay(11_000);
@@ -463,6 +466,49 @@ export function routingFinalizationSuite(
         await approved_notification;
       }),
   );
+
+  test
+    .runIf(checks?.check_merchant_payform)
+    .concurrent(
+      `Routing: ${chain_descriptor}${is_masked ? " (masked)" : " (default)"} payform`,
+      { timeout: 45_000 },
+      ({ ctx, browser }) =>
+        ctx.track_bg_rejections(async () => {
+          let override_links = () => {
+            return links.map((l) => ({
+              ...l,
+              settings: (secret: string) => ({
+                ...l.settings(secret),
+                wrapped_to_json_response: false,
+              }),
+            }));
+          };
+          let { merchant, chain } = await setupRoutingChain(
+            ctx,
+            currency,
+            override_links(),
+          );
+          console.log({ merchant, chain_descriptor, type: "before" });
+          console.log({ merchant, chain_descriptor, type: "after", request });
+          let first_processing_url = await merchant
+            .create_payment(request)
+            .then((p) => p.firstProcessingUrl());
+          assert(
+            first_processing_url,
+            "merchant response is missing processing url",
+          );
+          let page = await browser.newPage();
+          await page.setViewportSize({ width: 720, height: 1024 });
+
+          await page.goto(first_processing_url);
+          await ctx.annotate("Routed payform screenshot", {
+            contentType: "image/png",
+            body: await page.screenshot(),
+          });
+          await checks?.check_merchant_payform?.(page);
+          await Promise.all(chain);
+        }),
+    );
 }
 
 /**
