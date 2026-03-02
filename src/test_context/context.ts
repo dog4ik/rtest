@@ -69,8 +69,8 @@ export class Context {
     return merchant;
   }
 
-  async create_random_trader() {
-    let info = await this.state.core_harness.create_random_trader();
+  async create_random_trader(ustd = true) {
+    let info = await this.state.core_harness.create_random_trader(ustd);
     await this.annotate(`Created trader: ${info.email} ${info.password}`);
     let trader = await this.state.core_db
       .traderByEmail(info.email)
@@ -78,6 +78,18 @@ export class Context {
     await this.state.core_harness.add_supported_banks(trader.id, ["31", "46"]);
     await trader.driver.login(info.email, info.password);
     return trader;
+  }
+
+  async create_random_bank() {
+    let random_name = () =>
+      Math.floor(Math.random() * Math.pow(10, 10)).toString();
+    let bank_info = {
+      en: random_name(),
+      ru: random_name(),
+      system_name: random_name(),
+    };
+    await this.state.core_harness.add_bank(bank_info);
+    return bank_info;
   }
 
   /**

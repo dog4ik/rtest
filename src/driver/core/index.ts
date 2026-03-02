@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { CoreStatus } from "@/db/core";
 import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
+import type { Requisite } from "../trader";
 
 export type CreateMerchant = {
   phone?: string;
@@ -28,6 +29,17 @@ export type TraderMethodToggle = {
   card_enabled: boolean;
   account_enabled: boolean;
   link_enabled: boolean;
+};
+
+export type CreateSmsParser = {
+  sms_type: Requisite;
+  sim: string;
+  from_data: string;
+  change_from_data_to?: string;
+  currency: string;
+  pattern: string;
+  key_word?: string;
+  bank_id: string;
 };
 
 const DateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -172,13 +184,13 @@ export class CoreDriver {
     await this.action("/traders", form);
   }
 
-  async create_random_trader() {
+  async create_random_trader(usdt = true) {
     let uuid = randomUUID();
     let params: CreateTrader = {
       companyName: uuid,
       email: `${uuid}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
-      convert_to_usdt: true,
+      convert_to_usdt: usdt,
       telegram: uuid,
       currency: "RUB",
     };
@@ -218,6 +230,54 @@ export class CoreDriver {
       commit: "Save",
     };
     await this.action(`/traders/${trader_id}`, data);
+  }
+
+  async add_bank({
+    system_name,
+    ru,
+    en,
+  }: {
+    system_name: string;
+    ru: string;
+    en: string;
+  }) {
+    let data = {
+      utf8: "✓",
+      "bank[names][en]": en,
+      "bank[names][ru]": ru,
+      "bank[system_name]": system_name,
+      commit: "Add a new bank",
+    };
+    let form_data = new FormData();
+    for (let [key, value] of Object.entries(data)) {
+      form_data.append(key, value);
+    }
+    await this.form_action(`/banks`, form_data);
+  }
+
+  async add_sms_parser({
+    sms_type,
+    sim,
+    from_data,
+    change_from_data_to,
+    currency,
+    pattern,
+    key_word,
+    bank_id,
+  }: CreateSmsParser) {
+    let data = {
+      utf8: "✓",
+      "sms_parser[sms_type]": sms_type,
+      "sms_parser[sim]": sim,
+      "sms_parser[from_data]": from_data,
+      "sms_parser[change_from_data_to]": change_from_data_to ?? "",
+      "sms_parser[currency]": currency,
+      "sms_parser[pattern]": pattern,
+      "sms_parser[key_word]": key_word ?? "",
+      "sms_parser[bank_id]": bank_id,
+      commit: "Create+a+new+sms+parser",
+    };
+    await this.action("/sms_parsers", data);
   }
 
   async cashin(

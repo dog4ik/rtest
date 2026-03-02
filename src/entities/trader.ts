@@ -28,7 +28,7 @@ type SetupParams = {
   sbp: boolean;
   link: boolean;
   account: boolean;
-  bank: Bank;
+  bank: Bank | {};
 };
 
 const DEFAULT_SETUP: SetupParams = {
@@ -58,7 +58,10 @@ async function finalize_dispute(
   dispute_id: number,
   status: "approved" | "declined",
 ) {
-  this.ctx.story.add_chapter("Finalizing trader dispute", `${dispute_id} to ${status}`);
+  this.ctx.story.add_chapter(
+    "Finalizing trader dispute",
+    `${dispute_id} to ${status}`,
+  );
   return this.driver.update_dispute(dispute_id, status);
 }
 
@@ -172,6 +175,10 @@ async function cashin(
   amount: number,
 ) {
   let accounts = await this.bank_accounts();
+  this.ctx.story.add_chapter(
+    `Trader ${this.id} cashin`,
+    `${amount} ${currency} (${wallet_type})`,
+  );
   await this.ctx
     .shared_state()
     .core_harness.cashin(

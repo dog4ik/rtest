@@ -1,12 +1,14 @@
 import * as common from "@/common";
 import { traderSetttings, type Bank, type Requisite } from "@/driver/trader";
-import { CONFIG } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import { assert, describe } from "vitest";
+import type { Context } from "@/test_context/context";
+import type { CreateSmsParser } from "@/driver/core";
 
 describe
   .runIf(CONFIG.in_project(["reactivepay", "a2"]))
-  .concurrent("trader tests", { timeout: 120_000 }, () => {
+  .concurrent("trader sms tests", { timeout: 120_000 }, () => {
     test.concurrent("sms parser with 2 devices", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader = await ctx.create_random_trader();
@@ -77,11 +79,11 @@ type SmsTestParams = {
   from: string | ((amount: number) => string);
   text: string | ((amount: number) => string);
   sim: string;
-  bank: Bank;
+  bank?: Bank;
   requisite_type: Requisite;
 };
 
-function smsParserTest({
+function test_existng_parser({
   from,
   text,
   sim,
@@ -135,7 +137,7 @@ function smsParserTest({
     );
 }
 
-smsParserTest({
+test_existng_parser({
   requisite_type: "sbp",
   bank: "tbank",
   from: "T-Bank",
@@ -144,7 +146,7 @@ smsParserTest({
     `Пополнение на ${(amount / 100).toString().replace(".", ",")} ₽`,
 });
 
-smsParserTest({
+test_existng_parser({
   requisite_type: "sbp",
   bank: "tbank",
   from: "T-Bank",
@@ -153,10 +155,84 @@ smsParserTest({
     `Пополнение на ${(amount / 100).toString().replace(".", ",")} ₽ СБП`,
 });
 
-smsParserTest({
-  requisite_type: "card",
-  bank: "otp",
-  from: (amount) => `💸 ${(amount / 100).toFixed(2)} ₴ ОТП Банк`,
-  sim: "ru.otpbank.mobile",
-  text: `Баланс: 5100.00 ₴`,
+async function setup_trader_with_bank(ctx: Context) {
+  let bank = await ctx.create_random_bank();
+  let merchant = await ctx.create_random_merchant();
+  let trader = await ctx.create_random_trader(true);
+  await trader.cashin("main", "USDT", common.amount);
+  merchant.set_settings(traderSetttings([trader.id]));
+  let setup = await trader.setup({
+    bank: bank.system_name,
+    card: true,
+    sbp: true,
+  });
+  return { bank, trader, setup, merchant };
+}
+
+type BankSmsTestParams = {
+  parsers: Omit<CreateSmsParser, "bank_id">[];
+  sms: SmsTestParams;
+};
+
+function test_new_bank_sms<T extends BankSmsTestParams>({ sms, parsers }: T) {
+  test
+    .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+    .concurrent(`${sms.text} | ${sms.from} sms test`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { bank, trader, merchant, setup } =
+          await setup_trader_with_bank(ctx);
+        for (let parser of parsers) {
+          await ctx.shared_state().core_harness.add_sms_parser({
+            ...parser,
+            bank_id: bank.system_name,
+          });
+        }
+        let approve = merchant.queue_notification((cb) => {
+          assert.strictEqual(cb.status, "approved", "merchant approved status");
+        });
+        await merchant
+          .create_payment({
+            ...common.paymentRequest("RUB"),
+            bank_account: {
+              bank_name: bank,
+              requisite_type: sms.requisite_type,
+            },
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        let sms_res = await trader.driver.send_sms({
+          uuid: setup.device_id,
+          from:
+            typeof sms.from === "function" ? sms.from(common.amount) : sms.from,
+          text:
+            typeof sms.text === "function" ? sms.text(common.amount) : sms.text,
+          sim: sms.sim,
+        });
+        console.log({ sms_res });
+        await approve;
+      }),
+    );
+}
+
+function format_amount(amount: number) {
+  return (amount / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+test_new_bank_sms({
+  sms: {
+    requisite_type: "card",
+    bank: "otp",
+    from: (amount) => `+${format_amount(amount)} ₴`,
+    sim: "ua.otpbank.mobile",
+    text: `Переказ на картку Shmarkatiuk Serhii → Стартова ••1858 Баланс: 2 812.00 ₴`,
+  },
+  parsers: [
+    {
+      sms_type: "card",
+      from_data: `\+?([\\d\\s]+\\.\\d{2})\\s*₴`,
+      pattern: `\\+?([\\d\\s]+\\.\\d{2})\\s*₴`,
+      sim: "ua.otpbank.mobile",
+      currency: "RUB",
+    },
+  ],
 });

@@ -280,6 +280,38 @@ export function traderSetttings(list: number[]) {
   };
 }
 
+export function traderNoConvertSettings(currency: string, list: number[]) {
+  return {
+    [currency]: {
+      gateways: {
+        pay: {
+          providers: [
+            {
+              trader: "trader",
+            },
+          ],
+        },
+        payout: {
+          providers: [
+            {
+              trader: "trader",
+            },
+          ],
+        },
+      },
+    },
+    gateways: {
+      allow_host2host: true,
+      trader: {
+        list,
+        pay_expired_minutes: 15,
+        private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
+        wrapped_to_json_response: true,
+      },
+    },
+  };
+}
+
 export function payinSuite(currency = "RUB"): TestCaseBase<{}> {
   return {
     request() {
