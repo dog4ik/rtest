@@ -1,5 +1,5 @@
 import * as playwright from "playwright";
-import { assert, describe } from "vitest";
+import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { PrimeBusinessStatus } from "@/db/business";
 import { CONFIG } from "@/config";

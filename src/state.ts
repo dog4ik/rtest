@@ -12,6 +12,7 @@ import { ProjectDir } from "./patch/project_dir";
 import { createBrowser } from "./test_context/browser";
 import { FlexyCommission } from "./driver/flexy_commission";
 import { FlexyGuardHarness } from "./driver/flexy_guard";
+import { GC_MAPPING_KEY, GC_MOCK_PORT } from "./provider_mocks/gateway_connect";
 
 export type SharedState = Awaited<ReturnType<typeof initState>>;
 
@@ -50,6 +51,7 @@ export async function initState(config: Config) {
     ],
   );
 
+  mapping.set(GC_MAPPING_KEY, GC_MOCK_PORT);
   if (config.extra_mapping !== undefined) {
     for (let [key, val] of Object.entries(config.extra_mapping)) {
       mapping.set(key, val);

@@ -4,7 +4,7 @@ const EXCLUDE = [
   "consider_all_requests_local",
 ];
 
-const MAPPING_START_PORT = 64530;
+export const MAPPING_START_PORT = 64530;
 
 /**
  * Extremely unfortunate solution.
