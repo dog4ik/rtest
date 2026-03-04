@@ -1,5 +1,5 @@
 import * as encoding from "@std/encoding";
-import { authorize_client, get_redirect_location, type Credentials } from "..";
+import { authorize_client, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
 
@@ -18,9 +18,7 @@ export class SettingsDriver {
     if (PROJECT === "a2") {
       this.cookies = await authorize_client(
         this.credentials,
-        await get_redirect_location(
-          "http://localhost:6001/settings/managers/auth/keycloakopenid",
-        ),
+        "http://localhost:6001/settings/managers/auth/keycloakopenid",
       );
     }
   }

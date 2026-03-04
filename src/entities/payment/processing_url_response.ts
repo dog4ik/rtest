@@ -13,6 +13,21 @@ export const EightpayRequesiteSchema = z.object({
   support_bank_native: z.record(z.string(), z.string()).optional(),
 });
 
+export const PayoutResponseSchema = z.object({
+  success: z.literal(true),
+  // Trader (source=trader) response makes these 2 fields optional :=D
+  token: z.string().length(32),
+  processingUrl: z.url(),
+  payment: z.object({
+    amount: z.number().min(1),
+    currency: z.string().nonempty(),
+    gateway_amount: z.number().min(1),
+    gateway_currency: z.string().nonempty(),
+    status: z.literal("pending"),
+  }),
+});
+
+
 export const TraderRequisiteSchema = z.object({
   success: z.literal(true),
   // Trader (source=trader) response makes these 2 fields optional :=D
@@ -94,6 +109,18 @@ export class ProcessingUrlResponse {
     assert(
       response.success,
       `parse 8pay h2h p2p requisites: ${response.error?.message}`,
+    );
+    return response.data;
+  }
+
+  async as_payout_response() {
+    let json = await this.consume_json_body();
+    assert.strictEqual(this.response.status, 200, "success status");
+    let response = PayoutResponseSchema.safeParse(json);
+
+    assert(
+      response.success,
+      `parse trader payout h2h response: ${response.error?.message}`,
     );
     return response.data;
   }

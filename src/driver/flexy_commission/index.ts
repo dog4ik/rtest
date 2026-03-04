@@ -1,5 +1,5 @@
 import * as encoding from "@std/encoding";
-import { authorize_client, get_redirect_location, type Credentials } from "..";
+import { authorize_client, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
 
@@ -43,7 +43,7 @@ export class FlexyCommission {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      await get_redirect_location("http://localhost:7082"),
+      "http://localhost:7082",
     );
     console.log({ cookies: this.cookies });
   }

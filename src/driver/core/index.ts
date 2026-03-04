@@ -13,6 +13,11 @@ export type CreateMerchant = {
   email: string;
 };
 
+export type CreateTraderOptions = {
+  usdt?: boolean;
+  payout_hold_period?: number;
+};
+
 export type CreateTrader = {
   telegram: string;
   currency: string;
@@ -20,6 +25,7 @@ export type CreateTrader = {
   companyName: string;
   email: string;
   convert_to_usdt: boolean;
+  payout_hold_priod: number;
 };
 
 export type TraderMethodToggle = {
@@ -110,9 +116,7 @@ export class CoreDriver {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      await get_redirect_location(
-        "http://localhost:3000/auth/keycloakopenid_admin",
-      ),
+      "http://localhost:3000/auth/keycloakopenid_admin",
     );
     console.log({ cookies: this.cookies });
   }
@@ -172,6 +176,7 @@ export class CoreDriver {
       "trader[email]": params.email,
       "trader[web_site]": params.telegram,
       "trader[temp_password]": params.password,
+      "trader[payout_hold_period]": params.payout_hold_priod,
       main_address: "",
       deposit_address: "",
       white_list: "",
@@ -184,13 +189,14 @@ export class CoreDriver {
     await this.action("/traders", form);
   }
 
-  async create_random_trader(usdt = true) {
+  async create_random_trader(opts?: CreateTraderOptions) {
     let uuid = randomUUID();
     let params: CreateTrader = {
       companyName: uuid,
       email: `${uuid}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
-      convert_to_usdt: usdt,
+      convert_to_usdt: opts?.usdt ?? true,
+      payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: "RUB",
     };
@@ -345,6 +351,14 @@ export class CoreDriver {
     const queryParams = new URLSearchParams(query);
 
     await this.action(`/cashouts/change_status?${queryParams}`, params);
+  }
+
+  async approve_payout(id: number) {
+    await this.action(`/transfers/${id}/approve_payout`, {});
+  }
+
+  async decline_payout(id: number) {
+    await this.action(`/transfers/${id}/decline_payout`, {});
   }
 
   async resend_callback(token: string) {

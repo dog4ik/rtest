@@ -1,35 +1,32 @@
-import { assert } from "vitest";
-
 export type Credentials = {
   login: string;
   password: string;
 };
-
-export async function get_redirect_location(url: string) {
-  let res = await fetch(url, { redirect: "manual" });
-  assert.strictEqual(res.status, 302, "expected redirect to login page");
-  let location = res.headers.get("location");
-  console.log("Auth redirect location", location);
-  assert(location, "location should not be empty");
-  return location;
-}
 
 export async function authorize_client(
   credentials: Credentials,
   login_url: string,
 ) {
   console.log({ login_url });
-  let loginInitRes = await fetch(login_url, { redirect: "follow" });
-  let loginPageHtml = await loginInitRes.text();
+  let loginInitRes = await fetch(login_url, { redirect: "manual" });
 
-  // yikes
+  let flaskCookies =
+    loginInitRes.headers.getSetCookie?.() ??
+    [loginInitRes.headers.get("set-cookie")].filter(Boolean);
+
+  let keycloakUrl = loginInitRes.headers.get("location");
+  if (!keycloakUrl) throw new Error("No redirect to Keycloak");
+
+  let keycloakPageRes = await fetch(keycloakUrl, { redirect: "follow" });
+  let loginPageHtml = await keycloakPageRes.text();
+
   let actionMatch = loginPageHtml.match(/action="([^"]+)"/);
   if (!actionMatch) throw new Error("No form action found");
   let formAction = actionMatch[1].replace(/&amp;/g, "&");
 
   let keycloakCookies =
-    loginInitRes.headers.getSetCookie?.() ??
-    [loginInitRes.headers.get("set-cookie")].filter(Boolean);
+    keycloakPageRes.headers.getSetCookie?.() ??
+    [keycloakPageRes.headers.get("set-cookie")].filter(Boolean);
 
   let authRes = await fetch(formAction, {
     method: "POST",
@@ -48,10 +45,12 @@ export async function authorize_client(
   if (!callbackUrl) throw new Error("No redirect after login");
 
   let callbackRes = await fetch(callbackUrl, {
+    headers: {
+      Cookie: flaskCookies.join("; "),
+    },
     redirect: "manual",
   });
 
   let cookie = callbackRes.headers.get("set-cookie");
-  console.log({ cookie });
   return cookie;
 }

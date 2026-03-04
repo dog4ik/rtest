@@ -1,3 +1,4 @@
+import type { CreateTraderOptions } from "@/driver/core";
 import { TraderDriver } from "@/driver/trader";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
@@ -69,8 +70,8 @@ export class Context {
     return merchant;
   }
 
-  async create_random_trader(ustd = true) {
-    let info = await this.state.core_harness.create_random_trader(ustd);
+  async create_random_trader(opts?: CreateTraderOptions) {
+    let info = await this.state.core_harness.create_random_trader(opts);
     await this.annotate(`Created trader: ${info.email} ${info.password}`);
     let trader = await this.state.core_db
       .traderByEmail(info.email)

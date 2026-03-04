@@ -158,7 +158,7 @@ test_existng_parser({
 async function setup_trader_with_bank(ctx: Context) {
   let bank = await ctx.create_random_bank();
   let merchant = await ctx.create_random_merchant();
-  let trader = await ctx.create_random_trader(true);
+  let trader = await ctx.create_random_trader({ usdt: true });
   await trader.cashin("main", "USDT", common.amount);
   merchant.set_settings(traderSetttings([trader.id]));
   let setup = await trader.setup({

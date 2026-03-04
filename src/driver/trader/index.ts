@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import * as assets from "@/assets";
 import * as common from "@/common";
 import type { Middleware } from "openapi-fetch";
 import {
@@ -8,7 +10,7 @@ import {
 import { assert } from "vitest";
 import type { Context } from "@/test_context/context";
 import type { PrimeBusinessStatus } from "@/db/business";
-import type { P2PSuite, TestCaseBase } from "@/suite_interfaces";
+import type { TestCaseBase } from "@/suite_interfaces";
 
 const BANKLIST = [
   "sberbank",
@@ -90,7 +92,7 @@ function createMiddleware(api_key: string): Middleware {
 }
 
 type CreateProfilePayload = {
-  bank: Bank;
+  bank: Bank | {};
   device_id: string;
 };
 
@@ -151,7 +153,7 @@ export class TraderDriver {
           last_name: "test",
           first_name: "profile",
           middle_name: "",
-          bank,
+          bank: bank as Bank,
           device_id,
           account_number: "",
           note: "",
@@ -235,6 +237,22 @@ export class TraderDriver {
     return await this.client.PUT("/api/disputes/{id}", {
       params: { path: { id } },
       body: { status },
+    });
+  }
+
+  async upload_reciept(id: number) {
+    let file = await fs.readFile(assets.PngImgPath);
+    return await this.client.POST("/api/feeds/{id}/upload", {
+      params: { path: { id } },
+      body: { document: "" },
+      bodySerializer(body) {
+        let fd = new FormData();
+        for (const name in body) {
+          let blob = new Blob([file], { type: "image/png" });
+          fd.append(name, blob, "image.png");
+        }
+        return fd;
+      },
     });
   }
 

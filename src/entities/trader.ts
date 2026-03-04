@@ -45,10 +45,20 @@ async function finalizeTransaction(
   status: "approved" | "declined",
 ) {
   let feed = await this.ctx.get_feed(token);
-  if (status === "approved") {
-    await this.driver.approve_transaction(feed.id);
-  } else {
-    await this.driver.decline_transaction(feed.id);
+  if (feed.type == "PayinRequest") {
+    if (status === "approved") {
+      await this.driver.approve_transaction(feed.id);
+    } else {
+      await this.driver.decline_transaction(feed.id);
+    }
+  }
+
+  if (feed.type == "PayoutRequest") {
+    if (status === "approved") {
+      await this.driver.upload_reciept(feed.id);
+    } else {
+      await this.driver.decline_transaction(feed.id);
+    }
   }
   return feed;
 }

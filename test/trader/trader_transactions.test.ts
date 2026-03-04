@@ -7,10 +7,12 @@ import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
+import type { CreateTraderOptions } from "@/driver/core";
 
 const TRADER_DELAY = 5_000;
 
 for (const usdt of [true, false]) {
+  let opts: CreateTraderOptions = { usdt, payout_hold_period: 5 };
   async function setup_merchant(merchant: ExtendedMerchant, trader_id: number) {
     if (usdt) {
       await merchant.set_settings(traderSetttings([trader_id]));
@@ -30,7 +32,7 @@ for (const usdt of [true, false]) {
     .concurrent(`trader tests ${usdt ? "ustd" : "without convert"}`, () => {
       test.concurrent("approve payin", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ sbp: true, bank: "sberbank" });
           await trader_cashin(trader);
           await merchant.set_commission({
@@ -69,7 +71,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("decline payin", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ sbp: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -98,7 +100,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("approve dispute", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ sbp: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -147,7 +149,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("card payin data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -169,7 +171,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("link payin data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ link: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -189,7 +191,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("sbp payin data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ sbp: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -211,7 +213,7 @@ for (const usdt of [true, false]) {
 
       test.concurrent("account payin data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ account: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
@@ -233,10 +235,11 @@ for (const usdt of [true, false]) {
 
       test.concurrent("card payout data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(usdt);
+          let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
           await setup_merchant(merchant, trader.id);
-          await merchant.cashin(usdt ? "USDT" : "RUB", common.amount / 100);
+          await merchant.cashin(usdt ? "USDT" : "RUB", common.amount / 100 + (common.amount * 0.1 / 100));
+          await merchant.set_commission({ self_rate: "10" });
           await trader_cashin(trader);
           let res = await merchant
             .create_payout({
@@ -255,7 +258,10 @@ for (const usdt of [true, false]) {
               },
             })
             .then((r) => r.followFirstProcessingUrl())
-            .then((r) => r.as_raw_json());
+            .then((r) => r.as_payout_response());
+          let feed = await trader.finalizeTransaction(res.token, "approved");
+          await delay(5_000);
+          await ctx.shared_state().core_harness.approve_payout(feed.id);
         }),
       );
 
@@ -263,7 +269,7 @@ for (const usdt of [true, false]) {
         "card payin transactions load test",
         ({ ctx, merchant }) =>
           ctx.track_bg_rejections(async () => {
-            let trader = await ctx.create_random_trader(usdt);
+            let trader = await ctx.create_random_trader(opts);
             await trader.setup({ card: true, bank: "sberbank" });
             let transactions_amount = 20;
             await trader_cashin(
@@ -296,19 +302,15 @@ for (const usdt of [true, false]) {
       );
     });
 }
-test.runIf(CONFIG.in_project(["a2", "reactivepay"])).concurrent(
-  "trader don't leak requisite under load",
-  ({ ctx, merchant }) =>
+test
+  .runIf(CONFIG.in_project(["a2", "reactivepay"]))
+  .concurrent("trader don't leak requisite under load", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
-      let trader = await ctx.create_random_trader(false);
+      let trader = await ctx.create_random_trader({ usdt: false });
       await trader.setup({ card: true, bank: "sberbank" });
       let transactions_amount = 2;
       let amount = 10000;
-      await trader.cashin(
-        "main",
-        "RUB",
-        (transactions_amount) * (amount / 100),
-      );
+      await trader.cashin("main", "RUB", transactions_amount * (amount / 100));
       await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
       let requisites = [...new Array(transactions_amount)].map(async (_, i) => {
         let res = await merchant
@@ -333,4 +335,4 @@ test.runIf(CONFIG.in_project(["a2", "reactivepay"])).concurrent(
       // }
       await Promise.all(requisites);
     }),
-);
+  );
