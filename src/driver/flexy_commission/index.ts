@@ -43,7 +43,7 @@ export class FlexyCommission {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      "http://localhost:7082",
+      "http://localhost:7082/login",
     );
     console.log({ cookies: this.cookies });
   }

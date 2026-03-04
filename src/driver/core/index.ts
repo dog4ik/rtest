@@ -1,4 +1,4 @@
-import { authorize_client, get_redirect_location, type Credentials } from "..";
+import { authorize_client, type Credentials } from "..";
 import { randomUUID } from "node:crypto";
 import type { CoreStatus } from "@/db/core";
 import { err_bad_status } from "@/fetch_utils";
