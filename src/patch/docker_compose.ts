@@ -70,6 +70,12 @@ export function patchedDockerCompose(dockerCompose: string): string {
   // Patch core
   const core = services["core"];
   if (core) {
+    console.log({ core });
+    let environment = core.environment;
+    let threads = "RAILS_MAX_THREADS=20";
+    if (Array.isArray(environment) && !environment.includes(threads)) {
+      core.environment.push(threads);
+    }
     core.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
       makeDependency("redis", "service_started"),
