@@ -6,9 +6,8 @@ import { err_bad_status } from "@/fetch_utils";
 import { CurlBuilder } from "@/story/curl";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
 
-const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP"]);
+const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP", "QR_PAYMENT"]);
 
 export type MadsolutionMethod = z.infer<typeof METHOD_SCHEMA>;
 
@@ -88,6 +87,7 @@ function trafficType(type: MadsolutionMethod) {
     CARDNUM: { id: 1, code: "CARDNUM", name: "По номеру карты" },
     PHONE: { id: 2, code: "PHONE", name: "По номеру телефона" },
     SBP: { id: 3, code: "SBP", name: "Через систему быстрых платежей" },
+    QR_PAYMENT: { id: 7, code: "QR_PAYMENT", name: "Оплата по QR коду" },
   } as const;
 
   const obj = map[type];
@@ -96,23 +96,16 @@ function trafficType(type: MadsolutionMethod) {
 }
 
 function cardInfo(method: MadsolutionMethod) {
-  let bank = {
-    id: 13,
-    code: "OZON",
-    name: "Ozon Банк",
-    countryId: 1,
-  };
-
   if (method == "CARDNUM") {
     return {
-      bank,
+      bank: null,
       cardNumber: common.visaCard,
       phoneNumber: null,
       holderName: common.fullName,
     };
   } else if (method === "PHONE" || method === "SBP") {
     return {
-      bank,
+      bank: null,
       cardNumber: null,
       phoneNumber: common.phoneNumber,
       holderName: common.fullName,
@@ -152,6 +145,21 @@ function paymentInstrument(method: MadsolutionMethod) {
         accountNumber: null,
       },
       qr: null,
+    };
+  } else if (method === "QR_PAYMENT") {
+    return {
+      type: {
+        id: 2,
+        code: "QR",
+        name: "QR код",
+      },
+      country,
+      bank,
+      card: null,
+      qr: {
+        content: "",
+        url: common.redirectPayUrl,
+      },
     };
   }
 }
@@ -205,6 +213,7 @@ export class MadsolutionPayment {
         netAmount: 0.168664,
       },
       paymentInstrument: paymentInstrument(this.request_data.trafficTypeCode),
+      payFormUrl: common.redirectPayUrl,
       id: this.gateway_id,
       status: statusObject(status),
       trafficType: trafficType(this.request_data.trafficTypeCode),

@@ -2,14 +2,16 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import * as common from "@/common";
 import {
   MadsolutionPayment,
+  payinSuite,
   type MadsolutionStatus,
 } from "@/provider_mocks/madsolution";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
+  payformDataFlowTest,
+  providersSuite,
   statusFinalizationSuite,
-  type Callback,
-  type Status,
+  type P2PSuite,
 } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
 import { PROJECT } from "@/config";
@@ -17,49 +19,33 @@ import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import { EightpayRequesiteSchema } from "@/entities/payment/processing_url_response";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
+let madsolutionWrappedSuite = (wrapped_to_json_response: boolean) => {
+  let suite = payinSuite(CURRENCY);
+  return {
+    ...suite,
+    settings: (s) => ({ ...suite.settings(s), wrapped_to_json_response }),
+  } as P2PSuite<MadsolutionPayment>;
+};
+
 // Madsolution is 8pay only integration.
 // It should work on pcidss and 8pay using wrapped_to_json_response and extra_return_param;
-function madsolutionSuite() {
-  let gw = new MadsolutionPayment();
-  let statusMap: Record<PrimeBusinessStatus, MadsolutionStatus> = {
-    approved: "CONFIRMED",
-    declined: "CANCELED",
-    pending: "PENDING",
-  };
-  return {
-    type: "payin",
-    send_callback: async function (status, _) {
-      await gw.send_callback(statusMap[status]);
-    },
-    create_handler: (s) => gw.create_handler(statusMap[s]),
-    mock_options: MadsolutionPayment.mock_params,
-    request: function () {
-      return {
-        ...common.paymentRequest(CURRENCY),
-        extra_return_param: "card",
-      };
-    },
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...MadsolutionPayment.settings(secret),
-        wrapped_to_json_response: true,
-      }),
-    status_handler: (s) => gw.status_handler(statusMap[s]),
-    gw,
-  } satisfies Callback & Status & { gw: MadsolutionPayment };
-}
+let madsolutionJsonSuite = () =>
+  providersSuite(CURRENCY, madsolutionWrappedSuite(true));
+let madsolutionPfSuite = () =>
+  providersSuite(CURRENCY, madsolutionWrappedSuite(false));
 
 describe
   .runIf(PROJECT == "8pay" || PROJECT == "reactivepay")
   .concurrent("madsolution", () => {
-    callbackFinalizationSuite(madsolutionSuite);
-    statusFinalizationSuite(madsolutionSuite);
+    callbackFinalizationSuite(madsolutionJsonSuite);
+    statusFinalizationSuite(madsolutionJsonSuite);
 
     dataFlowTest("card", {
-      ...madsolutionSuite(),
+      ...madsolutionJsonSuite(),
       async check_merchant_response({ processing_response, create_response }) {
         let res = await processing_response?.as_8pay_requisite();
         assert.strictEqual(res?.pan, common.visaCard);
@@ -76,7 +62,7 @@ describe
     });
 
     dataFlowTest("sbp", {
-      ...madsolutionSuite(),
+      ...madsolutionJsonSuite(),
       async check_merchant_response({ processing_response, create_response }) {
         let res = await processing_response?.as_8pay_requisite();
         assert.strictEqual(res?.pan, common.phoneNumber);
@@ -90,6 +76,48 @@ describe
           extra_return_param: "sbp",
         };
       },
+    });
+
+    describe.runIf(PROJECT === "8pay").concurrent("8pay payform", () => {
+      payformDataFlowTest("sbp", {
+        ...madsolutionPfSuite(),
+        check_pf_page: async (page) => {
+          let form = new EightpayRequisitesPage(page);
+          await form.validateRequisites({
+            amount: common.amount,
+            bank: "OZON Bank",
+            name: common.fullName,
+            number: common.phoneNumber,
+            type: "sbp",
+          });
+        },
+        request: function () {
+          return {
+            ...common.paymentRequest(CURRENCY),
+            extra_return_param: "sbp",
+          };
+        },
+      });
+
+      payformDataFlowTest("card", {
+        ...madsolutionPfSuite(),
+        check_pf_page: async (page) => {
+          let form = new EightpayRequisitesPage(page);
+          await form.validateRequisites({
+            amount: common.amount,
+            bank: "OZON Bank",
+            name: common.fullName,
+            number: common.visaCard,
+            type: "card",
+          });
+        },
+        request: function () {
+          return {
+            ...common.paymentRequest(CURRENCY),
+            extra_return_param: "Cards",
+          };
+        },
+      });
     });
 
     test.concurrent(
