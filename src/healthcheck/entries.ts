@@ -184,7 +184,7 @@ export class EntryValidator {
     } else if (operation_type === "payout") {
       let available_match =
         status === CoreStatusMap.approved
-          ? new Match(-(target_amount - trader_commission), this.current_amount)
+          ? new Match(target_amount, this.current_amount)
           : new Match(0, this.current_amount);
 
       let hold_match = new Match(0, this.current_hold);

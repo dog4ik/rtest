@@ -1,4 +1,5 @@
 import * as playwright from "playwright";
+import * as common from "@/common";
 import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { PrimeBusinessStatus } from "@/db/business";
@@ -72,8 +73,9 @@ export interface Routable extends TestCaseBase {
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 // FIX(pcidss): Brusnika does not allow sending callback 5s after creation.
-export const CALLBACK_DELAY = CONFIG.project == "8pay" ? 11_000 : 500;
-// const CALLBACK_DELAY = 1_500;
+export const CALLBACK_DELAY = CONFIG.in_project(["8pay", "reactivepay"])
+  ? 11_000
+  : 500;
 
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
@@ -508,6 +510,57 @@ export function routingFinalizationSuite(
           await checks?.check_merchant_payform?.(page);
           await Promise.all(chain);
         }),
+    );
+}
+
+export function payoutPendingSuite<T>(
+  target: Status<T>,
+  opts?: TestCaseOptions,
+) {
+  let alias = target.mock_options("").alias;
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} pending if nginx500`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, merchant, provider } = await create_suite(
+          ctx,
+          target,
+        );
+        provider.queue(common.nginx500);
+        provider.queue(common.nginx500);
+        provider.queue(common.nginx500);
+
+        let notification = merchant.queue_notification(() => {
+          assert.fail("merchant should not get notification");
+        });
+        let { create_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token);
+        let feed = await ctx.get_feed(create_response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await Promise.race([notification, delay(5_000)]);
+      }),
+    );
+
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} pending if timed out`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, merchant, provider, suite_ctx } =
+          await create_suite(ctx, target);
+        let handle = provider.queue(async (c) => {
+          await delay(75_000);
+          return target.create_handler("approved", suite_ctx)(c);
+        });
+
+        let notification = merchant.queue_notification(() => {
+          assert.fail("merchant should not get notification");
+        });
+        let { create_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token);
+        let feed = await ctx.get_feed(create_response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await Promise.race([notification, handle, delay(5_000)]);
+      }),
     );
 }
 

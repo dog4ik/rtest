@@ -17,6 +17,7 @@ import { PayoutResponse } from "./payment/payout_response";
 import { RuleBuilder } from "@/flexy_guard_builder";
 import { RefundResponse } from "./payment/refund_response";
 import { DisputeResponse } from "./payment/dispute_response";
+import type { PrimeBusinessStatus } from "@/db/business";
 
 export type DisputeRequest = {
   token: string;
@@ -216,6 +217,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     skip_healthcheck?: boolean;
     skip_signature_check?: boolean;
   };
+
   /**
    * Setup notification handler.
    * @returns {Promise<unknown>} that will be resolved when the handler is done.
@@ -258,6 +260,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       }
     });
     return promise;
+  }
+
+  async function queue_refund_or_pay_notifictation(refund_status: PrimeBusinessStatus) {
+    queue_notificat
   }
 
   async function set_commission(rule?: Partial<CreateRuleFormData>) {

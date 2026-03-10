@@ -12,7 +12,7 @@ import {
 } from "@/suite_interfaces";
 import * as common from "@/common";
 import { assert } from "vitest";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 let providersP2PSuite = () => providersSuite("RUB", payinSuite());
 
@@ -56,7 +56,7 @@ dataFlowTest(
       assert.strictEqual(req?.card?.bank, common.bankName);
     },
   },
-  { skip_if: PROJECT != "reactivepay" },
+  { skip_if: !CONFIG.in_project(["reactivepay", "spinpay"]) },
 );
 
 let ecomPayinSuite = () => {
@@ -72,6 +72,7 @@ let ecomPayinSuite = () => {
     }),
     request: () => ({
       ...common.paymentRequest("RUB"),
+      card: common.cardObject(),
     }),
   }) as P2PSuite<GatewayConnectTransaction>;
 };

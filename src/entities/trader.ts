@@ -23,7 +23,7 @@ export function extendTrader(ctx: Context, trader: Trader) {
   };
 }
 
-type SetupParams = {
+type TraderSetupOptions = {
   card: boolean;
   sbp: boolean;
   link: boolean;
@@ -31,7 +31,7 @@ type SetupParams = {
   bank: Bank | {};
 };
 
-const DEFAULT_SETUP: SetupParams = {
+const DEFAULT_SETUP: TraderSetupOptions = {
   card: false,
   sbp: false,
   link: false,
@@ -75,7 +75,10 @@ async function finalize_dispute(
   return this.driver.update_dispute(dispute_id, status);
 }
 
-async function setup(this: ExtendedTrader, params: Partial<SetupParams>) {
+async function setup(
+  this: ExtendedTrader,
+  params: Partial<TraderSetupOptions>,
+) {
   let setup = { ...DEFAULT_SETUP, ...params };
   console.log("trader setup:", setup);
   let device_id = await this.driver.create_device("Test device");

@@ -8,11 +8,12 @@ import { assert, describe } from "vitest";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
 import type { CreateTraderOptions } from "@/driver/core";
+import type { Context } from "@/test_context/context";
 
 const TRADER_DELAY = 5_000;
 
 for (const usdt of [true, false]) {
-  let opts: CreateTraderOptions = { usdt, payout_hold_period: 5 };
+  let opts: CreateTraderOptions = { usdt, payout_hold_period: 0 };
   async function setup_merchant(merchant: ExtendedMerchant, trader_id: number) {
     if (usdt) {
       await merchant.set_settings(traderSetttings([trader_id]));
@@ -20,6 +21,19 @@ for (const usdt of [true, false]) {
       await merchant.set_settings(traderNoConvertSettings("RUB", [trader_id]));
     }
   }
+
+  async function setup(ctx: Context) {
+    let merchant = await ctx.create_random_merchant();
+    let trader = await ctx.create_random_trader();
+    let trader_setup = await trader.setup({});
+    if (usdt) {
+      await merchant.set_settings(traderSetttings([trader.id]));
+    } else {
+      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+    }
+    return { merchant, trader, trader_setup };
+  }
+
   async function trader_cashin(
     trader: ExtendedTrader,
     amount = common.amount / 100,
@@ -33,7 +47,7 @@ for (const usdt of [true, false]) {
       test.concurrent("approve payin", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
-          await trader.setup({ sbp: true, bank: "sberbank" });
+          await trader.setup({ card: true, bank: "sberbank" });
           await trader_cashin(trader);
           await merchant.set_commission({
             operation: "PayinRequest",
@@ -43,13 +57,14 @@ for (const usdt of [true, false]) {
           });
           await setup_merchant(merchant, trader.id);
           let approve_cb = merchant.queue_notification((n) => {
+            assert.strictEqual(n.type, "pay");
             assert.strictEqual(n.status, "approved");
           });
           let res = await merchant
             .create_payment({
               ...common.paymentRequest("RUB"),
               bank_account: {
-                requisite_type: "sbp",
+                requisite_type: "card",
               },
             })
             .then((r) => r.followFirstProcessingUrl())
@@ -60,10 +75,11 @@ for (const usdt of [true, false]) {
           await approve_cb;
 
           let wallets = await trader.wallets();
-          assert.strictEqual(
+          assert.approximately(
             wallets.main.available,
             common.amount / 100 -
               (feed.target_amount! + (feed.commission_amount ?? 0)),
+            0.01,
           );
           assert.strictEqual(wallets.main.held, 0);
         }),
@@ -72,17 +88,18 @@ for (const usdt of [true, false]) {
       test.concurrent("decline payin", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
-          await trader.setup({ sbp: true, bank: "sberbank" });
+          await trader.setup({ card: true, bank: "sberbank" });
           await trader_cashin(trader);
           await setup_merchant(merchant, trader.id);
           let decline_cb = merchant.queue_notification((n) => {
+            assert.strictEqual(n.type, "pay");
             assert.strictEqual(n.status, "declined");
           });
           let res = await merchant
             .create_payment({
               ...common.paymentRequest("RUB"),
               bank_account: {
-                requisite_type: "sbp",
+                requisite_type: "card",
               },
             })
             .then((r) => r.followFirstProcessingUrl())
@@ -237,10 +254,24 @@ for (const usdt of [true, false]) {
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
+          let converted_amount = common.amount / (usdt ? 78.01 : 1);
           await setup_merchant(merchant, trader.id);
-          await merchant.cashin(usdt ? "USDT" : "RUB", common.amount / 100 + (common.amount * 0.1 / 100));
-          await merchant.set_commission({ self_rate: "10" });
-          await trader_cashin(trader);
+          if (usdt) {
+            await merchant.cashin(
+              "USDT",
+              converted_amount / 100 + (converted_amount * 0.1) / 100,
+            );
+          } else {
+            await merchant.cashin(
+              "RUB",
+              common.amount / 100 + (converted_amount * 0.1) / 100,
+            );
+          }
+          await merchant.set_commission({
+            self_rate: "10",
+            operation: "PayoutRequest",
+          });
+          await trader_cashin(trader, converted_amount / 100);
           let res = await merchant
             .create_payout({
               ...common.payoutRequest("RUB"),
@@ -249,7 +280,7 @@ for (const usdt of [true, false]) {
               },
               customer: {
                 email: common.email,
-                ip: "8.8.8.8",
+                ip: common.ip,
                 first_name: "test",
                 last_name: "test",
               },
@@ -261,7 +292,12 @@ for (const usdt of [true, false]) {
             .then((r) => r.as_payout_response());
           let feed = await trader.finalizeTransaction(res.token, "approved");
           await delay(5_000);
+          let approve_notification = merchant.queue_notification((c) => {
+            assert.strictEqual(c.type, "payout");
+            assert.strictEqual(c.status, "approved");
+          });
           await ctx.shared_state().core_harness.approve_payout(feed.id);
+          await approve_notification;
         }),
       );
 
