@@ -6,6 +6,7 @@ import {
   callbackFinalizationSuite,
   dataFlowTest,
   defaultSuite,
+  payformDataFlowTest,
   providersSuite,
   statusFinalizationSuite,
   type P2PSuite,
@@ -13,6 +14,8 @@ import {
 import * as common from "@/common";
 import { assert } from "vitest";
 import { CONFIG, PROJECT } from "@/config";
+import { describe } from "vitest";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 let providersP2PSuite = () => providersSuite("RUB", payinSuite());
 
@@ -45,6 +48,69 @@ dataFlowTest("card", {
   },
 });
 
+dataFlowTest("sbp", {
+  ...requisitesP2PSuite("sbp"),
+  check_merchant_response: async (data) => {
+    await data.processing_response?.validateRequisites({
+      bank: common.bankName,
+      name: common.fullName,
+      type: "sbp",
+      number: common.phoneNumber,
+    });
+  },
+});
+
+describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
+  let formRequisitesP2PSuite = (requisite: "card" | "sbp") => {
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, requisite);
+      },
+      request: () => {
+        let req = suite.request();
+        return {
+          ...req,
+          extra_return_param: requisite === "card" ? "Cards" : "SBP",
+        };
+      },
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: false,
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  };
+
+  payformDataFlowTest("sbp", {
+    ...formRequisitesP2PSuite("sbp"),
+    check_pf_page: async (page) => {
+      let form = new EightpayRequisitesPage(page);
+      await form.validateRequisites({
+        amount: common.amount,
+        bank: common.bankName,
+        name: common.fullName,
+        number: common.phoneNumber,
+        type: "sbp",
+      });
+    },
+  });
+
+  payformDataFlowTest("card", {
+    ...formRequisitesP2PSuite("card"),
+    check_pf_page: async (page) => {
+      let form = new EightpayRequisitesPage(page);
+      await form.validateRequisites({
+        amount: common.amount,
+        bank: common.bankName,
+        name: common.fullName,
+        number: common.visaCard,
+        type: "card",
+      });
+    },
+  });
+});
+
 dataFlowTest(
   "sbp pcidss",
   {
@@ -58,6 +124,67 @@ dataFlowTest(
   },
   { skip_if: !CONFIG.in_project(["reactivepay", "spinpay"]) },
 );
+
+describe.runIf(CONFIG.in_project("8pay")).concurrent("method setting", () => {
+  let methodPayformSuite = (
+    requisite: "card" | "sbp",
+    method: "card" | "sbp",
+  ) => {
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, requisite);
+      },
+      request: () => common.paymentRequest("RUB"),
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: false,
+        method,
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  };
+
+  let methodH2HSuite = (requisite: "card" | "sbp", method: "card" | "sbp") => {
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, requisite);
+      },
+      request: () => common.paymentRequest("RUB"),
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: true,
+        method,
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  };
+
+  payformDataFlowTest("card method setting", {
+    ...methodPayformSuite("card", "card"),
+    check_pf_page: async (page) => {
+      let form = new EightpayRequisitesPage(page);
+      await form.validateRequisites({
+        amount: common.amount,
+        bank: common.bankName,
+        name: common.fullName,
+        number: common.visaCard,
+        type: "card",
+      });
+    },
+  });
+
+  dataFlowTest("card method setting", {
+    ...methodH2HSuite("card", "card"),
+    async check_merchant_response({ processing_response }) {
+      let req = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(req?.pan, common.visaCard);
+      assert.strictEqual(req?.name_seller, common.fullName);
+      assert.strictEqual(req?.id, this.gw.gateway_id);
+    },
+  });
+});
 
 let ecomPayinSuite = () => {
   let suite = payinSuite();

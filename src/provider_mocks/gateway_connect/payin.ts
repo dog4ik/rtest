@@ -45,13 +45,16 @@ export const PaymentSchema = z.object({
   gateway_amount: z.int(),
 });
 
-export const PayinRequestSchema = (settingsSchema: z.ZodType) => {
+export const PayinRequestSchema = (settingsSchema: z.ZodObject) => {
   return z.object({
     params: ParamsSchema,
     payment: PaymentSchema,
     processing_url: z.url(),
+    charge_page_url: z.url(),
     callback_url: z.url(),
-    settings: settingsSchema,
+    settings: settingsSchema.extend({
+      wrapped_to_json_response: z.boolean().nullish(),
+    }),
   });
 };
 

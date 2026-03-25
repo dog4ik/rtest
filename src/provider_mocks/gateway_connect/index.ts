@@ -76,7 +76,12 @@ export function commonSettings(alias: string, secret: string) {
               "ip",
             ],
             processing_url: true,
-            settings: [SETTINGS_INTERNAL_SECRET_KEY],
+            charge_page_url: true,
+            settings: [
+              SETTINGS_INTERNAL_SECRET_KEY,
+              "wrapped_to_json_response",
+              "method",
+            ],
           },
         },
         status: {
@@ -105,7 +110,10 @@ export class GatewayConnectTransaction {
   payin_request: z.infer<ReturnType<typeof PayinRequestSchema>> | undefined;
   payout_request: z.infer<ReturnType<typeof PayoutRequestSchema>> | undefined;
   status_request: z.infer<ReturnType<typeof StatusRequestSchema>> | undefined;
-  constructor(private alias: string, private gw_settings: Partial<GCSettingsType>) {
+  constructor(
+    private alias: string,
+    private gw_settings: Partial<GCSettingsType>,
+  ) {
     this.gateway_id = crypto.randomUUID();
   }
 
@@ -191,6 +199,9 @@ export class GatewayConnectTransaction {
         }
       }
 
+      let is_wrapped =
+        this.payin_request.settings["wrapped_to_json_response"] ?? false;
+
       return c.json({
         status,
         result: true,
@@ -199,9 +210,10 @@ export class GatewayConnectTransaction {
         currency: "RUB",
         details: status === "declined" ? "Test error message" : undefined,
         redirect_request: {
-          url: this.request_data()?.processing_url,
-          wrapped_to_json_response: true,
-          type: "get_with_processing",
+          url: is_wrapped
+            ? this.request_data()?.processing_url
+            : this.request_data()?.charge_page_url,
+          type: is_wrapped ? "get_with_processing" : "post",
         },
         gateway_token: this.gateway_id,
         logs: interaction_logs.build(),

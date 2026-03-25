@@ -36,6 +36,7 @@ export const PayoutRequestSchema = (settingsSchema: z.ZodType) => {
     params: ParamsSchema,
     payment: PaymentSchema,
     processing_url: z.url(),
+    charge_page_url: z.url().nullish(),
     callback_url: z.url(),
     settings: settingsSchema,
   });
