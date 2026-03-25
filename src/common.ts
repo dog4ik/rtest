@@ -108,6 +108,20 @@ export function p2pPaymentRequest(currency: string, requisite_type: Requisite) {
   }
 }
 
+export function traderPaymentRequest(
+  currency: string,
+  requisite_type: Requisite,
+) {
+  let req = paymentRequest(currency);
+  return {
+    ...req,
+    customer: { ...req.customer, first_name: firstName, last_name: lastName },
+    bank_account: {
+      requisite_type: requisite_type,
+    },
+  };
+}
+
 export function maskCard(card: string): string {
   if (card.length < 10) {
     return card;

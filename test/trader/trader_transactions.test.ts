@@ -62,10 +62,7 @@ for (const usdt of [true, false]) {
           });
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "card",
-              },
+              ...common.traderPaymentRequest("RUB", "card"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -82,6 +79,32 @@ for (const usdt of [true, false]) {
             0.01,
           );
           assert.strictEqual(wallets.main.held, 0);
+          let merchant_wallet = (await merchant.wallets())[0];
+          if (usdt) {
+            assert.approximately(
+              merchant_wallet.available,
+              common.amount / 100 - (common.amount * 0.9) / 100,
+              0.01,
+              "merchant wallet available after payment finalization",
+            );
+            assert.strictEqual(
+              merchant_wallet.held,
+              0,
+              "merchant wallet held after payment finalization",
+            );
+          } else {
+            assert.approximately(
+              merchant_wallet.available,
+              common.amount / 100 - (common.amount * 0.1) / 100,
+              0.01,
+              "merchant wallet available after payment finalization",
+            );
+            assert.strictEqual(
+              merchant_wallet.held,
+              0,
+              "merchant wallet held after payment finalization",
+            );
+          }
         }),
       );
 
@@ -97,10 +120,7 @@ for (const usdt of [true, false]) {
           });
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "card",
-              },
+              ...common.traderPaymentRequest("RUB", "card"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -126,10 +146,7 @@ for (const usdt of [true, false]) {
           });
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "sbp",
-              },
+              ...common.traderPaymentRequest("RUB", "sbp"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -172,10 +189,7 @@ for (const usdt of [true, false]) {
           await setup_merchant(merchant, trader.id);
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "card",
-              },
+              ...common.traderPaymentRequest("RUB", "card"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -194,10 +208,7 @@ for (const usdt of [true, false]) {
           await setup_merchant(merchant, trader.id);
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "link",
-              },
+              ...common.traderPaymentRequest("RUB", "link"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -214,10 +225,7 @@ for (const usdt of [true, false]) {
           await setup_merchant(merchant, trader.id);
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "sbp",
-              },
+              ...common.traderPaymentRequest("RUB", "sbp"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -236,10 +244,7 @@ for (const usdt of [true, false]) {
           await setup_merchant(merchant, trader.id);
           let res = await merchant
             .create_payment({
-              ...common.paymentRequest("RUB"),
-              bank_account: {
-                requisite_type: "account",
-              },
+              ...common.traderPaymentRequest("RUB", "account"),
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -317,11 +322,8 @@ for (const usdt of [true, false]) {
               async (_, i) => {
                 let res = await merchant
                   .create_payment({
-                    ...common.paymentRequest("RUB"),
+                    ...common.traderPaymentRequest("RUB", "card"),
                     amount: common.amount + i,
-                    bank_account: {
-                      requisite_type: "card",
-                    },
                   })
                   .then((r) => r.followFirstProcessingUrl())
                   .then((r) => r.as_trader_requisites());
@@ -351,11 +353,8 @@ test
       let requisites = [...new Array(transactions_amount)].map(async (_, i) => {
         let res = await merchant
           .create_payment({
-            ...common.paymentRequest("RUB"),
+            ...common.traderPaymentRequest("RUB", "card"),
             amount: amount + i * 100,
-            bank_account: {
-              requisite_type: "card",
-            },
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());
