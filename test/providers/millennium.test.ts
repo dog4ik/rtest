@@ -108,15 +108,7 @@ describe.runIf(PROJECT === "8pay").concurrent("millennium 8pay payform", () => {
     },
     async check_pf_page(page) {
       let pf = new EightpayRequisitesPage(page);
-      await Promise.all([
-        playwright.expect(pf.amountSpan()).toBeVisible(),
-        playwright.expect(pf.amountSpan()).toHaveText("1 234.56 Р"),
-        playwright.expect(pf.qrPayLink()).toBeVisible(),
-        playwright.expect(pf.qrPayLink()).toHaveText("Оплатить"),
-        playwright
-          .expect(pf.qrPayLink())
-          .toHaveAttribute("href", common.redirectPayUrl),
-      ]);
+      await pf.validate_qr();
     },
   });
 });

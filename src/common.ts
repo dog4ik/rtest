@@ -92,7 +92,7 @@ export function p2pPaymentRequest(currency: string, requisite_type: Requisite) {
       sbp: "SBP",
       account: "",
       card: "Cards",
-      link: "SBP_aquiring",
+      link: "sbp_aquiring",
     };
     return {
       ...paymentRequest(currency),

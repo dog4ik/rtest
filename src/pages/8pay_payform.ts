@@ -1,4 +1,6 @@
 import * as playwright from "playwright";
+import * as playwright_test from "playwright/test";
+import * as common from "@/common";
 import { expect } from "playwright/test";
 import { assert } from "vitest";
 
@@ -103,6 +105,18 @@ export class EightpayRequisitesPage {
       expect(this.fioDiv()).toBeVisible(),
       expect(this.fioDiv()).toHaveText(name ?? ""),
       expect(this.amountSpan()).toBeVisible(),
+    ]);
+  }
+
+  async validate_qr() {
+    await Promise.all([
+      playwright_test.expect(this.amountSpan()).toBeVisible(),
+      playwright_test.expect(this.amountSpan()).toHaveText("1 234.56 Р"),
+      playwright_test.expect(this.qrPayLink()).toBeVisible(),
+      playwright_test.expect(this.qrPayLink()).toHaveText("Оплатить"),
+      playwright_test
+        .expect(this.qrPayLink())
+        .toHaveAttribute("href", common.redirectPayUrl),
     ]);
   }
 }

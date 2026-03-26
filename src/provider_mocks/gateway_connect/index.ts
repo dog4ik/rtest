@@ -16,6 +16,8 @@ import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
 
+export type GcRequisiteType = "sbp" | "card" | "link" | "deeplink";
+
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
 export const GC_MOCK_PORT = MAPPING_START_PORT - 1;
@@ -163,7 +165,7 @@ export class GatewayConnectTransaction {
 
   requisites_payin_handler(
     status: PrimeBusinessStatus,
-    requisite_type: "sbp" | "card" | "link",
+    requisite_type: GcRequisiteType,
   ): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();
@@ -194,8 +196,14 @@ export class GatewayConnectTransaction {
           requisites["card"] = common.visaCard;
         } else if (requisite_type === "sbp") {
           requisites["pan"] = common.phoneNumber;
+        } else if (requisite_type === "deeplink") {
+          requisites["link"] = common.redirectPayUrl;
+          requisites["deeplink"] = true;
         } else if (requisite_type === "link") {
-          throw Error("link requisite is not supported");
+          requisites["link"] = common.redirectPayUrl;
+          // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
+          // Отсавлю так чтобы его интеграция не померла.
+          requisites["deeplink"] = true;
         }
       }
 
