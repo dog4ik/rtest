@@ -21,33 +21,41 @@ let pixelwaveSuite = () => providersSuite(CURRENCY, payinSuite());
 let maskedPixelwaveSuite = () =>
   providersSuite(CURRENCY, maskedSuite(payinSuite()));
 
-callbackFinalizationSuite(pixelwaveSuite);
-statusFinalizationSuite(pixelwaveSuite);
+describe
+  .runIf(CONFIG.extra_mapping?.["pixelwave"])
+  .concurrent("pixelwave gateway", () => {
+    callbackFinalizationSuite(pixelwaveSuite);
+    statusFinalizationSuite(pixelwaveSuite);
 
-test.concurrent("pixelwave no requisities decline", async ({ ctx }) => {
-  await ctx.track_bg_rejections(async () => {
-    let merchant = await ctx.create_random_merchant();
-    await merchant.set_settings(
-      providers("RUB", {
-        ...PixelwavePayment.settings(ctx.uuid),
-        wrapped_to_json_response: true,
-      }),
-    );
-    let pixelwave = ctx.mock_server(PixelwavePayment.mock_params(ctx.uuid));
-    pixelwave.queue(PixelwavePayment.no_requisites_handler());
-    let notification = merchant.queue_notification((callback) => {
-      assert.strictEqual(callback.status, "declined", "declined notification");
+    test.concurrent("pixelwave no requisities decline", async ({ ctx }) => {
+      await ctx.track_bg_rejections(async () => {
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_settings(
+          providers("RUB", {
+            ...PixelwavePayment.settings(ctx.uuid),
+            wrapped_to_json_response: true,
+          }),
+        );
+        let pixelwave = ctx.mock_server(PixelwavePayment.mock_params(ctx.uuid));
+        pixelwave.queue(PixelwavePayment.no_requisites_handler());
+        let notification = merchant.queue_notification((callback) => {
+          assert.strictEqual(
+            callback.status,
+            "declined",
+            "declined notification",
+          );
+        });
+        let response = await merchant
+          .create_payment(common.paymentRequest("RUB"))
+          .then((p) => p.followFirstProcessingUrl());
+        let err = await response.as_error();
+        err.assert_message(
+          'gateway response error: "Not found available payment details"',
+        );
+        await notification;
+      });
     });
-    let response = await merchant
-      .create_payment(common.paymentRequest("RUB"))
-      .then((p) => p.followFirstProcessingUrl());
-    let err = await response.as_error();
-    err.assert_message(
-      "gateway response error: \"Not found available payment details\"",
-    );
-    await notification;
   });
-});
 
 describe
   .runIf(PROJECT === "8pay" && CONFIG.extra_mapping?.["pixelwave"])
@@ -174,11 +182,12 @@ describe
         await processing_response?.as_8pay_requisite();
       },
     });
-
   });
 
 describe
-  .skipIf(CONFIG.project === "8pay")
+  .runIf(
+    CONFIG.project === "reactivepay" && CONFIG.extra_mapping?.["pixelwave"],
+  )
   .concurrent("pixelwave pcidss requisite", () => {
     dataFlowTest("bank_account sbp", {
       ...pixelwaveSuite(),

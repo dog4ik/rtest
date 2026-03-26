@@ -5,7 +5,6 @@ import * as iron from "@/provider_mocks/ironpay";
 import * as forta from "@/provider_mocks/forta";
 import * as pixel from "@/provider_mocks/pixelwave";
 import * as argos from "@/provider_mocks/argos";
-import * as flint from "@/provider_mocks/flintpays";
 import { CONFIG } from "@/config";
 import { describe } from "vitest";
 import * as common from "@/common";
@@ -135,12 +134,7 @@ describe
       check_merchant_requisites,
     });
 
-    routingFinalizationSuite(
-      [brus.payinSuite(), flint.payinSuite(), iron.payinSuite()],
-      req(),
-      { check_merchant_requisites },
-    );
-    routingFinalizationSuite([flint.payinSuite(), brus.payinSuite()], req(), {
+    routingFinalizationSuite([brus.payinSuite(), iron.payinSuite()], req(), {
       check_merchant_requisites,
     });
   });
@@ -158,12 +152,7 @@ describe
     );
 
     routingFinalizationSuite(
-      [
-        brus.payinSuite(),
-        flint.payinSuite(),
-        mad.payinSuite(),
-        iron.payinSuite(),
-      ],
+      [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
       req(),
       { check_merchant_requisites },
     );

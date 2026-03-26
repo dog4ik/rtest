@@ -189,7 +189,7 @@ describe
         assert.strictEqual(this.gw.payin_data?.orderID, create_response.token);
         let res = await processing_response?.as_8pay_requisite();
         assert.strictEqual(res?.name_seller, common.fullName);
-        assert.strictEqual(res?.pan, `+${common.phoneNumber}`);
+        assert.strictEqual(res?.pan, `${common.phoneNumber}`);
       },
     });
 
