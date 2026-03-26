@@ -17,15 +17,55 @@ import { assert } from "vitest";
 import { CONFIG, PROJECT } from "@/config";
 import { describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
 
 let MAP: Record<GcRequisiteType, string> = {
   card: "Cards",
   sbp: "SBP",
   link: "sbp_aquiring",
   deeplink: "sbp_aquiring",
+  tpay: "tpay",
 };
 
 let providersP2PSuite = () => providersSuite("RUB", payinSuite());
+
+let methodPayformSuite = (
+  requisite: GcRequisiteType,
+  method: "card" | "sbp" | "sbp_aquiring" | "tpay",
+) => {
+  let suite = payinSuite();
+  return providersSuite("RUB", {
+    ...suite,
+    create_handler(s) {
+      return this.gw.requisites_payin_handler(s, requisite);
+    },
+    request: () => common.paymentRequest("RUB"),
+    settings: (s) => ({
+      ...suite.settings(s),
+      wrapped_to_json_response: false,
+      method,
+    }),
+  }) as P2PSuite<GatewayConnectTransaction>;
+};
+
+let methodH2HSuite = (
+  requisite: GcRequisiteType,
+  method: "card" | "sbp" | "sbp_aquiring" | "tpay",
+) => {
+  let suite = payinSuite();
+  return providersSuite("RUB", {
+    ...suite,
+    create_handler(s) {
+      return this.gw.requisites_payin_handler(s, requisite);
+    },
+    request: () => common.paymentRequest("RUB"),
+    settings: (s) => ({
+      ...suite.settings(s),
+      wrapped_to_json_response: true,
+      method,
+    }),
+  }) as P2PSuite<GatewayConnectTransaction>;
+};
 
 callbackFinalizationSuite(providersP2PSuite);
 statusFinalizationSuite(providersP2PSuite);
@@ -43,6 +83,22 @@ let requisitesP2PSuite = (requisite: GcRequisiteType) => {
     }),
   }) as P2PSuite<GatewayConnectTransaction>;
 };
+
+dataFlowTest(
+  "tpay 8pay",
+  {
+    ...requisitesP2PSuite("tpay"),
+    request: () => common.p2pPaymentRequest("RUB", "tpay"),
+    async check_merchant_response({ processing_response }) {
+      let json = (await processing_response?.as_raw_json()) as any;
+      assert.isNotEmpty(json.link?.deeplink);
+      assert.isNotEmpty(json.deeplink);
+      assert.strictEqual(json.name_seller, common.fullName);
+      assert.strictEqual(json.id, this.gw.gateway_id);
+    },
+  },
+  { skip_if: !CONFIG.in_project("8pay") },
+);
 
 dataFlowTest("card", {
   ...requisitesP2PSuite("card"),
@@ -139,6 +195,20 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
       });
     },
   });
+
+  payformDataFlowTest("tpay", {
+    ...methodPayformSuite("tpay", "tpay"),
+    request: () => common.p2pPaymentRequest("RUB", "tpay"),
+    check_pf_page: async (page) => {
+      let form = new EightpayTpayQrForm(page, "android");
+      await form.validateRequisites({
+        amount: common.amount,
+        bank: common.bankName,
+        name: common.fullName,
+        number: common.phoneNumber,
+      });
+    },
+  });
 });
 
 dataFlowTest(
@@ -158,44 +228,6 @@ dataFlowTest(
 describe
   .runIf(CONFIG.in_project("8pay"))
   .concurrent("8pay method setting", () => {
-    let methodPayformSuite = (
-      requisite: GcRequisiteType,
-      method: "card" | "sbp" | "sbp_aquiring",
-    ) => {
-      let suite = payinSuite();
-      return providersSuite("RUB", {
-        ...suite,
-        create_handler(s) {
-          return this.gw.requisites_payin_handler(s, requisite);
-        },
-        request: () => common.paymentRequest("RUB"),
-        settings: (s) => ({
-          ...suite.settings(s),
-          wrapped_to_json_response: false,
-          method,
-        }),
-      }) as P2PSuite<GatewayConnectTransaction>;
-    };
-
-    let methodH2HSuite = (
-      requisite: GcRequisiteType,
-      method: "card" | "sbp" | "sbp_aquiring",
-    ) => {
-      let suite = payinSuite();
-      return providersSuite("RUB", {
-        ...suite,
-        create_handler(s) {
-          return this.gw.requisites_payin_handler(s, requisite);
-        },
-        request: () => common.paymentRequest("RUB"),
-        settings: (s) => ({
-          ...suite.settings(s),
-          wrapped_to_json_response: true,
-          method,
-        }),
-      }) as P2PSuite<GatewayConnectTransaction>;
-    };
-
     payformDataFlowTest("card method setting", {
       ...methodPayformSuite("card", "card"),
       check_pf_page: async (page) => {
@@ -206,6 +238,19 @@ describe
           name: common.fullName,
           number: common.visaCard,
           type: "card",
+        });
+      },
+    });
+
+    payformDataFlowTest("tpay method setting", {
+      ...methodPayformSuite("tpay", "tpay"),
+      check_pf_page: async (page) => {
+        let form = new EightpayTpayQrForm(page, "android");
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.phoneNumber,
         });
       },
     });
@@ -244,6 +289,17 @@ describe
         let json = (await processing_response?.as_raw_json()) as any;
         assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
         assert.strictEqual(json.deeplink, common.redirectPayUrl);
+        assert.strictEqual(json.name_seller, common.fullName);
+        assert.strictEqual(json.id, this.gw.gateway_id);
+      },
+    });
+
+    dataFlowTest("tpay method setting", {
+      ...methodH2HSuite("tpay", "tpay"),
+      async check_merchant_response({ processing_response }) {
+        let json = (await processing_response?.as_raw_json()) as any;
+        assert.isNotEmpty(json.link?.deeplink);
+        assert.isNotEmpty(json.deeplink);
         assert.strictEqual(json.name_seller, common.fullName);
         assert.strictEqual(json.id, this.gw.gateway_id);
       },

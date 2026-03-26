@@ -27,7 +27,6 @@ export const PayoutResponseSchema = z.object({
   }),
 });
 
-
 export const TraderRequisiteSchema = z.object({
   success: z.literal(true),
   // Trader (source=trader) response makes these 2 fields optional :=D

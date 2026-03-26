@@ -16,7 +16,7 @@ import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
 
-export type GcRequisiteType = "sbp" | "card" | "link" | "deeplink";
+export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
 
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
@@ -195,7 +195,10 @@ export class GatewayConnectTransaction {
         if (requisite_type === "card") {
           requisites["card"] = common.visaCard;
         } else if (requisite_type === "sbp") {
-          requisites["pan"] = common.phoneNumber;
+          requisites["phone"] = common.phoneNumber;
+        } else if (requisite_type === "tpay") {
+          requisites["phone"] = `+${common.phoneNumber}`;
+          requisites["deeplink"] = true;
         } else if (requisite_type === "deeplink") {
           requisites["link"] = common.redirectPayUrl;
           requisites["deeplink"] = true;

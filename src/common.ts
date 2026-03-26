@@ -96,7 +96,7 @@ export function p2pPaymentRequest(currency: string, requisite_type: Requisite) {
     };
     return {
       ...paymentRequest(currency),
-      extra_return_param: Mapping[requisite_type],
+      extra_return_param: Mapping[requisite_type] ?? requisite_type,
     };
   } else {
     return {
