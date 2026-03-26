@@ -160,7 +160,7 @@ async function setup_trader_with_bank(ctx: Context) {
   let merchant = await ctx.create_random_merchant();
   let trader = await ctx.create_random_trader({ usdt: true });
   await trader.cashin("main", "USDT", common.amount);
-  merchant.set_settings(traderSetttings([trader.id]));
+  await merchant.set_settings(traderSetttings([trader.id]));
   let setup = await trader.setup({
     bank: bank.system_name,
     card: true,
@@ -221,7 +221,6 @@ function format_amount(amount: number) {
 test_new_bank_sms({
   sms: {
     requisite_type: "card",
-    bank: "otp",
     from: (amount) => `+${format_amount(amount)} ₴`,
     sim: "ua.otpbank.mobile",
     text: `Переказ на картку Shmarkatiuk Serhii → Стартова ••1858 Баланс: 2 812.00 ₴`,
@@ -229,9 +228,106 @@ test_new_bank_sms({
   parsers: [
     {
       sms_type: "card",
-      from_data: `\+?([\\d\\s]+\\.\\d{2})\\s*₴`,
+      from_data: `\\+?([\\d\\s]+\\.\\d{2})\\s*₴`,
       pattern: `\\+?([\\d\\s]+\\.\\d{2})\\s*₴`,
       sim: "ua.otpbank.mobile",
+      currency: "RUB",
+    },
+  ],
+});
+
+// Sberbank card: amount parsed from SMS text body; from is a static short code "900"
+test_new_bank_sms({
+  sms: {
+    requisite_type: "card",
+    from: "900",
+    sim: "ru.sberbank.spasibo",
+    text: (amount) =>
+      `Зачисление ${format_amount(amount)} р Карта *1234 Баланс: 5 000.00 р`,
+  },
+  parsers: [
+    {
+      sms_type: "card",
+      from_data: `900`,
+      pattern: `Зачисление ([\\d ]+\\.\\d{2}) р`,
+      sim: "ru.sberbank.spasibo",
+      currency: "RUB",
+    },
+  ],
+});
+
+// Alfa-Bank SBP: amount parsed from the dynamic from field; text is static
+test_new_bank_sms({
+  sms: {
+    requisite_type: "sbp",
+    from: (amount) => `+${format_amount(amount)} ₽`,
+    sim: "alfabank.mobile.android",
+    text: `СБП. Пополнение по номеру телефона. Баланс: 5 000.00 ₽`,
+  },
+  parsers: [
+    {
+      sms_type: "sbp",
+      from_data: `\\+?([\\d ]+\\.\\d{2})\\s*₽`,
+      pattern: `\\+?([\\d ]+\\.\\d{2})\\s*₽`,
+      sim: "alfabank.mobile.android",
+      currency: "RUB",
+    },
+  ],
+});
+
+// VTB card: amount with comma decimal parsed from SMS text; from is static "VTB"
+test_new_bank_sms({
+  sms: {
+    requisite_type: "card",
+    from: "VTB",
+    sim: "ru.vtb24.mobilebanking.android",
+    text: (amount) =>
+      `VTB. Зачисление ${format_amount(amount).replace(".", ",")} RUB. Счёт *5678`,
+  },
+  parsers: [
+    {
+      sms_type: "card",
+      from_data: `VTB`,
+      pattern: `Зачисление ([\\d\\s]+[.,]\\d{2}) RUB`,
+      sim: "ru.vtb24.mobilebanking.android",
+      currency: "RUB",
+    },
+  ],
+});
+
+// Raiffeisen SBP: amount parsed from dynamic from field; text is static, key_word filter applied
+test_new_bank_sms({
+  sms: {
+    requisite_type: "sbp",
+    from: (amount) => `Raiffeisen +${format_amount(amount)} ₽`,
+    sim: "ru.raiffeisen.rmobile",
+    text: `Пополнение по СБП. Баланс: 3 000.00 ₽`,
+  },
+  parsers: [
+    {
+      sms_type: "sbp",
+      from_data: `Raiffeisen \\+([\\d\\s]+\\.\\d{2}) ₽`,
+      pattern: `([\\d\\s]+\\.\\d{2}) ₽`,
+      sim: "ru.raiffeisen.rmobile",
+      currency: "RUB",
+    },
+  ],
+});
+
+// Gazprombank card: amount parsed from SMS text body with ₽ sign; from is static "GAZPROM"
+test_new_bank_sms({
+  sms: {
+    requisite_type: "card",
+    from: "GAZPROM",
+    sim: "ru.gazprombank.android",
+    text: (amount) => `ГПБ: зачислено ${format_amount(amount)} ₽ на счёт *9012`,
+  },
+  parsers: [
+    {
+      sms_type: "card",
+      from_data: `GAZPROM`,
+      pattern: `зачислено ([\\d\\s]+\\.\\d{2}) ₽`,
+      sim: "ru.gazprombank.android",
       currency: "RUB",
     },
   ],

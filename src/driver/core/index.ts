@@ -45,7 +45,6 @@ export type CreateSmsParser = {
     change_from_data_to?: string;
     currency: string;
     pattern: string;
-    key_word?: string;
     bank_id: string;
 };
 
