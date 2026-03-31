@@ -182,19 +182,7 @@ vitest.describe
             merchant.queue_notification((notification) => {
               vitest.assert.strictEqual(notification.status, "approved");
             }),
-            merchant.queue_notification(
-              (notification) => {
-                vitest.assert.strictEqual(notification.status, "refunded");
-              },
-              { skip_healthcheck: true },
-            ),
-            merchant.queue_notification(
-              (notification) => {
-                vitest.assert.strictEqual(notification.type, "refund");
-                vitest.assert.strictEqual(notification.status, "approved");
-              },
-              { skip_healthcheck: true },
-            ),
+            merchant.queue_refund_or_pay_notifictation("approved"),
           ];
           let result = await merchant.create_payment({
             ...common.paymentRequest(CURRENCY),

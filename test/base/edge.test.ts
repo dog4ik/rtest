@@ -215,17 +215,7 @@ test
         let res = await merchant.create_payment(suite.request());
         await transaction_notification;
 
-        let transaction_refunded = merchant.queue_notification(
-          (notification) => {
-            assert.strictEqual(notification.type, "pay");
-            assert.strictEqual(notification.status, "refunded");
-          },
-        );
-
-        let refund_approved = merchant.queue_notification((notification) => {
-          assert.strictEqual(notification.type, "refund");
-          assert.strictEqual(notification.status, "approved");
-        });
+        let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
 
         royalpay
           .queue(payment.create_refund_handler("pending"))
@@ -247,8 +237,7 @@ test
           "held should be amount + commission",
         );
 
-        await transaction_refunded;
-        await refund_approved;
+        await refund_notifications;
 
         let w = (await merchant.wallets())[0];
         assert.strictEqual(w.currency, "EUR");

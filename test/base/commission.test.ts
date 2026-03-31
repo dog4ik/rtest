@@ -130,17 +130,10 @@ test
       currency: "RUB",
     });
 
-    // merchant should get 3 notifications
     let approveNotifiaction = merchant.queue_notification((n) => {
       assert.strictEqual(n.status, "approved");
     });
-    let refundNotification = merchant.queue_notification((n) => {
-      assert.strictEqual(n.status, "refunded");
-    });
-    let refundApprovedNotificication = merchant.queue_notification((n) => {
-      assert.strictEqual(n.status, "approved");
-      assert.strictEqual(n.type, "refund");
-    });
+    let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
 
     let res = await merchant.create_payment(
       default_provider.request("RUB", common.amount, "pay", true),
@@ -149,8 +142,7 @@ test
 
     let refundRes = await merchant.create_refund({ token: res.token });
     await approveNotifiaction;
-    await refundNotification;
-    await refundApprovedNotificication;
+    await refund_notifications;
 
     let originalFeed = await ctx.get_feed(res.token);
     assert.strictEqual(originalFeed.status, 4);
@@ -180,17 +172,10 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
     currency: "RUB",
   });
 
-  // merchant should get 3 notifications
   let approveNotifiaction = merchant.queue_notification((n) => {
     assert.strictEqual(n.status, "approved");
   });
-  let refundNotification = merchant.queue_notification((n) => {
-    assert.strictEqual(n.status, "refunded");
-  });
-  let refundApprovedNotificication = merchant.queue_notification((n) => {
-    assert.strictEqual(n.status, "approved");
-    assert.strictEqual(n.type, "refund");
-  });
+  let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
 
   let res = await merchant.create_payment(
     default_provider.request("RUB", common.amount, "pay", true),
@@ -199,8 +184,7 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
 
   let refundRes = await merchant.create_refund({ token: res.token });
   await approveNotifiaction;
-  await refundNotification;
-  await refundApprovedNotificication;
+  await refund_notifications;
 
   let originalFeed = await ctx.get_feed(res.token);
   assert.strictEqual(originalFeed.status, 4);

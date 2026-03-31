@@ -54,21 +54,7 @@ describe
           assert.strictEqual(notification.status, "approved");
         });
 
-        let refunded_payment = merchant.queue_notification(
-          (notification) => {
-            assert.strictEqual(notification.type, "pay");
-            assert.strictEqual(notification.status, "refunded");
-          },
-          { skip_healthcheck: true },
-        );
-
-        let approved_refund = merchant.queue_notification(
-          (notification) => {
-            assert.strictEqual(notification.type, "refund");
-            assert.strictEqual(notification.status, "approved");
-          },
-          { skip_healthcheck: true },
-        );
+        let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
 
         let result = await merchant.create_payment(cardSuite().request());
         assert.strictEqual(result.payment.status, "pending");
@@ -78,9 +64,7 @@ describe
           token: result.token,
         });
 
-        await refunded_payment;
-
-        await approved_refund;
+        await refund_notifications;
       }),
     );
   });

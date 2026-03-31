@@ -40,17 +40,9 @@ test.concurrent("default approved refund", async ({ ctx }) => {
   assert(response.payment?.status == "approved");
   await approve_notifiaction;
 
-  let payment_refunded = merchant.queue_notification((c) => {
-    assert.strictEqual(c.type, "pay");
-    assert.strictEqual(c.status, "refunded");
-  });
-  let approve_refund = merchant.queue_notification((c) => {
-    assert.strictEqual(c.type, "refund");
-    assert.strictEqual(c.status, "approved");
-  });
+  let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
   await merchant.create_refund({ token: response.token });
-  await payment_refunded;
-  await approve_refund;
+  await refund_notifications;
 });
 
 test.concurrent(

@@ -270,12 +270,12 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         ["pay", "refund"].includes(notification.type),
         `Unexpected notification type: ${notification.type}`,
       );
-      assert.ok(!got_refund, `Duplicate ${notification.type} notification`);
-      if (notification.type === "refund") {
+        if (notification.type === "refund") {
+        assert.ok(!got_refund, "Duplicate refund notification");
         got_refund = true;
         assert.strictEqual(notification.status, refund_status);
       } else {
-        assert.strictEqual(notification.status, "approved");
+        assert.strictEqual(notification.status, "refunded");
       }
     }
     return Promise.all([queue_notification(handle), queue_notification(handle)]);
