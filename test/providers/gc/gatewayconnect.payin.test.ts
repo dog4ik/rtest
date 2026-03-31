@@ -307,7 +307,7 @@ describe
 
     function methodPriorityH2HSuite(
       requisite_type: GcRequisiteType,
-      extra_return_param: "card" | "sbp" | "sbp_aquiring" | "tpay" | {},
+      extra_return_param: "card" | "sbp" | "sbp_aquiring" | "tpay" | (string & {}),
     ) {
       let suite = payinSuite();
       return providersSuite("RUB", {

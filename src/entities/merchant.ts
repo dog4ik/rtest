@@ -18,6 +18,7 @@ import { RuleBuilder } from "@/flexy_guard_builder";
 import { RefundResponse } from "./payment/refund_response";
 import { DisputeResponse } from "./payment/dispute_response";
 import type { PrimeBusinessStatus } from "@/db/business";
+import { assert } from "vitest";
 
 export type DisputeRequest = {
   token: string;
@@ -262,8 +263,22 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return promise;
   }
 
-  async function queue_refund_or_pay_notifictation(refund_status: PrimeBusinessStatus) {
-    queue_notificat
+  function queue_refund_or_pay_notifictation(refund_status: PrimeBusinessStatus) {
+    let got_refund = false;
+    function handle(notification: Notification) {
+      assert.ok(
+        ["pay", "refund"].includes(notification.type),
+        `Unexpected notification type: ${notification.type}`,
+      );
+      assert.ok(!got_refund, `Duplicate ${notification.type} notification`);
+      if (notification.type === "refund") {
+        got_refund = true;
+        assert.strictEqual(notification.status, refund_status);
+      } else {
+        assert.strictEqual(notification.status, "approved");
+      }
+    }
+    return Promise.all([queue_notification(handle), queue_notification(handle)]);
   }
 
   async function set_commission(rule?: Partial<CreateRuleFormData>) {
@@ -316,6 +331,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     create_dispute_err: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_error().as_common_error()),
     queue_notification,
+    queue_refund_or_pay_notifictation,
     callbackUrl,
     set_commission,
     block_traffic,

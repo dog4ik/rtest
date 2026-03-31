@@ -1,6 +1,5 @@
 import { authorize_client, type Credentials } from "..";
 import { randomUUID } from "node:crypto";
-import type { CoreStatus } from "@/db/core";
 import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
 import type { Requisite } from "../trader";
@@ -270,7 +269,6 @@ export class CoreDriver {
         change_from_data_to,
         currency,
         pattern,
-        key_word,
         bank_id,
     }: CreateSmsParser) {
         let data = {
@@ -281,7 +279,6 @@ export class CoreDriver {
             "sms_parser[change_from_data_to]": change_from_data_to ?? "",
             "sms_parser[currency]": currency,
             "sms_parser[pattern]": pattern,
-            "sms_parser[key_word]": key_word ?? "",
             "sms_parser[bank_id]": bank_id,
             commit: "Create+a+new+sms+parser",
         };
