@@ -52,6 +52,7 @@ export const PayinRequestSchema = (settingsSchema: z.ZodObject) => {
     processing_url: z.url(),
     charge_page_url: z.url(),
     callback_url: z.url(),
+    callback_3ds_url: z.url().nullish(),
     settings: settingsSchema.extend({
       wrapped_to_json_response: z.boolean().nullish(),
     }),
@@ -69,7 +70,14 @@ export type ConnectPayinResponse = {
   card_enrolled?: boolean;
   redirect_request?: {
     url: string;
-    type: "post" | "get_with_processing";
+    type: "post" | "get_with_processing" | "redirect_html" | "post_iframes";
+    html?: string;
+    iframes?: {
+      url: string;
+      data: {
+        creq: string;
+      };
+    }[];
   };
   amount: number;
   currency: string;

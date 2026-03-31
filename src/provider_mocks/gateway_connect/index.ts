@@ -93,6 +93,12 @@ export function commonSettings(alias: string, secret: string) {
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
         },
+        confirm_secure_code: {
+          params_fields: {
+            params: ["headers", "cres", "checkout_result_token"],
+            settings: [SETTINGS_INTERNAL_SECRET_KEY],
+          },
+        },
       },
       processing_method: "http_requests",
       status_checker_time_rates: {
@@ -335,6 +341,56 @@ export class GatewayConnectTransaction {
         redirect_request: {
           url: common.redirectPayUrl,
           type: "get_with_processing",
+        },
+        gateway_token: this.gateway_id,
+        logs: interaction_logs.build(),
+      } as ConnectPayinResponse);
+    };
+  }
+
+  iframes_3ds_redirect_handler({
+    url,
+    cReq,
+  }: {
+    url: string;
+    cReq: string;
+  }): Handler {
+    return async (c) => {
+      let interaction_logs = new InteractionLogs();
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
+
+      let span = interaction_logs.span("pay");
+      span.set_request(
+        common.redirectPayUrl,
+        JSON.stringify({
+          amount: this.payin_request.payment.gateway_amount,
+          currency: this.payin_request.payment.gateway_currency,
+        }),
+      );
+
+      await delay(200);
+      span.set_response_body(JSON.stringify({}));
+      span.set_response_status(200);
+
+      return c.json({
+        status: "pending",
+        amount: common.amount,
+        card_enrolled: true,
+        currency: "RUB",
+        result: true,
+        redirect_request: {
+          url: this.payin_request.processing_url,
+          type: "post_iframes",
+          iframes: [
+            {
+              url,
+              data: {
+                creq: cReq,
+              },
+            },
+          ],
         },
         gateway_token: this.gateway_id,
         logs: interaction_logs.build(),

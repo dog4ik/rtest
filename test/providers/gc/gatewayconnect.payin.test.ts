@@ -14,7 +14,7 @@ import {
 } from "@/suite_interfaces";
 import * as common from "@/common";
 import { assert } from "vitest";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 import { describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
@@ -304,9 +304,39 @@ describe
         assert.strictEqual(json.id, this.gw.gateway_id);
       },
     });
+
+    function methodPriorityH2HSuite(
+      requisite_type: GcRequisiteType,
+      extra_return_param: "card" | "sbp" | "sbp_aquiring" | "tpay" | {},
+    ) {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler() {
+          return this.gw.requisites_payin_handler("pending", requisite_type);
+        },
+        request: () => common.p2pPaymentRequest("RUB", extra_return_param),
+        settings: (s) => ({
+          ...suite.settings(s),
+          wrapped_to_json_response: true,
+          use_setting_method_priority: true,
+          method: requisite_type,
+        }),
+      });
+    }
+
+    dataFlowTest("unknown extra_return_param with method priority setting", {
+      ...methodPriorityH2HSuite("card", "UnrecognizedExtraReturnParam"),
+      async check_merchant_response({ processing_response }) {
+        let req = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(req?.pan, common.visaCard);
+        assert.strictEqual(req?.name_seller, common.fullName);
+        assert.strictEqual(req?.id, this.gw.gateway_id);
+      },
+    });
   });
 
-let ecomPayinSuite = () => {
+function ecomRedirectPayinSuite(): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite();
   return defaultSuite("RUB", {
     ...suite,
@@ -315,17 +345,16 @@ let ecomPayinSuite = () => {
     },
     settings: (s) => ({
       ...suite.settings(s),
-      wrapped_to_json_response: true,
     }),
     request: () => ({
       ...common.paymentRequest("RUB"),
       card: common.cardObject(),
     }),
   }) as P2PSuite<GatewayConnectTransaction>;
-};
+}
 
 dataFlowTest("ecom redirect 3ds", {
-  ...ecomPayinSuite(),
+  ...ecomRedirectPayinSuite(),
   check_merchant_response(data) {
     data.create_response;
   },
