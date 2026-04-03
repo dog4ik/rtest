@@ -3,11 +3,9 @@
 // Configure Vitest (https://vitest.dev/config/)
 
 import { defineConfig } from "vite";
-import "allure-vitest/reporter";
 
 export default defineConfig({
   test: {
-    setupFiles: ["allure-vitest/setup"],
     // We need to share singletons like database connections between all tests.
     maxWorkers: 1,
     includeSource: ["src/**/*.ts"],
@@ -40,15 +38,6 @@ export default defineConfig({
           name: "banking",
         },
       },
-    ],
-    reporters: [
-      "verbose",
-      [
-        "allure-vitest/reporter",
-        {
-          resultsDir: "allure-results",
-        },
-      ],
     ],
   },
   resolve: {

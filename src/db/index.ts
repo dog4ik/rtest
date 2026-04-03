@@ -1,5 +1,4 @@
 import type { Project } from "@/project";
-import tracing from "@/tracing";
 import { Pool } from "pg";
 import { z } from "zod";
 
@@ -53,7 +52,7 @@ export class Db {
     schema: z.ZodObject<T>,
     query: string,
   ): Promise<z.infer<typeof schema>> {
-    tracing.debug(`executing one query: ${query}`);
+    console.log(`executing one query: ${query}`);
     let res = await this.pool.query(query);
     return schema.parse(res.rows[0]);
   }
@@ -62,7 +61,7 @@ export class Db {
     schema: z.ZodObject<T>,
     query: string,
   ): Promise<z.infer<typeof schema> | undefined> {
-    tracing.debug(`executing optional query: ${query}`);
+    console.log(`executing optional query: ${query}`);
     let res = await this.pool.query(query);
     if (res.rowCount == 0) return;
     return schema.parse(res.rows[0]);
@@ -72,7 +71,7 @@ export class Db {
     schema: z.ZodObject<T>,
     query: string,
   ): Promise<z.infer<typeof schema>[]> {
-    tracing.debug(`executing many query: ${query}`);
+    console.log(`executing many query: ${query}`);
     let res = await this.pool.query(query);
     return z.array(schema).parse(res.rows);
   }

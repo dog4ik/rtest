@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import tracing from "@/tracing";
 import { patchedDockerCompose } from "./docker_compose";
 import { patchProductionRb } from "./production_file";
 import { ProjectDir } from "./project_dir";
@@ -9,12 +8,12 @@ import type { Config } from "@/config";
 // todo: handle io errors
 export async function patchProject(config: Config) {
   let project_dir = new ProjectDir(config);
-  tracing.info(`Resolved project dir path: ${project_dir.path}`);
+  console.log(`Resolved project dir path: ${project_dir.path}`);
 
   let docker_compose_path = project_dir.dockerComposePath();
   let docker_compose_contents = fs.readFileSync(docker_compose_path);
   // todo handle errors more gracefully
-  tracing.info(
+  console.log(
     { path: docker_compose_path },
     "Writing in the docker compose file",
   );
@@ -29,7 +28,7 @@ export async function patchProject(config: Config) {
     production_rb_contents.toString(),
   );
   fs.writeFileSync(production_rb_path, patched);
-  tracing.info(
+  console.log(
     { path: production_rb_path },
     `Patched production rb file with ${mapping.size} entries`,
   );
