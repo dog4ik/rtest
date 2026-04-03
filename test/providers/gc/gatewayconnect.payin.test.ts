@@ -364,3 +364,27 @@ dataFlowTest("ecom redirect 3ds", {
     data.create_response;
   },
 });
+
+function externalRedirectSuite(): P2PSuite<GatewayConnectTransaction> {
+  let suite = payinSuite();
+  return providersSuite("RUB", {
+    ...suite,
+    create_handler() {
+      return this.gw.redirect_payin_handler("pending");
+    },
+    settings: (s) => ({
+      ...suite.settings(s),
+    }),
+    request: () => ({
+      ...common.paymentRequest("RUB"),
+    }),
+  }) as P2PSuite<GatewayConnectTransaction>;
+}
+
+payformDataFlowTest("external redirect", {
+  ...externalRedirectSuite(),
+  check_pf_page(page) {
+    let url = new URL(page.url());
+    assert.strictEqual(url.hostname, "www.google.com");
+  },
+});
