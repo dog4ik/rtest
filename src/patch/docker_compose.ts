@@ -91,5 +91,11 @@ export function patchedDockerCompose(dockerCompose: string): string {
     ]);
   }
 
+  // Expose mongo port to the host
+  const mongo = services["mongo"];
+  if (mongo) {
+    mongo.ports = ["27017:27017"];
+  }
+
   return yaml.stringify(doc);
 }

@@ -3,9 +3,24 @@ import { test } from "@/test_context";
 import { describe, assert } from "vitest";
 import * as common from "@/common";
 import { JusanPayment } from "@/provider_mocks/jusan";
+import { MongoClient } from "mongodb";
 import type { Context } from "@/test_context/context";
 import type { ProviderInstance } from "@/mock_server/instance";
 import type { ExtendedMerchant } from "@/entities/merchant";
+
+// nasty solition to remove flaky tests
+async function reset_dispatching_queue(aliases: string[]): Promise<void> {
+  let client = new MongoClient("mongodb://localhost:27017");
+  try {
+    await client.connect();
+    await client
+      .db("counters")
+      .collection("dispatching")
+      .deleteOne({ dispatching: aliases });
+  } finally {
+    await client.close();
+  }
+}
 
 const CURRENCY = "RUB";
 
@@ -29,7 +44,7 @@ class DispatchingTester {
   }
 
   private makeRule(mid: number, i: number) {
-    const aliases = [...Array(this.n)].map((_, j) => this.alias(j));
+    let aliases = this.aliases();
     return {
       header: {
         mid: mid.toString(),
@@ -51,7 +66,7 @@ class DispatchingTester {
   }
 
   private makeSettings() {
-    const gateways: Record<string, any> = { allow_host2host: true };
+    let gateways: Record<string, any> = { allow_host2host: true };
     for (let i = 0; i < this.n; i++) {
       gateways[this.alias(i)] = JusanPayment.settings(this.secrets[i]);
     }
@@ -67,6 +82,10 @@ class DispatchingTester {
     };
   }
 
+  private aliases(): string[] {
+    return [...Array(this.n)].map((_, i) => this.alias(i));
+  }
+
   async init() {
     this.merchant = await this.ctx.create_random_merchant();
     for (let i = 0; i < this.n; i++) {
@@ -76,16 +95,17 @@ class DispatchingTester {
       );
     }
     await this.merchant.set_settings(this.makeSettings());
+    await reset_dispatching_queue(this.aliases());
   }
 
   // Queue a handler on the expected gateway and make a payment request.
   async pay_via(expected_gateway_idx: number): Promise<void> {
     assert(this.merchant);
-    const payment = new JusanPayment();
-    const provider_done = this.instances[expected_gateway_idx].queue(
+    let payment = new JusanPayment();
+    let provider_done = this.instances[expected_gateway_idx].queue(
       payment.create_response_handler("approved"),
     );
-    const res = await this.merchant.create_payment({
+    let res = await this.merchant.create_payment({
       ...common.paymentRequest(CURRENCY),
       card: common.cardObject(),
     });
@@ -99,7 +119,7 @@ describe
   .concurrent("dispatching tests", () => {
     test.concurrent("cycles through 3 gateways in queue order", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
-        const tester = new DispatchingTester(ctx, 3);
+        let tester = new DispatchingTester(ctx, 3);
         await tester.init();
 
         await tester.pay_via(0);
