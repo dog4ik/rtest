@@ -15,6 +15,7 @@ import { InteractionLogs } from "./interaction_logs";
 import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
+import { PROJECT } from "@/config";
 
 export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
 
@@ -193,26 +194,44 @@ export class GatewayConnectTransaction {
       span.set_response_status(status === "declined" ? 400 : 200);
 
       let requisites: Record<string, any> | undefined = undefined;
-      if (status === "pending") {
-        requisites = {
-          holder: common.fullName,
-          bank_name: common.bankName,
-        };
-        if (requisite_type === "card") {
-          requisites["card"] = common.visaCard;
-        } else if (requisite_type === "sbp") {
-          requisites["phone"] = common.phoneNumber;
-        } else if (requisite_type === "tpay") {
-          requisites["phone"] = `+${common.phoneNumber}`;
-          requisites["deeplink"] = true;
-        } else if (requisite_type === "deeplink") {
-          requisites["link"] = common.redirectPayUrl;
-          requisites["deeplink"] = true;
-        } else if (requisite_type === "link") {
-          requisites["link"] = common.redirectPayUrl;
-          // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
-          // Отсавлю так чтобы его интеграция не померла.
-          requisites["deeplink"] = true;
+      if (PROJECT == "spinpay") {
+        if (status === "pending") {
+          requisites = {
+            holder: common.fullName,
+            bank_name: common.bankName,
+          };
+          if (requisite_type === "card") {
+            requisites["card"] = common.visaCard;
+          } else if (requisite_type === "sbp") {
+            requisites["phone"] = common.phoneNumber;
+          } else {
+            assert.fail(
+              `Spinpay unimplemented requisite type: ${requisite_type}`,
+            );
+          }
+        }
+      } else {
+        if (status === "pending") {
+          requisites = {
+            holder: common.fullName,
+            bank_name: common.bankName,
+          };
+          if (requisite_type === "card") {
+            requisites["card"] = common.visaCard;
+          } else if (requisite_type === "sbp") {
+            requisites["phone"] = common.phoneNumber;
+          } else if (requisite_type === "tpay") {
+            requisites["phone"] = `+${common.phoneNumber}`;
+            requisites["deeplink"] = true;
+          } else if (requisite_type === "deeplink") {
+            requisites["link"] = common.redirectPayUrl;
+            requisites["deeplink"] = true;
+          } else if (requisite_type === "link") {
+            requisites["link"] = common.redirectPayUrl;
+            // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
+            // Отсавлю так чтобы его интеграция не померла.
+            requisites["deeplink"] = true;
+          }
         }
       }
 

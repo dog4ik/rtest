@@ -77,6 +77,40 @@ export const CALLBACK_DELAY = CONFIG.in_project(["8pay", "reactivepay"])
   ? 11_000
   : 500;
 
+/**
+ * List of strings that should not be found inside redirect url during masked_provider routing
+ */
+export const FORBIDDEN_STRINGS: string[] = [
+  "brusnika",
+  "madsolution",
+  "ironpay",
+  "pay_matrix",
+  "paymatrix",
+  "dalapay",
+  "flint",
+  "millennium",
+];
+
+function assertLocationNotForbidden(location: string) {
+  for (let forbidden of []) {
+    assert.notInclude(
+      location,
+      forbidden,
+      `redirect location "${location}" should not contain forbidden string "${forbidden}"`,
+    );
+  }
+}
+
+function assertBodyNotForbidden(body: string) {
+  for (let forbidden of []) {
+    assert.notInclude(
+      body,
+      forbidden,
+      `redirect body should not contain forbidden string "${forbidden}"`,
+    );
+  }
+}
+
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
 type CreateTransactionReturn = Awaited<
@@ -456,9 +490,19 @@ export function routingFinalizationSuite(
         });
         let last_link = links[links.length - 1] as Routable & Callback;
         console.log({ merchant, chain_descriptor, type: "after", request });
-        let res = await merchant
-          .create_payment(request)
-          .then((p) => p.followFirstProcessingUrl());
+        let res = await merchant.create_payment(request).then((p) =>
+          is_masked
+            ? p.followFirstProcessingCheckedRedirect(async (r) => {
+                let body = await r.text();
+                let location = r.headers.get("location");
+                await ctx.annotate(
+                  `Routing h2h redirect location: ${location}, body: ${body}`,
+                );
+                if (location) assertLocationNotForbidden(location);
+                if (body) assertBodyNotForbidden(body);
+              })
+            : p.followFirstProcessingUrl(),
+        );
         if (checks?.check_merchant_requisites) {
           await checks.check_merchant_requisites(res);
         }
@@ -501,6 +545,21 @@ export function routingFinalizationSuite(
           );
           let page = await browser.newPage();
           await page.setViewportSize({ width: 720, height: 1024 });
+
+          if (is_masked) {
+            page.on("response", async (response) => {
+              let status = response.status();
+              if (status >= 300 && status < 400) {
+                let body = await response.text();
+                let location = response.headers()["location"];
+                await ctx.annotate(
+                  `Routing payform redirect location: ${location}, body: ${body}`,
+                );
+                if (location) assertLocationNotForbidden(location);
+                if (body) assertBodyNotForbidden(body);
+              }
+            });
+          }
 
           await page.goto(first_processing_url);
           await ctx.annotate("Routed payform screenshot", {

@@ -90,7 +90,8 @@ export class Context {
       system_name: random_name(),
     };
     await this.state.core_harness.add_bank(bank_info);
-    return bank_info;
+    let db_bank = await this.state.core_db.bank(bank_info.system_name);
+    return { ...bank_info, ...db_bank };
   }
 
   /**

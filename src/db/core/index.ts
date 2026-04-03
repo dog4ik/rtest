@@ -40,6 +40,14 @@ export const BankAccountQuery = sqlProjection(
   BankAccountSchema,
 );
 
+export const BankSchema = z.object({
+  id: z.coerce.number(),
+  system_name: z.string(),
+  logo: z.string().nullable(),
+});
+export type Bank = z.infer<typeof BankSchema>;
+export const BankQuery = sqlProjection("banks", BankSchema);
+
 export const MerchantSchema = z.object({
   id: z.number(),
   merchant_private_key: z.string(),
@@ -169,5 +177,10 @@ JOIN entries ON entries.wallet_request_id = wallet_requests.id";
       z.object({ confirm_code: z.coerce.number() }),
       query,
     );
+  }
+
+  async bank(system_name: string) {
+    let query = `select ${BankQuery.select(this.project)} from banks where system_name = '${system_name}'`;
+    return await this.fetch_one(BankQuery.schema, query);
   }
 }

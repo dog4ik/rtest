@@ -40,7 +40,8 @@ test.concurrent("default approved refund", async ({ ctx }) => {
   assert(response.payment?.status == "approved");
   await approve_notifiaction;
 
-  let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
+  let refund_notifications =
+    merchant.queue_refund_or_pay_notifictation("approved");
   await merchant.create_refund({ token: response.token });
   await refund_notifications;
 });
@@ -90,9 +91,74 @@ test.concurrent(
     assert.strictEqual(wallet.currency, "RUB");
     assert.strictEqual(
       wallet.available,
-      amount / 100 + cashin_amount - (partial_amount / 100 + commission_amount) * 2,
+      amount / 100 +
+        cashin_amount -
+        (partial_amount / 100 + commission_amount) * 2,
       "available should be 0 after refund",
     );
     assert.strictEqual(wallet.held, 0, "held should be 0 after refund");
+  },
+);
+
+test.concurrent(
+  "default payin core status change with commission approved -> declined",
+  async ({ ctx }) => {
+    let merchant = await ctx.create_random_merchant();
+    await merchant.set_commission({
+      self_rate: (0.1 * 100).toString(),
+      operation: "PayinRequest",
+    });
+    await merchant.set_settings(default_provider.fullSettings("RUB"));
+    let approved_notification = merchant.queue_notification((notification) => {
+      assert.strictEqual(notification.status, "approved");
+    });
+    let response = await merchant.create_payment(
+      default_provider.request("RUB", common.amount, "pay", true),
+    );
+    assert.strictEqual(response.payment.status, "approved");
+    await approved_notification;
+    let declined_notification = merchant.queue_notification((notification) => {
+      assert.strictEqual(notification.status, "declined");
+    });
+
+    let feed = await ctx.get_feed(response.token);
+    ctx.shared_state().core_harness.change_status(feed.id, "declined");
+    await declined_notification;
+    let wallet = (await merchant.wallets())[0];
+    assert.strictEqual(wallet.available, 0);
+    assert.strictEqual(wallet.held, 0);
+  },
+);
+
+test.concurrent(
+  "default payin core status change with commission declined -> approved",
+  async ({ ctx }) => {
+    let merchant = await ctx.create_random_merchant();
+    await merchant.set_commission({
+      self_rate: (0.1 * 100).toString(),
+      operation: "PayinRequest",
+    });
+    await merchant.set_settings(default_provider.fullSettings("RUB"));
+    let declined_notification = merchant.queue_notification((notification) => {
+      assert.strictEqual(notification.status, "declined");
+    });
+    let response = await merchant.create_payment(
+      default_provider.request("RUB", common.amount, "pay", false),
+    );
+    assert.strictEqual(response.payment.status, "declined");
+    await declined_notification;
+    let approved_notification = merchant.queue_notification((notification) => {
+      assert.strictEqual(notification.status, "approved");
+    });
+
+    let feed = await ctx.get_feed(response.token);
+    ctx.shared_state().core_harness.change_status(feed.id, "approved");
+    await approved_notification;
+    let wallet = (await merchant.wallets())[0];
+    assert.strictEqual(
+      wallet.available,
+      common.amount / 100 - (common.amount / 100) * 0.1,
+    );
+    assert.strictEqual(wallet.held, 0);
   },
 );

@@ -195,12 +195,18 @@ async function validate_trader_wallets(
   }
   let wallets = await client.profileWallets(trader_id);
 
-  let wallet = wallets.reduce((min, item) => (item.id < min.id ? item : min));
-  if (!wallet) {
+  // todo: validate income wallet
+  let main_wallet = wallets.reduce((min, item) =>
+    item.id < min.id ? item : min,
+  );
+  let profit_wallet = wallets.reduce((max, item) =>
+    item.id > max.id ? item : max,
+  );
+  if (!main_wallet) {
     throw Error("failed to find wallet with minimum id");
   }
 
-  let validator = new EntryValidator(wallet.id);
+  let validator = new EntryValidator(main_wallet.id);
   for (let entry of entries) {
     validator.feedEntryMimicRuby(entry);
   }

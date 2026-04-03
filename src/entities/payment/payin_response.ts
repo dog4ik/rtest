@@ -69,6 +69,34 @@ export class PayinResponse {
           .then(err_bad_status)
           .then((r) => new ProcessingUrlResponse(ctx, r));
       },
+      async followFirstProcessingCheckedRedirect(
+        on_redirect?: (response: Response) => Promise<void>,
+      ) {
+        console.log("Fetching processing url");
+        let url = this.firstProcessingUrl();
+        if (!on_redirect) {
+          return await fetch(url, { method: "GET", redirect: "follow" })
+            .then(err_bad_status)
+            .then((r) => new ProcessingUrlResponse(ctx, r));
+        }
+        let current_url: string = url;
+        while (true) {
+          let response = await fetch(current_url, {
+            method: "GET",
+            redirect: "manual",
+          });
+          if (response.status >= 300 && response.status < 400) {
+            await on_redirect(response);
+            let location = response.headers.get("location");
+            if (!location) {
+              assert.fail("redirect response is missing location header");
+            }
+            current_url = location;
+          } else {
+            return new ProcessingUrlResponse(ctx, err_bad_status(response));
+          }
+        }
+      },
     };
   }
 

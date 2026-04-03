@@ -5,6 +5,7 @@ import * as iron from "@/provider_mocks/ironpay";
 import * as forta from "@/provider_mocks/forta";
 import * as pixel from "@/provider_mocks/pixelwave";
 import * as argos from "@/provider_mocks/argos";
+import * as gatewayconnect from "@/provider_mocks/gateway_connect";
 import { CONFIG } from "@/config";
 import { describe } from "vitest";
 import * as common from "@/common";
@@ -13,10 +14,28 @@ import {
   maskedSuite,
   routingFinalizationSuite,
   type Callback,
+  type P2PSuite,
   type Routable,
 } from "@/suite_interfaces";
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
+
+function gatewayConnectRoutingSuite(
+  req_type: gatewayconnect.GcRequisiteType,
+): P2PSuite<GatewayConnectTransaction> {
+  let gw = new GatewayConnectTransaction("manypay", {});
+  return {
+    ...gatewayconnect.payinSuite(),
+    create_handler() {
+      return gw.requisites_payin_handler("pending", req_type);
+    },
+    no_requisites_handler() {
+      return gw.requisites_payin_handler("declined", req_type);
+    },
+    gw,
+  } as P2PSuite<GatewayConnectTransaction>;
+}
 
 const CURRENCY = "RUB";
 
@@ -126,16 +145,46 @@ describe
     let req = () => ({ ...common.p2pPaymentRequest(CURRENCY, "card") });
     let check_merchant_requisites = (r: ProcessingUrlResponse) =>
       r.as_trader_requisites();
-    routingFinalizationSuite([brus.payinSuite(), iron.payinSuite()], req(), {
-      check_merchant_requisites,
-    });
 
-    routingFinalizationSuite([iron.payinSuite(), brus.payinSuite()], req(), {
-      check_merchant_requisites,
-    });
+    function allCases(): (() => (Routable & Callback)[])[] {
+      return [
+        () => [brus.payinSuite(), iron.payinSuite()],
+        () => [iron.payinSuite(), brus.payinSuite()],
+        () => [
+          gatewayConnectRoutingSuite("card"),
+          iron.payinSuite(),
+          brus.payinSuite(),
+        ],
+        () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
+        () => [gatewayConnectRoutingSuite("card"), brus.payinSuite()],
+        () => [brus.payinSuite(), iron.payinSuite()],
+      ];
+    }
 
-    routingFinalizationSuite([brus.payinSuite(), iron.payinSuite()], req(), {
-      check_merchant_requisites,
+    for (let c of allCases()) {
+      routingFinalizationSuite(
+        c() as [...Routable[], Routable & Callback],
+        req(),
+        { check_merchant_requisites },
+      );
+    }
+
+    describe.concurrent("masked routing", () => {
+      for (let c of allCases().map((c) =>
+        c().map((link) => {
+          if (link.gw instanceof GatewayConnectTransaction) {
+            return link;
+          }
+          return maskedSuite(link);
+        }),
+      )) {
+        routingFinalizationSuite(
+          c as [...Routable[], Routable & Callback],
+          req(),
+          { check_merchant_requisites },
+          true,
+        );
+      }
     });
   });
 
@@ -145,32 +194,39 @@ describe
     let req = () => ({ ...common.p2pPaymentRequest(CURRENCY, "card") });
     let check_merchant_requisites = (r: ProcessingUrlResponse) =>
       r.as_trader_requisites();
-    routingFinalizationSuite(
-      [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
-      req(),
-      { check_merchant_requisites },
-    );
 
-    routingFinalizationSuite(
-      [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
-      req(),
-      { check_merchant_requisites },
-    );
+    function allCases(): (() => (Routable & Callback)[])[] {
+      return [
+        () => [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
+        () => [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
+        () => [mad.payinSuite(), iron.payinSuite(), brus.payinSuite()],
+        () => [
+          mad.payinSuite(),
+          iron.payinSuite(),
+          argos.payinSuite(),
+          brus.payinSuite(),
+        ],
+      ];
+    }
 
-    routingFinalizationSuite(
-      [mad.payinSuite(), iron.payinSuite(), brus.payinSuite()],
-      req(),
-      { check_merchant_requisites },
-    );
+    for (let c of allCases()) {
+      routingFinalizationSuite(
+        c() as [...Routable[], Routable & Callback],
+        req(),
+        { check_merchant_requisites },
+      );
+    }
 
-    routingFinalizationSuite(
-      [
-        mad.payinSuite(),
-        iron.payinSuite(),
-        argos.payinSuite(),
-        brus.payinSuite(),
-      ],
-      req(),
-      { check_merchant_requisites },
-    );
+    describe.concurrent("masked routing", () => {
+      for (let c of allCases().map((c) =>
+        c().map((link) => maskedSuite(link)),
+      )) {
+        routingFinalizationSuite(
+          c as [...Routable[], Routable & Callback],
+          req(),
+          { check_merchant_requisites },
+          true,
+        );
+      }
+    });
   });

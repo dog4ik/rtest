@@ -6,403 +6,401 @@ import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
 
 export type CreateMerchant = {
-    phone?: string;
-    password: string;
-    companyName: string;
-    country: string;
-    email: string;
+  phone?: string;
+  password: string;
+  companyName: string;
+  country: string;
+  email: string;
 };
 
 export type CreateTraderOptions = {
-    usdt?: boolean;
-    payout_hold_period?: number;
+  usdt?: boolean;
+  payout_hold_period?: number;
+  currency?: string;
 };
 
 export type CreateTrader = {
-    telegram: string;
-    currency: string;
-    password: string;
-    companyName: string;
-    email: string;
-    convert_to_usdt: boolean;
-    payout_hold_priod: number;
+  telegram: string;
+  currency: string;
+  password: string;
+  companyName: string;
+  email: string;
+  convert_to_usdt: boolean;
+  payout_hold_priod: number;
 };
 
 export type TraderMethodToggle = {
-    in_locked: boolean;
-    out_locked: boolean;
-    sbp_enabled: boolean;
-    card_enabled: boolean;
-    account_enabled: boolean;
-    link_enabled: boolean;
+  in_locked: boolean;
+  out_locked: boolean;
+  sbp_enabled: boolean;
+  card_enabled: boolean;
+  account_enabled: boolean;
+  link_enabled: boolean;
 };
 
 export type CreateSmsParser = {
-    sms_type: Requisite;
-    sim: string;
-    from_data: string;
-    change_from_data_to?: string;
-    currency: string;
-    pattern: string;
-    bank_id: string;
+  sms_type: Requisite;
+  sim: string;
+  from_data: string;
+  change_from_data_to?: string;
+  currency: string;
+  pattern: string;
+  payer_pattern?: string;
+  bank_id: string;
 };
 
 const DateFormatter = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
 });
 
 const TimeFormatter = new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
 });
 
 export class CoreDriver {
-    cookies: string | null;
-    base_url: string;
-    constructor(base_url: string) {
-        this.cookies = "";
-        this.base_url = base_url + "/manage";
+  cookies: string | null;
+  base_url: string;
+  constructor(base_url: string) {
+    this.cookies = "";
+    this.base_url = base_url + "/manage";
+  }
+
+  private async action(path: string, payload: {}, method?: string) {
+    let body = new URLSearchParams();
+
+    // filter out "undefined" literals from constructed urlencoded payload
+    for (let [key, value] of Object.entries(payload)) {
+      if (value !== undefined) {
+        body.append(key, String(value));
+      }
     }
-
-    private async action(path: string, payload: {}, method?: string) {
-        let body = new URLSearchParams();
-
-        // filter out "undefined" literals from constructed urlencoded payload
-        for (let [key, value] of Object.entries(payload)) {
-            if (value !== undefined) {
-                body.append(key, String(value));
-            }
-        }
-        console.log({
-            body,
-            rawBody: body.toString(),
-            cookie: this.cookies,
-            method,
-            url: this.base_url + path,
-        });
-        let res = await fetch(this.base_url + path, {
-            method: method ?? "POST",
-            redirect: "manual",
-            body,
-            headers: {
-                "content-type": "application/x-www-form-urlencoded",
-                accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                cookie: this.cookies ?? "",
-            },
-        }).then(err_bad_status);
-        let cookie = res.headers.get("set-cookie");
-        if (cookie !== null) {
-            this.cookies = cookie;
-        }
+    console.log({
+      body,
+      rawBody: body.toString(),
+      cookie: this.cookies,
+      method,
+      url: this.base_url + path,
+    });
+    let res = await fetch(this.base_url + path, {
+      method: method ?? "POST",
+      redirect: "manual",
+      body,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        cookie: this.cookies ?? "",
+      },
+    }).then(err_bad_status);
+    let cookie = res.headers.get("set-cookie");
+    if (cookie !== null) {
+      this.cookies = cookie;
     }
+  }
 
-    private async form_action(path: string, body: FormData, method?: string) {
-        let res = await fetch(this.base_url + path, {
-            method: method ?? "POST",
-            redirect: "manual",
-            body,
-            headers: {
-                cookie: this.cookies ?? "",
-            },
-        }).then(err_bad_status);
-        let cookie = res.headers.get("set-cookie");
-        if (cookie !== null) {
-            this.cookies = cookie;
-        }
+  private async form_action(path: string, body: FormData, method?: string) {
+    let res = await fetch(this.base_url + path, {
+      method: method ?? "POST",
+      redirect: "manual",
+      body,
+      headers: {
+        cookie: this.cookies ?? "",
+      },
+    }).then(err_bad_status);
+    let cookie = res.headers.get("set-cookie");
+    if (cookie !== null) {
+      this.cookies = cookie;
     }
+  }
 
-    async keycloak_login(credentials: Credentials) {
-        this.cookies = await authorize_client(
-            credentials,
-            "http://localhost:3000/auth/keycloakopenid_admin",
-        );
-        console.log({ cookies: this.cookies });
+  async keycloak_login(credentials: Credentials) {
+    this.cookies = await authorize_client(
+      credentials,
+      "http://localhost:3000/auth/keycloakopenid_admin",
+    );
+    console.log({ cookies: this.cookies });
+  }
+
+  async login(credentials: Credentials) {
+    if (PROJECT === "a2") {
+      return await this.keycloak_login(credentials);
     }
+    const form = {
+      utf8: "✓",
+      authenticity_token: "TODO",
+      email: credentials.login,
+      password: credentials.password,
+      commit: "Login",
+    };
 
-    async login(credentials: Credentials) {
-        if (PROJECT === "a2") {
-            return await this.keycloak_login(credentials);
-        }
-        const form = {
-            utf8: "✓",
-            authenticity_token: "TODO",
-            email: credentials.login,
-            password: credentials.password,
-            commit: "Login",
-        };
+    await this.action("/sessions", form);
+  }
 
-        await this.action("/sessions", form);
+  async create_merchant(params: CreateMerchant) {
+    let form = {
+      utf8: "",
+      authenticity_token: "TODO authenticity token",
+      email: params.email,
+      commit: "Add new merchant",
+
+      "api_v1_profile[phone]": params.phone,
+      "api_v1_profile[temp_password]": params.password,
+      "api_v1_profile[company_name]": params.companyName,
+      "api_v1_profile[country]": params.country,
+      "api_v1_profile[country_id]": 236,
+      "api_v1_profile[contact_person_name]": "",
+      "api_v1_profile[contact_person_position]": "",
+      "api_v1_profile[web_site]": undefined,
+    };
+
+    await this.action("/merchants", form);
+  }
+
+  async create_random_merchant() {
+    let uuid = randomUUID();
+    let params: CreateMerchant = {
+      companyName: uuid,
+      email: `${uuid}@mail.com`,
+      password: 'c@"6J?Q3:?H@me=',
+      country: "236",
+    };
+    await this.create_merchant(params);
+    return params;
+  }
+
+  async create_trader(params: CreateTrader) {
+    let form = {
+      utf8: "✓",
+      "trader[company_name]": params.companyName,
+      "trader[default_currency]": params.currency,
+      "trader[email]": params.email,
+      "trader[web_site]": params.telegram,
+      "trader[temp_password]": params.password,
+      "trader[payout_hold_period]": params.payout_hold_priod,
+      main_address: "",
+      deposit_address: "",
+      white_list: "",
+      min_limit: "",
+      max_limit: "",
+      convert_to_usdt: params.convert_to_usdt ? "1" : undefined,
+      commit: "Add+new+trader",
+    };
+
+    await this.action("/traders", form);
+  }
+
+  async create_random_trader(opts?: CreateTraderOptions) {
+    let uuid = randomUUID();
+    let params: CreateTrader = {
+      companyName: uuid,
+      email: `${uuid}@mail.com`,
+      password: 'c@"6J?Q3:?H@me=',
+      convert_to_usdt: opts?.usdt ?? true,
+      payout_hold_priod: opts?.payout_hold_period ?? 0,
+      telegram: uuid,
+      currency: opts?.currency ?? "RUB",
+    };
+    await this.create_trader(params);
+    return params;
+  }
+
+  async enable_trader_methods(
+    trader_id: number,
+    toggle: Partial<TraderMethodToggle>,
+  ) {
+    for (let [key, value] of Object.entries(toggle)) {
+      await this.enable_trader_method(
+        trader_id,
+        key as keyof TraderMethodToggle,
+        value,
+      );
     }
+  }
 
-    async create_merchant(params: CreateMerchant) {
-        let form = {
-            utf8: "",
-            authenticity_token: "TODO authenticity token",
-            email: params.email,
-            commit: "Add new merchant",
+  async enable_trader_method(
+    trader_id: number,
+    key: keyof TraderMethodToggle,
+    force: boolean,
+  ) {
+    await this.action(`/traders/${trader_id}`, { [key]: force }, "PUT");
+  }
 
-            "api_v1_profile[phone]": params.phone,
-            "api_v1_profile[temp_password]": params.password,
-            "api_v1_profile[company_name]": params.companyName,
-            "api_v1_profile[country]": params.country,
-            "api_v1_profile[country_id]": 236,
-            "api_v1_profile[contact_person_name]": "",
-            "api_v1_profile[contact_person_position]": "",
-            "api_v1_profile[web_site]": undefined,
-        };
+  async add_supported_banks(trader_id: number, bank_list: string[]) {
+    let data = {
+      utf8: "✓",
+      _method: "patch",
+      white_list: "",
+      min_limit: "",
+      max_limit: "",
+      "bank_ids[]": bank_list,
+      commit: "Save",
+    };
+    await this.action(`/traders/${trader_id}`, data);
+  }
 
-        await this.action("/merchants", form);
+  async add_bank({
+    system_name,
+    ru,
+    en,
+  }: {
+    system_name: string;
+    ru: string;
+    en: string;
+  }) {
+    let data = {
+      utf8: "✓",
+      "bank[names][en]": en,
+      "bank[names][ru]": ru,
+      "bank[system_name]": system_name,
+      commit: "Add a new bank",
+    };
+    let form_data = new FormData();
+    for (let [key, value] of Object.entries(data)) {
+      form_data.append(key, value);
     }
+    await this.form_action(`/banks`, form_data);
+  }
 
-    async create_random_merchant() {
-        let uuid = randomUUID();
-        let params: CreateMerchant = {
-            companyName: uuid,
-            email: `${uuid}@mail.com`,
-            password: 'c@"6J?Q3:?H@me=',
-            country: "236",
-        };
-        await this.create_merchant(params);
-        return params;
-    }
+  async add_sms_parser({
+    sms_type,
+    sim,
+    from_data,
+    change_from_data_to,
+    currency,
+    pattern,
+    payer_pattern,
+    bank_id,
+  }: CreateSmsParser) {
+    let data = {
+      utf8: "✓",
+      "sms_parser[sms_type]": sms_type,
+      "sms_parser[sim]": sim,
+      "sms_parser[from_data]": from_data,
+      "sms_parser[change_from_data_to]": change_from_data_to ?? "",
+      "sms_parser[currency]": currency,
+      "sms_parser[pattern]": pattern,
+      "sms_parser[payer_pattern]": payer_pattern ?? "",
+      "sms_parser[bank_id]": bank_id,
+      commit: "Create+a+new+sms+parser",
+    };
+    await this.action("/sms_parsers", data);
+  }
 
-    async create_trader(params: CreateTrader) {
-        let form = {
-            utf8: "✓",
-            "trader[company_name]": params.companyName,
-            "trader[default_currency]": params.currency,
-            "trader[email]": params.email,
-            "trader[web_site]": params.telegram,
-            "trader[temp_password]": params.password,
-            "trader[payout_hold_period]": params.payout_hold_priod,
-            main_address: "",
-            deposit_address: "",
-            white_list: "",
-            min_limit: "",
-            max_limit: "",
-            convert_to_usdt: params.convert_to_usdt ? "" : undefined,
-            commit: "Add+new+trader",
-        };
+  async cashin(
+    mid: number,
+    currency: string,
+    amount: number,
+    to_account_id?: number,
+  ) {
+    let now = new Date();
+    let params = {
+      utf8: "",
+      authenticity_token: "TODO",
+      profile_id: mid,
+      to_name: "",
+      amount,
+      to_account_id: to_account_id ? to_account_id.toString() : "",
+      "payment_request[currency]": currency,
+      date: DateFormatter.format(now),
+      time: TimeFormatter.format(now),
+      description: "",
+      commit: "Create",
+    };
+    await this.action("/transfers?direction=in", params);
+  }
 
-        await this.action("/traders", form);
-    }
+  async cashout(mid: number, currency: string, amount: number) {
+    let now = new Date();
+    let form = new FormData();
+    form.append("utf8", "✓");
+    form.append("profile_id", mid);
+    form.append("recipient_name", "");
+    form.append("amount", amount);
+    form.append("payment_request[currency]", currency);
+    form.append("date", DateFormatter.format(now));
+    form.append("time", TimeFormatter.format(now));
+    form.append("description", "");
 
-    async create_random_trader(opts?: CreateTraderOptions) {
-        let uuid = randomUUID();
-        let params: CreateTrader = {
-            companyName: uuid,
-            email: `${uuid}@mail.com`,
-            password: 'c@"6J?Q3:?H@me=',
-            convert_to_usdt: opts?.usdt ?? true,
-            payout_hold_priod: opts?.payout_hold_period ?? 0,
-            telegram: uuid,
-            currency: "RUB",
-        };
-        await this.create_trader(params);
-        return params;
-    }
+    // For the empty file attachment
+    const emptyBlob = new Blob([], { type: "application/octet-stream" });
+    form.append("payment_request[attachments][]", emptyBlob, "");
 
-    async enable_trader_methods(
-        trader_id: number,
-        toggle: Partial<TraderMethodToggle>,
-    ) {
-        for (let [key, value] of Object.entries(toggle)) {
-            await this.enable_trader_method(
-                trader_id,
-                key as keyof TraderMethodToggle,
-                value,
-            );
-        }
-    }
+    form.append("commit", "Создать");
 
-    async enable_trader_method(
-        trader_id: number,
-        key: keyof TraderMethodToggle,
-        force: boolean,
-    ) {
-        await this.action(`/traders/${trader_id}`, { [key]: force }, "PUT");
-    }
+    await this.form_action("/transfers?direction=out", form);
+  }
 
-    async add_supported_banks(trader_id: number, bank_list: string[]) {
-        let data = {
-            utf8: "✓",
-            _method: "patch",
-            white_list: "",
-            min_limit: "",
-            max_limit: "",
-            "bank_ids[]": bank_list,
-            commit: "Save",
-        };
-        await this.action(`/traders/${trader_id}`, data);
-    }
+  // TODO: status is not a CoreStatus, it should be string.
+  async change_status(id: number, status: PrimeBusinessStatus) {
+    let params = {
+      utf8: "✓",
+      id: id.toString(),
+      target_status: status,
+      declination_reason: "",
+      commit: "Save",
+    };
 
-    async add_bank({
-        system_name,
-        ru,
-        en,
-    }: {
-        system_name: string;
-        ru: string;
-        en: string;
-    }) {
-        let data = {
-            utf8: "✓",
-            "bank[names][en]": en,
-            "bank[names][ru]": ru,
-            "bank[system_name]": system_name,
-            commit: "Add a new bank",
-        };
-        let form_data = new FormData();
-        for (let [key, value] of Object.entries(data)) {
-            form_data.append(key, value);
-        }
-        await this.form_action(`/banks`, form_data);
-    }
+    let query = {
+      action: "index",
+      controller: "manage/cashouts",
+      page: "1",
+      per_page: "20",
+      company_names: "",
+      from_date: "",
+      merchant_ids: "",
+      status: "",
+      to_date: "",
+      type: "",
+    };
 
-    async add_sms_parser({
-        sms_type,
-        sim,
-        from_data,
-        change_from_data_to,
-        currency,
-        pattern,
-        bank_id,
-    }: CreateSmsParser) {
-        let data = {
-            utf8: "✓",
-            "sms_parser[sms_type]": sms_type,
-            "sms_parser[sim]": sim,
-            "sms_parser[from_data]": from_data,
-            "sms_parser[change_from_data_to]": change_from_data_to ?? "",
-            "sms_parser[currency]": currency,
-            "sms_parser[pattern]": pattern,
-            "sms_parser[bank_id]": bank_id,
-            commit: "Create+a+new+sms+parser",
-        };
-        await this.action("/sms_parsers", data);
-    }
+    const queryParams = new URLSearchParams(query);
 
-    async cashin(
-        mid: number,
-        currency: string,
-        amount: number,
-        to_account_id?: number,
-    ) {
-        let now = new Date();
-        let params = {
-            utf8: "",
-            authenticity_token: "TODO",
-            profile_id: mid,
-            to_name: "",
-            amount,
-            to_account_id: to_account_id ? to_account_id.toString() : "",
-            "payment_request[currency]": currency,
-            date: DateFormatter.format(now),
-            time: TimeFormatter.format(now),
-            description: "",
-            commit: "Create",
-        };
-        await this.action("/transfers?direction=in", params);
-    }
+    await this.action(`/cashouts/change_status?${queryParams}`, params);
+  }
 
-    async cashout(mid: number, currency: string, amount: number) {
-        let now = new Date();
-        let form = new FormData();
-        form.append("utf8", "✓");
-        form.append("profile_id", mid);
-        form.append("recipient_name", "");
-        form.append("amount", amount);
-        form.append("payment_request[currency]", currency);
-        form.append("date", DateFormatter.format(now));
-        form.append("time", TimeFormatter.format(now));
-        form.append("description", "");
+  async approve_payout(id: number) {
+    await this.action(`/transfers/${id}/approve_payout`, {});
+  }
 
-        // For the empty file attachment
-        const emptyBlob = new Blob([], { type: "application/octet-stream" });
-        form.append("payment_request[attachments][]", emptyBlob, "");
+  async decline_payout(id: number) {
+    await this.action(`/transfers/${id}/decline_payout`, {});
+  }
 
-        form.append("commit", "Создать");
+  async resend_callback(token: string) {
+    let params = { api_payment_token: token };
+    await this.action(`/cashouts/${token}/resend_callback`, params);
+  }
 
-        await this.form_action("/transfers?direction=out", form);
-    }
-
-    // TODO: status is not a CoreStatus, it should be string.
-    async change_status(id: number, status: PrimeBusinessStatus) {
-        let params = {
-            utf8: "✓",
-            id: id.toString(),
-            target_status: status,
-            declination_reason: "",
-            commit: "Save",
-        };
-
-        let query = {
-            action: "index",
-            controller: "manage/cashouts",
-            page: "1",
-            per_page: "20",
-            company_names: "",
-            from_date: "",
-            merchant_ids: "",
-            status: "",
-            to_date: "",
-            type: "",
-        };
-
-        const queryParams = new URLSearchParams(query);
-
-        await this.action(`/cashouts/change_status?${queryParams}`, params);
-    }
-
-    async approve_payout(id: number) {
-        await this.action(`/transfers/${id}/approve_payout`, {});
-    }
-
-    async decline_payout(id: number) {
-        await this.action(`/transfers/${id}/decline_payout`, {});
-    }
-
-    async resend_callback(token: string) {
-        let params = { api_payment_token: token };
-        await this.action(`/cashouts/${token}/resend_callback`, params);
-    }
-
-    async block_traffick(merchant_id: number, block: boolean) {
-        let form = {
-            utf8: "✓",
-            _method: "patch",
-            "api_v1_profile[do_not_send_receipt]": "0",
-            "api_v1_profile[refunds_blocked]": "0",
-            "api_v1_profile[traffic_blocked]": block
-                ? "all_blocked"
-                : "no_blocked",
-            "api_v1_profile[default_currency]": "AED",
-            "api_v1_profile[relevant_currencies][]": "",
-            commit: "Save",
-            "api_v1_profile[merchant_settlement_info_attributes][account_number]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][account_name]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][swift_code]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][bank_name]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][bank_address]":
-                "",
-            "api_v1_profile[merchant_settlement_info_attributes][country]": "",
-            "api_v1_profile[merchant_settlement_info_attributes][iban]": "",
-            "api_v1_profile[merchant_settlement_info_attributes][id]": "92",
-            "api_v1_profile[user_ids][]": "",
-            "api_v1_profile[allow_subaccounts]": "0",
-            "api_v1_profile[new_password]": "",
-        };
-        await this.action(`/merchants/${merchant_id}`, form);
-    }
+  async block_traffick(merchant_id: number, block: boolean) {
+    let form = {
+      utf8: "✓",
+      _method: "patch",
+      "api_v1_profile[do_not_send_receipt]": "0",
+      "api_v1_profile[refunds_blocked]": "0",
+      "api_v1_profile[traffic_blocked]": block ? "all_blocked" : "no_blocked",
+      "api_v1_profile[default_currency]": "AED",
+      "api_v1_profile[relevant_currencies][]": "",
+      commit: "Save",
+      "api_v1_profile[merchant_settlement_info_attributes][account_number]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][account_name]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
+        "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
+        "",
+      "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][country]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][iban]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][id]": "92",
+      "api_v1_profile[user_ids][]": "",
+      "api_v1_profile[allow_subaccounts]": "0",
+      "api_v1_profile[new_password]": "",
+    };
+    await this.action(`/merchants/${merchant_id}`, form);
+  }
 }

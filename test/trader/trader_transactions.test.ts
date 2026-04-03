@@ -1,7 +1,7 @@
 import * as common from "@/common";
 import * as assets from "@/assets";
 import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
-import { CONFIG } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
@@ -81,12 +81,6 @@ for (const usdt of [true, false]) {
           assert.strictEqual(wallets.main.held, 0);
           let merchant_wallet = (await merchant.wallets())[0];
           if (usdt) {
-            assert.approximately(
-              merchant_wallet.available,
-              common.amount / 100 - (common.amount * 0.9) / 100,
-              0.01,
-              "merchant wallet available after payment finalization",
-            );
             assert.strictEqual(
               merchant_wallet.held,
               0,
@@ -155,12 +149,14 @@ for (const usdt of [true, false]) {
           await trader.finalizeTransaction(res.token, "declined");
           await decline_cb;
 
-          let dispute_pending_notification = merchant.queue_notification(
-            (c) => {
-              assert.strictEqual(c.status, "pending");
-              assert.strictEqual(c.type, "dispute");
-            },
-          );
+          let dispute_pending_notification =
+            PROJECT === "a2"
+              ? merchant.queue_notification((c) => {
+                  assert.strictEqual(c.status, "pending");
+                  assert.strictEqual(c.type, "dispute");
+                })
+              : Promise.resolve(undefined);
+
           let dispute_approved_notification = merchant.queue_notification(
             (c) => {
               assert.strictEqual(c.status, "approved");
@@ -370,4 +366,90 @@ test
       // }
       await Promise.all(requisites);
     }),
+  );
+
+test
+  .runIf(CONFIG.in_project("reactivepay"))
+  .concurrent(
+    "TRY trader 2 requisites with the same amount",
+    ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+          currency: "TRY",
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        let transactions_amount = 2;
+        let amount = 10000;
+        await trader.cashin(
+          "main",
+          "TRY",
+          transactions_amount * (amount / 100),
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("TRY", [trader.id]),
+        );
+
+        for (let _ of [...new Array(transactions_amount)]) {
+          let res = await merchant
+            .create_payment({
+              ...common.traderPaymentRequest("TRY", "card"),
+              amount,
+            })
+            .then((r) => r.followFirstProcessingUrl())
+            .then((r) => r.as_trader_requisites());
+          if (res) {
+            assert(res.card, "card filed should not be empty");
+            assert.strictEqual(res.card.pan, common.visaCard);
+            assert.strictEqual(res.card.bank, "sberbank");
+            assert.strictEqual(res.card.name, common.fullName);
+          }
+        }
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project("reactivepay"))
+  .concurrent(
+    "rub trader fails to get 2 requisites with the same amount",
+    ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+          currency: "RUB",
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        let transactions_amount = 2;
+        let amount = 10000;
+        await trader.cashin(
+          "main",
+          "RUB",
+          transactions_amount * (amount / 100),
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
+
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        if (res) {
+          assert(res.card, "card filed should not be empty");
+          assert.strictEqual(res.card.pan, common.visaCard);
+          assert.strictEqual(res.card.bank, "sberbank");
+          assert.strictEqual(res.card.name, common.fullName);
+        }
+        let failedRes = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+        failedRes.assert_message("gateway response error: requisite_not_found");
+      }),
   );

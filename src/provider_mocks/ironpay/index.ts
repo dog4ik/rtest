@@ -238,9 +238,7 @@ export class IronpayPayment {
   }
 }
 
-export function payinSuite(
-  currency = "RUB",
-): P2PSuite<IronpayPayment> {
+export function payinSuite(currency = "RUB"): P2PSuite<IronpayPayment> {
   let gw = new IronpayPayment();
   let statusMap: Record<PrimeBusinessStatus, IronpayStatus> = {
     approved: "Approved",
@@ -262,7 +260,12 @@ export function payinSuite(
     request: () => common.paymentRequest(currency),
     settings: (secret) => IronpayPayment.settings(secret),
     status_handler: (s) => gw.status_handler(statusMap[s]),
-    no_requisites_handler: () => IronpayPayment.no_requisites_handler(),
+    no_requisites_handler: (instance, secret) => {
+      if (PROJECT === "spinpay") {
+        instance.queue(IronpayPayment.login_handler(secret));
+      }
+      return IronpayPayment.no_requisites_handler();
+    },
     gw,
   };
 }
