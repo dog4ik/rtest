@@ -130,11 +130,16 @@ dataFlowTest("link", {
   ...requisitesP2PSuite("link"),
   request: () => common.p2pPaymentRequest("RUB", "link"),
   async check_merchant_response(data) {
-    let json = (await data.processing_response?.as_raw_json()) as any;
-    assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
-    assert.strictEqual(json.deeplink, common.redirectPayUrl);
-    assert.strictEqual(json.name_seller, common.fullName);
-    assert.strictEqual(json.id, this.gw.gateway_id);
+    if (CONFIG.in_project("8pay")) {
+      let json = (await data.processing_response?.as_raw_json()) as any;
+      assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
+      assert.strictEqual(json.deeplink, common.redirectPayUrl);
+      assert.strictEqual(json.name_seller, common.fullName);
+      assert.strictEqual(json.id, this.gw.gateway_id);
+    } else {
+      let response = await data.processing_response?.as_trader_requisites();
+      assert.strictEqual(response?.link?.url, common.redirectPayUrl);
+    }
   },
 });
 
@@ -374,6 +379,7 @@ function externalRedirectSuite(): P2PSuite<GatewayConnectTransaction> {
     },
     settings: (s) => ({
       ...suite.settings(s),
+      wrapped_to_json_response: false,
     }),
     request: () => ({
       ...common.paymentRequest("RUB"),

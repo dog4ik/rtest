@@ -15,7 +15,7 @@ import { InteractionLogs } from "./interaction_logs";
 import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
 
@@ -194,7 +194,7 @@ export class GatewayConnectTransaction {
       span.set_response_status(status === "declined" ? 400 : 200);
 
       let requisites: Record<string, any> | undefined = undefined;
-      if (PROJECT == "spinpay") {
+      if (CONFIG.in_project(["spinpay", "reactivepay"])) {
         if (status === "pending") {
           requisites = {
             holder: common.fullName,
@@ -203,7 +203,9 @@ export class GatewayConnectTransaction {
           if (requisite_type === "card") {
             requisites["card"] = common.visaCard;
           } else if (requisite_type === "sbp") {
-            requisites["phone"] = common.phoneNumber;
+            requisites["pan"] = common.phoneNumber;
+          } else if (requisite_type === "link") {
+            requisites["link"] = { url: common.redirectPayUrl };
           } else {
             assert.fail(
               `Spinpay unimplemented requisite type: ${requisite_type}`,

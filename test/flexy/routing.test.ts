@@ -23,17 +23,20 @@ import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 
 function gatewayConnectRoutingSuite(
   req_type: gatewayconnect.GcRequisiteType,
+  wrapped_to_json_response = true,
 ): P2PSuite<GatewayConnectTransaction> {
-  let gw = new GatewayConnectTransaction("manypay", {});
+  let suite = gatewayconnect.payinSuite();
   return {
-    ...gatewayconnect.payinSuite(),
+    ...suite,
     create_handler() {
-      return gw.requisites_payin_handler("pending", req_type);
+      return this.gw.requisites_payin_handler("pending", req_type);
     },
     no_requisites_handler() {
-      return gw.requisites_payin_handler("declined", req_type);
+      return this.gw.requisites_payin_handler("declined", req_type);
     },
-    gw,
+    settings(secret) {
+      return { ...suite.settings(secret), wrapped_to_json_response };
+    },
   } as P2PSuite<GatewayConnectTransaction>;
 }
 

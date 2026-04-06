@@ -58,6 +58,8 @@ export const TraderRequisiteSchema = z.object({
   link: z
     .object({
       url: z.url(),
+      name: z.string().optional(),
+      bank: z.string().optional(),
     })
     .optional(),
   account: z
