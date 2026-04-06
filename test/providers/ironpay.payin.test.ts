@@ -131,6 +131,30 @@ describe
             });
           },
         });
+
+        dataFlowTest("link bank_account", {
+          ...ironpaySuite(),
+          request() {
+            return {
+              ...common.paymentRequest(CURRENCY),
+              bank_account: {
+                requisite_type: "link",
+              },
+            };
+          },
+          after_create_check() {
+            let req = this.gw.request_data;
+            assert.strictEqual(req?.payment_type_id, IronpayMethodMap.SBP_ECOM);
+            assert.strictEqual(req?.curr, CURRENCY);
+            assert.strictEqual(req?.local_amount, common.amount / 100);
+          },
+          async check_merchant_response({ processing_response }) {
+            let requisites = await processing_response?.as_trader_requisites();
+            assert.strictEqual(requisites?.link?.url, common.redirectPayUrl);
+            assert.strictEqual(requisites?.link?.name, common.fullName);
+            assert.strictEqual(requisites?.link?.bank, "Россельхозбанк");
+          },
+        });
       });
 
     describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
