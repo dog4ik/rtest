@@ -346,6 +346,30 @@ describe
     });
   });
 
+function payformLinkRedirectSuite() {
+  let suite = payinSuite();
+  return providersSuite("RUB", {
+    ...suite,
+    create_handler(s) {
+      return this.gw.requisites_payin_handler(s, "link");
+    },
+    settings: (s) => ({
+      ...suite.settings(s),
+      wrapped_to_json_response: false,
+      payment_type: "redirect",
+    }),
+  }) as P2PSuite<GatewayConnectTransaction>;
+}
+
+payformDataFlowTest(
+  "link npsk redirect",
+  {
+    ...payformLinkRedirectSuite(),
+    request: () => common.p2pPaymentRequest("RUB", "link"),
+  },
+  { skip_if: !CONFIG.in_project("8pay") },
+);
+
 function ecomRedirectPayinSuite(): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite();
   return defaultSuite("RUB", {

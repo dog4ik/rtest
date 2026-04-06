@@ -35,7 +35,10 @@ function gatewayConnectRoutingSuite(
       return this.gw.requisites_payin_handler("declined", req_type);
     },
     settings(secret) {
-      return { ...suite.settings(secret), wrapped_to_json_response };
+      return {
+        ...suite.settings(secret),
+        wrapped_to_json_response,
+      };
     },
   } as P2PSuite<GatewayConnectTransaction>;
 }
@@ -74,6 +77,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
         forta.payinSuite(),
       ],
       () => [brus.payinSuite(), forta.payinSuite()],
+      () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
     ];
     if (CONFIG.extra_mapping?.["pixelwave"]) {
       cases.push(() => [pixel.payinSuite(), brus.payinSuite()]);
@@ -98,7 +102,10 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
     for (let c of allCases().map((c) =>
       c().map((link) => {
         // Gateway connect integrations fail with masked_provider setting
-        if (link.gw instanceof pixel.PixelwavePayment) {
+        if (
+          link.gw instanceof pixel.PixelwavePayment ||
+          link.gw instanceof gatewayconnect.GatewayConnectTransaction
+        ) {
           return link;
         }
         return maskedSuite(link);
