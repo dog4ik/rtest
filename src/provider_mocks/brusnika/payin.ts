@@ -1,15 +1,17 @@
 import { z } from "zod";
 import { err_bad_status } from "@/fetch_utils";
-import type {
-  Handler,
-  HttpRequest,
-  MockProviderParams,
-} from "@/mock_server/api";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
+import {
+  WEBHOOK_TOKEN,
+  type BrusnikaPaymentStatus,
+  success_response,
+  brusnika_filter_fn,
+} from "./index";
 
 const PAYMENT_METHOD_SCHEMA = z.enum([
   "toCard",
@@ -19,12 +21,6 @@ const PAYMENT_METHOD_SCHEMA = z.enum([
 ]);
 
 export type BrusnikaPaymentMethod = z.infer<typeof PAYMENT_METHOD_SCHEMA>;
-
-export type BrusnikaPaymentStatus =
-  | "created"
-  | "in_progress"
-  | "success"
-  | "failed";
 
 const PAYIN_REQUEST_SCHEMA = z.object({
   clientID: z.string(),
@@ -36,22 +32,6 @@ const PAYIN_REQUEST_SCHEMA = z.object({
 });
 
 type RequestData = z.infer<typeof PAYIN_REQUEST_SCHEMA>;
-
-const WEBHOOK_TOKEN = "+MWRinGhkXlYEBtJCp2aC0xKylZBoNJsx+KV\/X07KDA=";
-
-function success_response(data: Record<string, any>) {
-  return {
-    result: {
-      status: "success",
-      "x-request-id": crypto.randomUUID(),
-      codeError: "none",
-      codeErrorExt: "none",
-      message: "",
-    },
-    data,
-    totalNumberRecords: 0,
-  };
-}
 
 function requisite(method: BrusnikaPaymentMethod): string {
   switch (method) {
@@ -206,24 +186,17 @@ export class BrusnikaPayment {
     };
   }
 
-  private static filter_fn(secret: string, req: HttpRequest) {
-    const auth = req.header("authorization");
-    if (!auth) return false;
-    const token = auth.replace(/^Bearer /, "");
-    return token === secret;
-  }
-
   static mock_params(secret: string): MockProviderParams {
     return {
       alias: "brusnikapay",
-      filter_fn: (req) => BrusnikaPayment.filter_fn(secret, req),
+      filter_fn: (req) => brusnika_filter_fn(secret, req),
     };
   }
 
   mock_params_uzs(secret: string): MockProviderParams {
     return {
       alias: "brusnikapay_uzs",
-      filter_fn: (req) => BrusnikaPayment.filter_fn(secret, req),
+      filter_fn: (req) => brusnika_filter_fn(secret, req),
     };
   }
 }
