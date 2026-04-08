@@ -193,7 +193,7 @@ export class BrusnikaPayment {
     };
   }
 
-  mock_params_uzs(secret: string): MockProviderParams {
+  static mock_params_uzs(secret: string): MockProviderParams {
     return {
       alias: "brusnikapay_uzs",
       filter_fn: (req) => brusnika_filter_fn(secret, req),

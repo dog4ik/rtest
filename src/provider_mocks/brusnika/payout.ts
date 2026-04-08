@@ -33,11 +33,11 @@ const PAYOUT_REQUEST_SCHEMA = z.object({
   clientIP: z.ipv4().or(z.ipv6()),
   clientDateCreated: z.string(),
   paymentMethod: PAYOUT_METHOD_SCHEMA,
-  idTransactionMerchant: z.string().optional(),
+  idTransactionMerchant: z.string().length(32),
   amount: z.number(),
-  number: z.string(),
-  bankName: z.string().optional(),
-  nameMediator: z.string().optional(),
+  number: z.string().min(1),
+  bankName: z.string().min(1),
+  nameMediator: z.string().min(1),
 });
 
 type PayoutRequestData = z.infer<typeof PAYOUT_REQUEST_SCHEMA>;
@@ -70,7 +70,7 @@ export class BrusnikaPayout {
       amountRandomized: 0,
       amount,
       amountComission: (amount / 100) * 10,
-      currency: "RUB",
+      currency: "UZS",
       amountInCurrencyBalance: 0,
       amountComissionInCurrencyBalance: 0,
       exchangeRate: 0,
@@ -160,7 +160,7 @@ export class BrusnikaPayout {
     };
   }
 
-  mock_params_uzs(secret: string): MockProviderParams {
+  static mock_params_uzs(secret: string): MockProviderParams {
     return {
       alias: "brusnikapay_uzs",
       filter_fn: (req) => brusnika_filter_fn(secret, req),
@@ -168,7 +168,7 @@ export class BrusnikaPayout {
   }
 }
 
-export function payoutSuite(currency = "RUB"): P2PSuite<BrusnikaPayout> {
+export function payoutSuite(currency = "UZS"): P2PSuite<BrusnikaPayout> {
   let gw = new BrusnikaPayout();
   let statusMap: Record<PrimeBusinessStatus, BrusnikaPaymentStatus> = {
     approved: "success",
@@ -181,13 +181,13 @@ export function payoutSuite(currency = "RUB"): P2PSuite<BrusnikaPayout> {
       await gw.send_callback(statusMap[status]);
     },
     create_handler: (s) => gw.create_handler(statusMap[s]),
-    mock_options: BrusnikaPayout.mock_params,
+    mock_options: BrusnikaPayout.mock_params_uzs,
     request: () => ({
       ...common.payoutRequest(currency),
       card: { pan: common.visaCard },
       extra_return_param: "card",
       bank_account: {
-        bank_name: "Uzcard",
+        bank_name: "sberbank",
         requisite_type: "card",
       },
       customer: {
