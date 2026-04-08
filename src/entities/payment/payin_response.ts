@@ -20,6 +20,7 @@ const PaymentResponseSchema = z.object({
   processingUrl: z.array(z.record(z.string(), z.url())).or(z.url()),
   result: z.int(),
   selectorUrl: z.url().optional(),
+  redirectRequest: z.object({ url: z.string().optional() }).optional(),
   status: z.int(),
   success: z.boolean(),
   token: z.string().length(32),

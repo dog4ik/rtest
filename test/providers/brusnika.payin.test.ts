@@ -14,6 +14,7 @@ import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import { assert, describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 
 const CURRENCY = "RUB";
 
@@ -191,6 +192,58 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
     },
     async check_merchant_response({ processing_response }) {
       await processing_response?.as_8pay_requisite();
+    },
+  });
+});
+
+describe.runIf(PROJECT === "spinpay").concurrent("brusnika spinpay", () => {
+  callbackFinalizationSuite(maskedBrusnikaSuite, {
+    tag: "masked_provider",
+  });
+
+  payformDataFlowTest("card", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: false,
+      }),
+    request() {
+      return {
+        ...common.p2pPaymentRequest(CURRENCY, "card"),
+      };
+    },
+    async check_pf_page(page) {
+      let form = new SpinpayRequisitesPage(page);
+      await form.validateRequisites({
+        type: "card",
+        amount: common.amount,
+        number: common.visaCard,
+      });
+    },
+  });
+
+  payformDataFlowTest("sbp", {
+    ...brusnikaSuite(),
+    settings: (secret) =>
+      providers(CURRENCY, {
+        ...BrusnikaPayment.settings(secret),
+        wrapped_to_json_response: false,
+      }),
+    request() {
+      return {
+        ...common.p2pPaymentRequest(CURRENCY, "sbp"),
+      };
+    },
+    async check_pf_page(page) {
+      let form = new SpinpayRequisitesPage(page);
+      await form.validateRequisites({
+        type: "sbp",
+        amount: common.amount,
+        number: `+${common.phoneNumber}`,
+        bank: "Сбербанк",
+        name: common.fullName,
+      });
     },
   });
 });

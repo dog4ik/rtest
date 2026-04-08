@@ -3,7 +3,7 @@ import * as common from "@/common";
 import { assert } from "vitest";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import type { PrimeBusinessStatus } from "@/db/business";
-import { CONFIG } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
 import {
@@ -15,6 +15,8 @@ import type { Context } from "@/test_context/context";
 import type { ProviderInstance } from "@/mock_server/instance";
 import { delay } from "@std/async";
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
+import type { PayinResponse } from "@/entities/payment/payin_response";
+import type { PayoutResponse } from "@/entities/payment/payout_response";
 
 export type TestCaseOptions = {
   skip_if?: boolean;
@@ -260,10 +262,41 @@ export function dataFlowTest<T extends DataFlow>(
     );
 }
 
+type BrowserUrlTargetLocation =
+  | "processingUrl"
+  | "selectorUrl"
+  | "redirect_request";
+
+function browserPageUrl(
+  response: {
+    processingUrl: string;
+    selectorUrl?: string;
+    redirectRequest?: { url?: string };
+  },
+  target?: BrowserUrlTargetLocation,
+) {
+  let location: BrowserUrlTargetLocation =
+    (target ?? PROJECT === "8pay") ? "processingUrl" : "selectorUrl";
+  if (location === "processingUrl") {
+    return response.processingUrl;
+  } else if (location === "selectorUrl") {
+    assert(response.selectorUrl, "selector url is empty");
+    return response.selectorUrl;
+  } else {
+    assert(
+      response.redirectRequest?.url,
+      "redirect request url is empty url is empty",
+    );
+    return response.redirectRequest?.url;
+  }
+}
+
 export function payformDataFlowTest<T extends PayformDataFlow>(
   title: string,
   target: T,
-  opts?: TestCaseOptions,
+  opts?: TestCaseOptions & {
+    browser_url_target?: BrowserUrlTargetLocation;
+  },
 ) {
   let alias = target.mock_options("").alias;
   test
@@ -289,7 +322,17 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
         let page = await browser_context.newPage();
         await page.setViewportSize({ width: 720, height: 1024 });
 
-        await page.goto(response.firstProcessingUrl());
+        await page.goto(
+          browserPageUrl(
+            {
+              selectorUrl: response.selectorUrl,
+              processingUrl: response.firstProcessingUrl(),
+              redirectRequest: response.redirectRequest,
+            },
+            opts?.browser_url_target,
+          ),
+        );
+        await page.waitForLoadState("networkidle");
         await ctx.annotate("Payform screenshot", {
           contentType: "image/png",
           body: await page.screenshot(),
