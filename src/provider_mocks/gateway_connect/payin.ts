@@ -24,13 +24,13 @@ export const CustomerSchema = z.object({
 
 export const ParamsSchema = z.object({
   customer: CustomerSchema.nullish(),
-  cvv: z.string().optional(),
-  expires: z.string().optional(),
+  cvv: z.string().nullish(),
+  expires: z.string().nullish(),
   pan: z
     .string()
     .transform((val) => val.replace(/-/g, ""))
-    .optional(),
-  holder: z.string().optional(),
+    .nullish(),
+  holder: z.string().nullish(),
   bank_account: BankAccountSchema.nullish(),
 });
 

@@ -18,6 +18,8 @@ import { CONFIG } from "@/config";
 import { describe } from "vitest";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
+import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
+import type { Requisite } from "@/driver/trader";
 
 let MAP: Record<GcRequisiteType, string> = {
   card: "Cards",
@@ -216,6 +218,74 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
   });
 });
 
+describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
+  let formRequisitesP2PSuite = (requisite: GcRequisiteType) => {
+    const MAP: Record<GcRequisiteType, Requisite> = {
+      card: "card",
+      deeplink: "link",
+      link: "link",
+      sbp: "sbp",
+      tpay: "link",
+    };
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, requisite);
+      },
+      request: () => {
+        let req = suite.request();
+        return {
+          ...req,
+          bank_account: {
+            requisite_type: MAP[requisite],
+          },
+        };
+      },
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: true,
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  };
+
+  payformDataFlowTest(
+    "sbp",
+    {
+      ...formRequisitesP2PSuite("sbp"),
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.phoneNumber,
+          type: "sbp",
+        });
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "card",
+    {
+      ...formRequisitesP2PSuite("card"),
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.visaCard,
+          type: "card",
+        });
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+});
+
 dataFlowTest(
   "sbp pcidss",
   {
@@ -382,7 +452,35 @@ function ecomRedirectPayinSuite(): P2PSuite<GatewayConnectTransaction> {
     }),
     request: () => ({
       ...common.paymentRequest("RUB"),
+      customer: {
+        ip: "178.255.251.35",
+        email: "18@gmail.com",
+        phone: "+79992448838",
+        first_name: "Test",
+        last_name: "Test2",
+        country: "AU",
+        state: "Test",
+        postcode: "100013",
+        city: "Transmetropolitan",
+        address: "126 Kichik Beshagach Street",
+        browser: {
+          tz_name: "Europe/Moscow",
+          accept_header: "application/json, text/plain, */*",
+          color_depth: "32",
+          ip: "109.48.0.1",
+          language: "us-US",
+          screen_height: "1080",
+          screen_width: "1920",
+          tz: "-180",
+          user_agent:
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:92.0) Gecko/20100101 Firefox/92.0",
+          java_enabled: "true",
+          window_width: "1240",
+          window_height: "560",
+        },
+      },
       card: common.cardObject(),
+      extra_return_param: "test_param",
     }),
   }) as P2PSuite<GatewayConnectTransaction>;
 }
@@ -411,10 +509,14 @@ function externalRedirectSuite(): P2PSuite<GatewayConnectTransaction> {
   }) as P2PSuite<GatewayConnectTransaction>;
 }
 
-payformDataFlowTest("external redirect", {
-  ...externalRedirectSuite(),
-  check_pf_page(page) {
-    let url = new URL(page.url());
-    assert.strictEqual(url.hostname, "www.google.com");
+payformDataFlowTest(
+  "external redirect",
+  {
+    ...externalRedirectSuite(),
+    check_pf_page(page) {
+      let url = new URL(page.url());
+      assert.strictEqual(url.hostname, "www.google.com");
+    },
   },
-});
+  { browser_url_target: "processingUrl" },
+);

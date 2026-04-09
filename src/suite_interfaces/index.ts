@@ -15,8 +15,7 @@ import type { Context } from "@/test_context/context";
 import type { ProviderInstance } from "@/mock_server/instance";
 import { delay } from "@std/async";
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
-import type { PayinResponse } from "@/entities/payment/payin_response";
-import type { PayoutResponse } from "@/entities/payment/payout_response";
+import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 
 export type TestCaseOptions = {
   skip_if?: boolean;
@@ -276,7 +275,7 @@ function browserPageUrl(
   target?: BrowserUrlTargetLocation,
 ) {
   let location: BrowserUrlTargetLocation =
-    (target ?? PROJECT === "8pay") ? "processingUrl" : "selectorUrl";
+    target ?? (PROJECT === "8pay" ? "processingUrl" : "selectorUrl");
   if (location === "processingUrl") {
     return response.processingUrl;
   } else if (location === "selectorUrl") {
@@ -321,17 +320,17 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
         }
         let page = await browser_context.newPage();
         await page.setViewportSize({ width: 720, height: 1024 });
-
-        await page.goto(
-          browserPageUrl(
-            {
-              selectorUrl: response.selectorUrl,
-              processingUrl: response.firstProcessingUrl(),
-              redirectRequest: response.redirectRequest,
-            },
-            opts?.browser_url_target,
-          ),
+        let redirectUrl = browserPageUrl(
+          {
+            selectorUrl: response.selectorUrl,
+            processingUrl: response.firstProcessingUrl(),
+            redirectRequest: response.redirectRequest,
+          },
+          opts?.browser_url_target,
         );
+        console.log({ redirectUrl });
+
+        await page.goto(redirectUrl);
         await page.waitForLoadState("networkidle");
         await ctx.annotate("Payform screenshot", {
           contentType: "image/png",
@@ -564,28 +563,45 @@ export function routingFinalizationSuite(
       ({ ctx, browser }) =>
         ctx.track_bg_rejections(async () => {
           let override_links = () => {
-            return links.map((l) => ({
-              ...l,
-              settings: (secret: string) => ({
-                ...l.settings(secret),
-                wrapped_to_json_response: false,
-              }),
-            }));
+            if (CONFIG.in_project("8pay")) {
+              return links.map((l) => ({
+                ...l,
+                settings: (secret: string) => ({
+                  ...l.settings(secret),
+                  wrapped_to_json_response: false,
+                }),
+              }));
+            } else {
+              return links.map((l) => {
+                return {
+                  ...l,
+                  settings: (secret: string) => ({
+                    ...l.settings(secret),
+                    wrapped_to_json_response:
+                      l.gw instanceof GatewayConnectTransaction
+                        ? true
+                        : undefined,
+                  }),
+                };
+              });
+            }
           };
           let { merchant, chain } = await setupRoutingChain(
             ctx,
             currency,
             override_links(),
           );
-          console.log({ merchant, chain_descriptor, type: "before" });
-          console.log({ merchant, chain_descriptor, type: "after", request });
-          let first_processing_url = await merchant
+          let browser_url = await merchant
             .create_payment(request)
-            .then((p) => p.firstProcessingUrl());
-          assert(
-            first_processing_url,
-            "merchant response is missing processing url",
-          );
+            .then((response) =>
+              browserPageUrl({
+                selectorUrl: response.selectorUrl,
+                processingUrl: response.firstProcessingUrl(),
+                redirectRequest: response.redirectRequest,
+              }),
+            );
+          assert(browser_url, "merchant response is missing processing url");
+          console.log({ browser_url });
           let page = await browser.newPage();
           await page.setViewportSize({ width: 720, height: 1024 });
 
@@ -604,7 +620,8 @@ export function routingFinalizationSuite(
             });
           }
 
-          await page.goto(first_processing_url);
+          await page.goto(browser_url);
+          await page.waitForLoadState("networkidle");
           await ctx.annotate("Routed payform screenshot", {
             contentType: "image/png",
             body: await page.screenshot(),

@@ -20,6 +20,7 @@ import {
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
+import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 
 function gatewayConnectRoutingSuite(
   req_type: gatewayconnect.GcRequisiteType,
@@ -156,6 +157,17 @@ describe
     let check_merchant_requisites = (r: ProcessingUrlResponse) =>
       r.as_trader_requisites();
 
+    let check_merchant_payform = async (page: playwright.Page) => {
+      let payform = new SpinpayRequisitesPage(page);
+      await payform.validateRequisites({
+        type: "card",
+        number: common.visaCard,
+        bank: undefined,
+        amount: common.amount,
+        name: common.fullName,
+      });
+    };
+
     function allCases(): (() => (Routable & Callback)[])[] {
       return [
         () => [brus.payinSuite(), iron.payinSuite()],
@@ -175,7 +187,7 @@ describe
       routingFinalizationSuite(
         c() as [...Routable[], Routable & Callback],
         req(),
-        { check_merchant_requisites },
+        { check_merchant_requisites, check_merchant_payform },
       );
     }
 
@@ -191,7 +203,7 @@ describe
         routingFinalizationSuite(
           c as [...Routable[], Routable & Callback],
           req(),
-          { check_merchant_requisites },
+          { check_merchant_requisites, check_merchant_payform },
           true,
         );
       }
@@ -207,7 +219,25 @@ describe
 
     function allCases(): (() => (Routable & Callback)[])[] {
       return [
-        () => [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
+        () => [
+          brus.payinSuite(),
+          mad.payinSuite(),
+          iron.payinSuite(),
+          gatewayConnectRoutingSuite("card"),
+        ],
+        () => [
+          brus.payinSuite(),
+          gatewayConnectRoutingSuite("card"),
+        ],
+        () => [
+          argos.payinSuite(),
+          brus.payinSuite(),
+        ],
+        () => [
+          brus.payinSuite(),
+          gatewayConnectRoutingSuite("card"),
+          iron.payinSuite(),
+        ],
         () => [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
         () => [mad.payinSuite(), iron.payinSuite(), brus.payinSuite()],
         () => [

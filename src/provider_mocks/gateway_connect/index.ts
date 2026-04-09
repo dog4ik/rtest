@@ -15,7 +15,7 @@ import { InteractionLogs } from "./interaction_logs";
 import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 
 export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
 
@@ -26,6 +26,8 @@ const SETTINGS_INTERNAL_SECRET_KEY = "_gc_instance_secret";
 export function commonSettings(alias: string, secret: string) {
   return {
     class: alias,
+    // enable routing is required in pcidss
+    enable_routing: CONFIG.in_project(["reactivepay"]) ? true : undefined,
     gateway_settings: {
       bypass_processing_url: true,
       callback: true,
@@ -59,14 +61,23 @@ export function commonSettings(alias: string, secret: string) {
             callback_url: true,
             params: [
               "customer",
+              "extra_return_param",
+              "pan",
+              "expires",
+              "holder",
+              "cvv",
+              "browser",
+              "phone",
               "country",
               "city",
               "state",
-              "phone",
-              "birthday",
+              "postcode",
+              "address",
+              "email",
               "first_name",
-              "state",
               "last_name",
+              "ip",
+              "birthday",
             ],
             payment: [
               "merchant_private_key",
@@ -247,12 +258,15 @@ export class GatewayConnectTransaction {
         requisites,
         currency: "RUB",
         details: status === "declined" ? "Test error message" : undefined,
-        redirect_request: {
-          url: is_wrapped
-            ? this.request_data()?.processing_url
-            : this.request_data()?.charge_page_url,
-          type: is_wrapped ? "get_with_processing" : "post",
-        },
+        redirect_request:
+          status === "pending"
+            ? {
+                url: is_wrapped
+                  ? this.request_data()?.processing_url
+                  : this.request_data()?.charge_page_url,
+                type: is_wrapped ? "get_with_processing" : "post",
+              }
+            : undefined,
         gateway_token: this.gateway_id,
         logs: interaction_logs.build(),
       } as ConnectPayinResponse);
