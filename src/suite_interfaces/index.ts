@@ -102,16 +102,6 @@ function assertLocationNotForbidden(location: string) {
   }
 }
 
-function assertBodyNotForbidden(body: string) {
-  for (let forbidden of []) {
-    assert.notInclude(
-      body,
-      forbidden,
-      `redirect body should not contain forbidden string "${forbidden}"`,
-    );
-  }
-}
-
 const CASES: PrimeBusinessStatus[] = ["approved", "declined"];
 
 type CreateTransactionReturn = Awaited<
@@ -535,13 +525,11 @@ export function routingFinalizationSuite(
         let res = await merchant.create_payment(request).then((p) =>
           is_masked
             ? p.followFirstProcessingCheckedRedirect(async (r) => {
-                let body = await r.text();
                 let location = r.headers.get("location");
                 await ctx.annotate(
-                  `Routing h2h redirect location: ${location}, body: ${body}`,
+                  `Routing h2h redirect location: ${location}`,
                 );
                 if (location) assertLocationNotForbidden(location);
-                if (body) assertBodyNotForbidden(body);
               })
             : p.followFirstProcessingUrl(),
         );
@@ -609,13 +597,11 @@ export function routingFinalizationSuite(
             page.on("response", async (response) => {
               let status = response.status();
               if (status >= 300 && status < 400) {
-                let body = await response.text();
                 let location = response.headers()["location"];
                 await ctx.annotate(
-                  `Routing payform redirect location: ${location}, body: ${body}`,
+                  `Routing payform redirect location: ${location}`,
                 );
                 if (location) assertLocationNotForbidden(location);
-                if (body) assertBodyNotForbidden(body);
               }
             });
           }

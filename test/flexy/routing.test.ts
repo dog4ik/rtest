@@ -26,7 +26,7 @@ function gatewayConnectRoutingSuite(
   req_type: gatewayconnect.GcRequisiteType,
   wrapped_to_json_response = true,
 ): P2PSuite<GatewayConnectTransaction> {
-  let suite = gatewayconnect.payinSuite();
+  let suite = gatewayconnect.payinSuite(undefined, crypto.randomUUID());
   return {
     ...suite,
     create_handler() {
@@ -178,6 +178,8 @@ describe
           brus.payinSuite(),
         ],
         () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
+        () => [iron.payinSuite(), gatewayConnectRoutingSuite("card")],
+        () => [gatewayConnectRoutingSuite("card"), gatewayConnectRoutingSuite("card")],
         () => [gatewayConnectRoutingSuite("card"), brus.payinSuite()],
         () => [brus.payinSuite(), iron.payinSuite()],
       ];

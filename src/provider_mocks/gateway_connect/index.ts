@@ -133,6 +133,13 @@ export class GatewayConnectTransaction {
   constructor(
     private alias: string,
     private gw_settings: Partial<GCSettingsType>,
+    // This secret is a workaround to prevent multiple GatewayConnectTransaction instances
+    // from sharing the same provider instance when given the same secret value.
+    // It adds an extra seed to the secret so that even if two GatewayConnectTransaction
+    // instances receive the same secret, they will process different request queues.
+    //
+    // This could be avoided if I will avoid giving the same secret to the instances in tests if possible.
+    private extra_secret?: string,
   ) {
     this.gateway_id = crypto.randomUUID();
   }
@@ -141,10 +148,15 @@ export class GatewayConnectTransaction {
     return this.payin_request || this.payout_request;
   }
 
+  private resolved_secret_value(secret: string) {
+    return secret + (this.extra_secret ?? "");
+  }
+
   settings(secret: string) {
+    let resolved_secret = this.resolved_secret_value(secret);
     return collections.deepMerge(
       this.gw_settings,
-      commonSettings(this.alias, secret),
+      commonSettings(this.alias, resolved_secret),
       { arrays: "merge" },
     );
   }
@@ -509,11 +521,12 @@ export class GatewayConnectTransaction {
   }
 
   mock_params(secret: string): MockProviderParams {
+    let resolved_secret = this.resolved_secret_value(secret);
     return {
       alias: GC_MAPPING_KEY,
       filter_fn: async (req) => {
         let json = await req.json();
-        return json.settings[SETTINGS_INTERNAL_SECRET_KEY] === secret;
+        return json.settings[SETTINGS_INTERNAL_SECRET_KEY] === resolved_secret;
       },
     };
   }
@@ -521,8 +534,9 @@ export class GatewayConnectTransaction {
 
 export function payinSuite(
   currency = "RUB",
+  extra_secret?: string,
 ): P2PSuite<GatewayConnectTransaction> {
-  let gw = new GatewayConnectTransaction("manypay", {});
+  let gw = new GatewayConnectTransaction("manypay", {}, extra_secret);
   return {
     type: "payin",
     send_callback: async (status, _) => {
