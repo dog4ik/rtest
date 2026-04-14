@@ -52,7 +52,15 @@ describe
           );
         });
         let response = await merchant
-          .create_payment(common.paymentRequest("UZS"))
+          .create_payout({
+            ...common.payoutRequest("UZS"),
+            extra_return_param: "card",
+            card: { pan: common.visaCard },
+            bank_account: {
+              bank_name: "sberbank",
+              requisite_type: "card",
+            },
+          })
           .then((p) => p.followFirstProcessingUrl());
         let err = await response.as_error();
         err.assert_message(
@@ -78,14 +86,8 @@ describe
         );
         let payout = new BrusnikaPayout();
         brusnika.queue(payout.create_handler("in_progress"));
-        let notification = merchant.queue_notification((callback) => {
-          assert.strictEqual(
-            callback.status,
-            "declined",
-            "declined notification",
-          );
-        });
-        let response = await merchant.create_payout({
+        // For unknown "reasons" we don't in p2p payout responses we get data in payment field.
+        let response = await merchant.create_payout_raw({
           product: "Tests PayOut",
           amount: common.amount,
           currency: "UZS",
@@ -105,8 +107,16 @@ describe
             phone: "+" + common.phoneNumber,
           },
         });
-        assert.strictEqual(response?.payout?.status, "pending");
-        await notification;
+        let raw_response = response.as_p2p_ok();
+        assert(raw_response.payment);
+        assert.strictEqual(raw_response.payment["amount"], common.amount);
+        assert.strictEqual(raw_response.payment["currency"], "UZS");
+        assert.strictEqual(
+          raw_response.payment["gateway_amount"],
+          common.amount,
+        );
+        assert.strictEqual(raw_response.payment["gateway_currency"], "UZS");
+        assert.strictEqual(raw_response.payment["status"], "pending");
       });
     });
 
@@ -124,29 +134,22 @@ describe
           BrusnikaPayout.mock_params_uzs(ctx.uuid),
         );
         brusnika.queue(common.nginx500);
-        let notification = merchant.queue_notification((callback) => {
-          assert.strictEqual(
-            callback.status,
-            "declined",
-            "declined notification",
-          );
+        merchant.queue_notification(() => {
+          assert.fail("merchant should not get any notifications");
         });
-        let response = await merchant
-          .create_payout({
-            ...common.payoutRequest("UZS"),
-            extra_return_param: "card",
-            card: { pan: common.visaCard },
-            bank_account: {
-              bank_name: "sberbank",
-              requisite_type: "card",
-            },
-          })
-          .then((p) => p.followFirstProcessingUrl());
-        let err = await response.as_error();
-        err.assert_message(
-          "gateway response error: Not enough money on balance",
-        );
-        await notification;
+        let response = await merchant.create_payout({
+          ...common.payoutRequest("UZS"),
+          extra_return_param: "card",
+          card: { pan: common.visaCard },
+          bank_account: {
+            bank_name: "sberbank",
+            requisite_type: "card",
+          },
+        });
+        await response.followFirstProcessingUrl();
+        let feed = await ctx.get_feed(response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await ctx.healthcheck(response.token);
       });
     });
 
@@ -168,29 +171,22 @@ describe
           c.status(500);
           return c.json({});
         });
-        let notification = merchant.queue_notification((callback) => {
-          assert.strictEqual(
-            callback.status,
-            "declined",
-            "declined notification",
-          );
+        merchant.queue_notification(() => {
+          assert.fail("merchant should not get any notifications");
         });
-        let response = await merchant
-          .create_payout({
-            ...common.payoutRequest("UZS"),
-            extra_return_param: "card",
-            card: { pan: common.visaCard },
-            bank_account: {
-              bank_name: "sberbank",
-              requisite_type: "card",
-            },
-          })
-          .then((p) => p.followFirstProcessingUrl());
-        let err = await response.as_error();
-        err.assert_message(
-          "gateway response error: Not found available payment details",
-        );
-        await notification;
+        let response = await merchant.create_payout({
+          ...common.payoutRequest("UZS"),
+          extra_return_param: "card",
+          card: { pan: common.visaCard },
+          bank_account: {
+            bank_name: "sberbank",
+            requisite_type: "card",
+          },
+        });
+        await response.followFirstProcessingUrl();
+        let feed = await ctx.get_feed(response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await ctx.healthcheck(response.token);
       });
     });
   });

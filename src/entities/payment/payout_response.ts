@@ -7,7 +7,7 @@ import { ProcessingUrlResponse } from "./processing_url_response";
 import type { Context } from "@/test_context/context";
 
 const NestedPayoutSchema = z.object({
-  token: z.string(),
+  token: z.string().length(32),
   status: BusinessStatusSchema,
 });
 
@@ -22,6 +22,23 @@ const PayoutResponseSchema = z.object({
   token: z.string().length(32),
 });
 
+const NestedP2PPayoutSchema = z.object({
+  amount: z.number().min(1),
+  currency: z.string(),
+  gateway_amount: z.number().min(1),
+  gateway_currency: z.string(),
+  status: BusinessStatusSchema,
+});
+
+const P2PPayoutResponseSchema = z.object({
+  payment: NestedP2PPayoutSchema.optional(),
+  processingUrl: z.url(),
+  result: z.int().optional(),
+  status: z.int().optional(),
+  success: z.boolean(),
+  token: z.string().length(32),
+});
+
 export class PayoutResponse {
   constructor(
     private ctx: Context,
@@ -31,6 +48,22 @@ export class PayoutResponse {
     ctx.story.add_chapter("Merchant payout response", json);
     console.log("Payout response", json);
   }
+
+  as_p2p_ok() {
+    assert.strictEqual(
+      this.res.status,
+      200,
+      "success payout response should have 200 status",
+    );
+    let parsed = P2PPayoutResponseSchema.safeParse(this.json);
+    if (!parsed.success) {
+      assert.fail(
+        `Failed to prase merchant p2p payout response: ${parsed.error.message}`,
+      );
+    }
+    return parsed.data;
+  }
+
   as_ok() {
     assert.strictEqual(
       this.res.status,

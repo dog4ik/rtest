@@ -317,7 +317,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     create_payment_err: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_error().as_common_error()),
     create_payout_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
-      create_payment(req),
+      create_payout(req),
     create_payout: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_ok()),
     create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>

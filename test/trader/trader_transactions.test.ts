@@ -453,3 +453,49 @@ test
         failedRes.assert_message("gateway response error: requisite_not_found");
       }),
   );
+
+test
+  .runIf(CONFIG.in_project("reactivepay"))
+  .concurrent("payout skip_processing_url approved", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+        currency: "RUB",
+      });
+      await trader.setup({ card: true, bank: "sberbank" });
+      let amount = 10000;
+      await merchant.cashin("RUB", amount / 100);
+      let settings = traderNoConvertSettings("RUB", [trader.id]) as Record<
+        string,
+        any
+      >;
+      settings.gateways["skip_processing_url"] = true;
+      await merchant.set_settings(settings);
+
+      let res = await merchant.create_payout_raw({
+        ...common.payoutRequest("RUB"),
+        amount,
+        bank_account: {
+          requisite_type: "card",
+        },
+        customer: {
+          email: common.email,
+          ip: common.ip,
+          first_name: "test",
+          last_name: "test",
+        },
+        card: {
+          pan: common.visaCard,
+        },
+      });
+      let response = res.as_p2p_ok();
+      let feed = await trader.finalizeTransaction(response.token, "approved");
+      await delay(5_000);
+      let approve_notification = merchant.queue_notification((c) => {
+        assert.strictEqual(c.type, "payout");
+        assert.strictEqual(c.status, "approved");
+      });
+      await ctx.shared_state().core_harness.approve_payout(feed.id);
+      await approve_notification;
+    }),
+  );
