@@ -520,3 +520,35 @@ payformDataFlowTest(
   },
   { browser_url_target: "processingUrl" },
 );
+
+payformDataFlowTest(
+  "external raw redirect",
+  {
+    ...externalRedirectSuite(),
+    create_handler() {
+      let gw = this.gw as GatewayConnectTransaction;
+      return gw.raw_redirect_response();
+    },
+    check_pf_page(page) {
+      let url = new URL(page.url());
+      assert.strictEqual(url.hostname, "www.google.com");
+    },
+  },
+  { browser_url_target: "processingUrl", skip_if: !CONFIG.in_project("8pay") },
+);
+
+payformDataFlowTest(
+  "get redirect request",
+  {
+    ...externalRedirectSuite(),
+    create_handler() {
+      let gw = this.gw as GatewayConnectTransaction;
+      return gw.get_redirect_response();
+    },
+    check_pf_page(page) {
+      let url = new URL(page.url());
+      assert.strictEqual(url.hostname, "www.google.com");
+    },
+  },
+  { browser_url_target: "processingUrl" },
+);

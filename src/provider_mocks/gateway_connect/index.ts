@@ -359,6 +359,76 @@ export class GatewayConnectTransaction {
     };
   }
 
+  raw_redirect_response(redirect_url = common.redirectPayUrl): Handler {
+    return async (c) => {
+      let interaction_logs = new InteractionLogs();
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
+
+      let span = interaction_logs.span("pay");
+      span.set_request(
+        common.redirectPayUrl,
+        JSON.stringify({
+          amount: this.payin_request.payment.gateway_amount,
+          currency: this.payin_request.payment.gateway_currency,
+        }),
+      );
+
+      await delay(200);
+      span.set_response_body(JSON.stringify({ status: "pending" }));
+      span.set_response_status(200);
+
+      return c.json({
+        status: "pending",
+        amount: common.amount,
+        currency: "RUB",
+        result: true,
+        details: undefined,
+        processing_get_url: redirect_url,
+        gateway_token: this.gateway_id,
+        logs: interaction_logs.build(),
+      } as ConnectPayinResponse);
+    };
+  }
+
+  get_redirect_response(redirect_url = common.redirectPayUrl): Handler {
+    return async (c) => {
+      let interaction_logs = new InteractionLogs();
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
+
+      let span = interaction_logs.span("pay");
+      span.set_request(
+        common.redirectPayUrl,
+        JSON.stringify({
+          amount: this.payin_request.payment.gateway_amount,
+          currency: this.payin_request.payment.gateway_currency,
+        }),
+      );
+
+      await delay(200);
+      span.set_response_body(JSON.stringify({ status: "pending" }));
+      span.set_response_status(200);
+
+      return c.json({
+        status: "pending",
+        amount: common.amount,
+        currency: "RUB",
+        result: true,
+        details: undefined,
+        processing_get_url: redirect_url,
+        gateway_token: this.gateway_id,
+        redirect_request: {
+          url: redirect_url,
+          type: "get",
+        },
+        logs: interaction_logs.build(),
+      } as ConnectPayinResponse);
+    };
+  }
+
   redirect_3ds_response_handler(): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();

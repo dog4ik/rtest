@@ -65,12 +65,12 @@ export type ConnectPayinResponse = {
   result: boolean;
   logs: InteractionLog[];
   status: PrimeBusinessStatus;
-  details: string;
+  details?: string;
   gateway_token?: string;
   card_enrolled?: boolean;
   redirect_request?: {
     url: string;
-    type: "post" | "get_with_processing" | "redirect_html" | "post_iframes";
+    type: "post" | "get_with_processing" | "redirect_html" | "post_iframes" | "get";
     html?: string;
     iframes?: {
       url: string;
