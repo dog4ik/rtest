@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { assert } from "vitest";
 
 export function err_bad_status(response: Response) {
   if (response.status >= 500 && response.status < 600) {
-    throw Error(`Bad status code: ${response.statusText} (${response.status})`);
+    assert.fail(`Reactivepay returned bad status code: ${response.statusText} (${response.status})`);
   }
   return response;
 }
