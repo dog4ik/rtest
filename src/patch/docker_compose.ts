@@ -11,12 +11,13 @@ function makeDependency(
   return [name, { condition }];
 }
 
-export function patchedDockerCompose(dockerCompose: string): string {
+export function patchedDockerCompose(dockerCompose: string, patchVolumes = true): string {
   console.log("raw document", dockerCompose);
   const doc = yaml.parse(dockerCompose) as Record<string, any>;
-  console.log("yaml document:", doc);
+  console.log("yaml document:", JSON.stringify(doc, null, 2));
 
   const services = doc.services;
+  const volumes = doc.volumes;
 
   // Patch postgres
   const postgres = services["postgres"];
@@ -28,6 +29,37 @@ export function patchedDockerCompose(dockerCompose: string): string {
     timeout: "5s",
     retries: "5",
   };
+
+  if(patchVolumes) {
+    volumes["postgres-data-test"] = { driver: "local" };
+    postgres["volumes"] = [
+      "postgres-data-test:/var/lib/postgresql/data"
+    ];
+  }
+
+  const mongoSetup = services["mongo"];
+
+  if (mongoSetup) {
+    if (patchVolumes) {
+      volumes["mongo-data-test"] = { driver: "local" };
+      mongoSetup["volumes"] = [
+        "mongo-data-test:/data/db"
+      ];
+    }
+  }
+
+  const minioSetup = services["minio"];
+
+  if (minioSetup) {
+    if (patchVolumes) {
+      volumes["minio-data-test"] = { driver: "local" };
+      volumes["minio-config-test"] = { driver: "local" };
+      minioSetup["volumes"] = [
+        "minio-data-test:/export",
+        "minio-config-test:/root/.minio",
+      ];
+    }
+  }
 
   // Patch metabase_setup if exists
   const metabaseSetup = services["metabase_setup"];
