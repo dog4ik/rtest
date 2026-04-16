@@ -31,6 +31,7 @@ const PROJECT_DIR_MAP: Record<Project | string, string> = {
   "8pay": "rpay-engine-8pay",
   spinpay: "rpay-engine-spinpay",
   paygateway: "rpay-engine-paygateway",
+  paysure: "paysure-global-main-core",
   a2: "rpay-engine-a2",
 };
 

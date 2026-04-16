@@ -5,6 +5,7 @@ const ProjectValues = [
   "8pay",
   "paygateway",
   "spinpay",
+  "paysure",
   "a2",
 ] as const;
 
