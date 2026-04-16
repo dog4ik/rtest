@@ -441,6 +441,7 @@ async function setupRoutingChain(
   ctx: Context,
   currency: string,
   gateways: Routable[],
+  miss: boolean,
 ) {
   assert(
     gateways.length > 1,
@@ -479,14 +480,22 @@ async function setupRoutingChain(
   );
 
   let last_mock_server = ctx.mock_server(last_link.mock_options(ctx.uuid));
-  chain.push(
-    last_mock_server.queue(
-      last_link.create_handler("pending", {
-        ctx,
-        provider: last_mock_server,
-      }),
-    ),
-  );
+  if (miss) {
+    chain.push(
+      last_mock_server.queue(
+        last_link.no_requisites_handler(last_mock_server, ctx.uuid),
+      ),
+    );
+  } else {
+    chain.push(
+      last_mock_server.queue(
+        last_link.create_handler("pending", {
+          ctx,
+          provider: last_mock_server,
+        }),
+      ),
+    );
+  }
 
   await merchant.set_settings(settings_builder.build());
   await rule_builder.save();
@@ -496,16 +505,19 @@ async function setupRoutingChain(
 
 export function routingFinalizationSuite(
   links: [...Routable[], Routable & Callback],
-  request: PaymentRequest,
+  request: () => PaymentRequest,
   checks?: {
     check_merchant_requisites?: (
+      response: ProcessingUrlResponse,
+    ) => Promise<unknown>;
+    check_missed_requisites?: (
       response: ProcessingUrlResponse,
     ) => Promise<unknown>;
     check_merchant_payform?: (page: playwright.Page) => Promise<unknown>;
   },
   is_masked = false,
 ) {
-  let currency = request.currency;
+  let currency = request().currency;
   let chain_descriptor = links
     .map((l) => l.mock_options("").alias)
     .join(" -> ");
@@ -515,14 +527,18 @@ export function routingFinalizationSuite(
     { timeout: 45_000 },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
-        let { merchant, chain } = await setupRoutingChain(ctx, currency, links);
+        let { merchant, chain } = await setupRoutingChain(
+          ctx,
+          currency,
+          links,
+          false,
+        );
         console.log({ merchant, chain_descriptor, type: "before" });
         let approved_notification = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "approved");
         });
         let last_link = links[links.length - 1] as Routable & Callback;
-        console.log({ merchant, chain_descriptor, type: "after", request });
-        let res = await merchant.create_payment(request).then((p) =>
+        let res = await merchant.create_payment(request()).then((p) =>
           is_masked
             ? p.followFirstProcessingCheckedRedirect(async (r) => {
                 let location = r.headers.get("location");
@@ -542,6 +558,42 @@ export function routingFinalizationSuite(
         await approved_notification;
       }),
   );
+
+  test
+    .runIf(checks?.check_missed_requisites)
+    .concurrent(
+      `Routing: ${chain_descriptor}${is_masked ? " (masked miss)" : " (default miss)"}`,
+      { timeout: 45_000 },
+      ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let { merchant, chain } = await setupRoutingChain(
+            ctx,
+            currency,
+            links,
+            true,
+          );
+          console.log({ merchant, chain_descriptor, type: "before" });
+          let declined_notification = merchant.queue_notification((n) => {
+            assert.strictEqual(n.status, "declined");
+          });
+          let res = await merchant.create_payment(request()).then((p) =>
+            is_masked
+              ? p.followFirstProcessingCheckedRedirect(async (r) => {
+                  let location = r.headers.get("location");
+                  await ctx.annotate(
+                    `Routing h2h redirect location: ${location}`,
+                  );
+                  if (location) assertLocationNotForbidden(location);
+                })
+              : p.followFirstProcessingUrl(),
+          );
+          if (checks?.check_missed_requisites) {
+            await checks.check_missed_requisites(res);
+          }
+          await Promise.all(chain);
+          await declined_notification;
+        }),
+    );
 
   test
     .runIf(checks?.check_merchant_payform)
@@ -578,9 +630,10 @@ export function routingFinalizationSuite(
             ctx,
             currency,
             override_links(),
+            false,
           );
           let browser_url = await merchant
-            .create_payment(request)
+            .create_payment(request())
             .then((response) =>
               browserPageUrl({
                 selectorUrl: response.selectorUrl,
