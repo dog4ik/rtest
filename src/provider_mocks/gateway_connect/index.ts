@@ -196,6 +196,7 @@ export class GatewayConnectTransaction {
   requisites_payin_handler(
     status: PrimeBusinessStatus,
     requisite_type: GcRequisiteType,
+    requisite_data?: { bank?: string; holder?: string },
   ): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();
@@ -220,8 +221,8 @@ export class GatewayConnectTransaction {
       if (CONFIG.in_project(["spinpay", "reactivepay"])) {
         if (status === "pending") {
           requisites = {
-            holder: common.fullName,
-            bank_name: common.bankName,
+            holder: requisite_data?.holder ?? common.fullName,
+            bank_name: requisite_data?.bank ?? common.bankName,
           };
           if (requisite_type === "card") {
             requisites["card"] = common.visaCard;
@@ -238,8 +239,8 @@ export class GatewayConnectTransaction {
       } else {
         if (status === "pending") {
           requisites = {
-            holder: common.fullName,
-            bank_name: common.bankName,
+            holder: requisite_data?.holder ?? common.fullName,
+            bank_name: requisite_data?.bank ?? common.bankName,
           };
           if (requisite_type === "card") {
             requisites["card"] = common.visaCard;
@@ -359,39 +360,6 @@ export class GatewayConnectTransaction {
     };
   }
 
-  raw_redirect_response(redirect_url = common.redirectPayUrl): Handler {
-    return async (c) => {
-      let interaction_logs = new InteractionLogs();
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
-
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status: "pending" }));
-      span.set_response_status(200);
-
-      return c.json({
-        status: "pending",
-        amount: common.amount,
-        currency: "RUB",
-        result: true,
-        details: undefined,
-        processing_get_url: redirect_url,
-        gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
-      } as ConnectPayinResponse);
-    };
-  }
-
   get_redirect_response(redirect_url = common.redirectPayUrl): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();
@@ -418,7 +386,6 @@ export class GatewayConnectTransaction {
         currency: "RUB",
         result: true,
         details: undefined,
-        processing_get_url: redirect_url,
         gateway_token: this.gateway_id,
         redirect_request: {
           url: redirect_url,
@@ -553,6 +520,7 @@ export class GatewayConnectTransaction {
       status,
       reason: status === "declined" ? "Test callback error message" : undefined,
       currency: "RUB",
+      logs: [{ request: JSON.stringify({ status }) }],
       amount: common.amount,
     };
     let jwt = await createJwt(

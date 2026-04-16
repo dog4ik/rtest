@@ -145,6 +145,41 @@ dataFlowTest("link", {
   },
 });
 
+describe
+  .runIf(CONFIG.in_project("8pay"))
+  .concurrent("8pay specific tests", () => {
+    function bankWithCountrySuite(): P2PSuite<GatewayConnectTransaction> {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler() {
+          return this.gw.requisites_payin_handler("pending", "card", {
+            bank: "oktobank",
+          });
+        },
+        settings: (s) => ({
+          ...suite.settings(s),
+          wrapped_to_json_response: true,
+          show_country_in_bank_name: true,
+        }),
+        request: () => ({
+          ...common.p2pPaymentRequest("RUB", "card"),
+        }),
+      }) as P2PSuite<GatewayConnectTransaction>;
+    }
+
+    dataFlowTest("show_country_in_bank_name setting", {
+      ...bankWithCountrySuite(),
+      async check_merchant_response({ processing_response }) {
+        let requisites = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(
+          requisites?.support_bank_native?.["Octobank"],
+          "Октобанк (Узбекистан)",
+        );
+      },
+    });
+  });
+
 describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
   let formRequisitesP2PSuite = (requisite: GcRequisiteType) => {
     let suite = payinSuite();
@@ -519,22 +554,6 @@ payformDataFlowTest(
     },
   },
   { browser_url_target: "processingUrl" },
-);
-
-payformDataFlowTest(
-  "external raw redirect",
-  {
-    ...externalRedirectSuite(),
-    create_handler() {
-      let gw = this.gw as GatewayConnectTransaction;
-      return gw.raw_redirect_response();
-    },
-    check_pf_page(page) {
-      let url = new URL(page.url());
-      assert.strictEqual(url.hostname, "www.google.com");
-    },
-  },
-  { browser_url_target: "processingUrl", skip_if: !CONFIG.in_project("8pay") },
 );
 
 payformDataFlowTest(
