@@ -43,6 +43,7 @@ export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   a2: DEFAULT_PROJECT_CONFIG,
   extra_mapping: {},
   flexy_flexy: false,
+  patch_volumes: false,
 } as const;
 
 const LOGIN_PASSWORD_SCHEMA = z
@@ -77,6 +78,7 @@ const CONFIG_SCHEMA = z.strictObject({
   a2: PROJECT_CONFIG.default(DEFAULT_PROJECT_CONFIG),
   browser: BROWSER_OBJECT.optional(),
   debug: z.boolean().default(false),
+  patch_volumes: z.boolean().default(false),
   projects_dir: z.string().default(".."),
   flexy_flexy: z.boolean().default(false),
 });

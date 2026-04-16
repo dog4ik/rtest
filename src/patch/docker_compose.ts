@@ -11,7 +11,7 @@ function makeDependency(
   return [name, { condition }];
 }
 
-export function patchedDockerCompose(dockerCompose: string, patchVolumes = true): string {
+export function patchedDockerCompose(dockerCompose: string, patchVolumes: boolean): string {
   console.log("raw document", dockerCompose);
   const doc = yaml.parse(dockerCompose) as Record<string, any>;
   console.log("yaml document:", JSON.stringify(doc, null, 2));
