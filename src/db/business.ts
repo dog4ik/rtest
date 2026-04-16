@@ -148,7 +148,7 @@ order by merchant_providers.updated_at desc limit 1;
     waitDuration = 6_000,
   ) {
     console.log(PROJECT);
-    if (PROJECT === "paygateway") {
+    if (PROJECT === "paygateway" || PROJECT === "paysure") {
       await delay(waitDuration);
       return;
     }
