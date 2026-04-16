@@ -2,7 +2,6 @@ import * as default_provider from "@/provider_mocks/default";
 import * as common from "@/common";
 import { test } from "@/test_context";
 import { assert } from "vitest";
-import type { Notification } from "@/entities/merchant_notification";
 import { delay } from "@std/async";
 
 test.concurrent("default approved payin", async ({ ctx }) => {
@@ -14,6 +13,15 @@ test.concurrent("default approved payin", async ({ ctx }) => {
   assert(response.payment.status == "approved");
 });
 
+test.concurrent("default declined payin", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+  await merchant.set_settings(default_provider.fullSettings("RUB"));
+  let response = await merchant.create_payment(
+    default_provider.request("RUB", 12345, "pay", false),
+  );
+  assert(response.payment.status == "declined");
+});
+
 test.concurrent("default approved payout", async ({ ctx }) => {
   let merchant = await ctx.create_random_merchant();
 
@@ -23,6 +31,17 @@ test.concurrent("default approved payout", async ({ ctx }) => {
     default_provider.request("RUB", common.amount, "payout", true),
   );
   assert(response.payout?.status == "approved");
+});
+
+test.concurrent("default declined payout", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+
+  await merchant.set_settings(default_provider.fullSettings("RUB"));
+  await merchant.cashin("RUB", common.amount / 100);
+  let response = await merchant.create_payout(
+    default_provider.request("RUB", common.amount, "payout", false),
+  );
+  assert(response.payout?.status == "declined");
 });
 
 test.concurrent("default approved refund", async ({ ctx }) => {
