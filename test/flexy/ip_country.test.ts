@@ -13,7 +13,7 @@ const US_IP = "8.8.8.8";
 const UNKNOWN_IP = "127.0.0.1";
 
 describe
-  .runIf(CONFIG.in_project("reactivepay"))
+  .runIf(CONFIG.in_project(["reactivepay", "paysure"]))
   .concurrent("ip country rules", () => {
     test.concurrent(
       "not_in_ip_country blocks IP from banned country",
