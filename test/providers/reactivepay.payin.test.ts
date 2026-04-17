@@ -53,4 +53,52 @@ describe
         });
       },
     );
+
+    test.concurrent("insta approved transaction", async ({ ctx }) => {
+      await ctx.track_bg_rejections(async () => {
+        let gw = new ReactivepayTransaction();
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, ReactivepayTransaction.settings(ctx.uuid)),
+        );
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
+
+        provider.queue(gw.create_handler("approved"));
+
+        let notification = merchant.queue_notification((callback) => {
+          assert.strictEqual(callback.status, "approved");
+        });
+        await merchant.create_payment({
+          ...common.paymentRequest(CURRENCY),
+          card: common.cardObject(),
+        });
+        await notification;
+      });
+    });
+
+    test.concurrent("insta declined transaction", async ({ ctx }) => {
+      await ctx.track_bg_rejections(async () => {
+        let gw = new ReactivepayTransaction();
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, ReactivepayTransaction.settings(ctx.uuid)),
+        );
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
+
+        provider.queue(gw.create_handler("declined"));
+
+        let notification = merchant.queue_notification((callback) => {
+          assert.strictEqual(callback.status, "declined");
+        });
+        await merchant.create_payment({
+          ...common.paymentRequest(CURRENCY),
+          card: common.cardObject(),
+        });
+        await notification;
+      });
+    });
   });
