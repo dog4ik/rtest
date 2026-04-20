@@ -55,6 +55,15 @@ export class SpinpayRequisitesPage {
     return this.p.locator("span#name");
   }
 
+  async validateLanguage(lang: "ru" | "en") {
+    let content = await this.p.content();
+    assert.include(
+      content,
+      `const locale = "${lang}"`,
+      `Expected page locale "${lang}"`,
+    );
+  }
+
   async validateRequisites({
     type,
     number,

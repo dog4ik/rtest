@@ -556,6 +556,129 @@ payformDataFlowTest(
   { browser_url_target: "processingUrl" },
 );
 
+describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay locale", () => {
+  function localeCardSuite(locale?: string): P2PSuite<GatewayConnectTransaction> {
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, "card");
+      },
+      request: () => ({
+        ...suite.request(),
+        bank_account: { requisite_type: "card" },
+        ...(locale ? { locale } : {}),
+      }),
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: true,
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  }
+
+  payformDataFlowTest(
+    "ru browser locale shows russian",
+    {
+      ...localeCardSuite(),
+      browser_context(browser) {
+        return browser.newContext({ locale: "ru-RU" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("ru");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "en browser locale shows english",
+    {
+      ...localeCardSuite(),
+      browser_context(browser) {
+        return browser.newContext({ locale: "en-US" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("en");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "merchant locale ru overrides browser en",
+    {
+      ...localeCardSuite("ru"),
+      browser_context(browser) {
+        return browser.newContext({ locale: "en-US" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("ru");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "merchant locale en overrides browser ru",
+    {
+      ...localeCardSuite("en"),
+      browser_context(browser) {
+        return browser.newContext({ locale: "ru-RU" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("en");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "merchant locale en overrides browser kz",
+    {
+      ...localeCardSuite("en"),
+      browser_context(browser) {
+        return browser.newContext({ locale: "kk-KZ" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("en");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "kk-KZ browser locale shows russian",
+    {
+      ...localeCardSuite(),
+      browser_context(browser) {
+        return browser.newContext({ locale: "kk-KZ" });
+      },
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("ru");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+
+  payformDataFlowTest(
+    "merchant locale kk shows russian",
+    {
+      ...localeCardSuite("kk"),
+      check_pf_page: async (page) => {
+        let form = new SpinpayRequisitesPage(page);
+        await form.validateLanguage("ru");
+      },
+    },
+    { browser_url_target: "selectorUrl" },
+  );
+});
+
 payformDataFlowTest(
   "get redirect request",
   {
