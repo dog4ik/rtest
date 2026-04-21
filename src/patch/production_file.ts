@@ -4,6 +4,8 @@ const EXCLUDE = [
   "consider_all_requests_local",
 ];
 
+const SLASH_ATTECHED_GATEWAYS = ["paylonium_payout"];
+
 export const MAPPING_START_PORT = 64530;
 
 /**
@@ -54,8 +56,8 @@ class RubyConfigLine {
     return new URL(this.url);
   }
 
-  getInternalHostLine(port: number): string {
-    let replacementUrl = `http://host.docker.internal:${port}`;
+  getInternalHostLine(port: number, attach_slash: boolean): string {
+    let replacementUrl = `http://host.docker.internal:${port}${attach_slash ? "/" : ""}`;
 
     switch (this.variant.kind) {
       case "EnvCall":
@@ -143,7 +145,12 @@ export function patchProductionRb(contents: string): {
     }
 
     if (config) {
-      patchedLines.push(config.getInternalHostLine(mapping.next_port));
+      patchedLines.push(
+        config.getInternalHostLine(
+          mapping.next_port,
+          SLASH_ATTECHED_GATEWAYS.includes(config.strippedConfigName()),
+        ),
+      );
       mapping.insert(config.strippedConfigName());
     } else {
       patchedLines.push(line);

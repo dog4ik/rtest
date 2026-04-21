@@ -47,7 +47,8 @@ export class ProviderInstance {
 
   private async try_write_gateway_request(req: HttpRequest) {
     try {
-      if (req.header("content-type")?.startsWith("application/json")) {
+      let content_type = req.header("content-type");
+      if (content_type?.startsWith("application/json")) {
         let curl = new CurlBuilder(`https://${this.alias}` + req.path, "POST")
           .set_headers(req.raw.headers)
           .header("content-type", "application/json")
