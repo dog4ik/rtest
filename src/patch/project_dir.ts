@@ -33,6 +33,7 @@ const PROJECT_DIR_MAP: Record<Project | string, string> = {
   paygateway: "rpay-engine-paygateway",
   paysure: "paysure-global-main-core",
   a2: "rpay-engine-a2",
+  fxmb: "rpay-engine-fxmb"
 };
 
 function resolveProjectDir(config: Config) {

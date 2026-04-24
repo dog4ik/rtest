@@ -12,7 +12,7 @@ const NestedPaymentSchema = z.object({
   currency: z.string(),
   gateway_amount: z.int(),
   status: BusinessStatusSchema,
-  two_stage_mode: z.boolean(),
+  two_stage_mode: z.boolean().optional(),
 });
 
 const PaymentResponseSchema = z.object({

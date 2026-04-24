@@ -147,8 +147,11 @@ order by merchant_providers.updated_at desc limit 1;
     is_initial: boolean,
     waitDuration = 6_000,
   ) {
-    console.log(PROJECT);
-    if (PROJECT === "paygateway" || PROJECT === "paysure") {
+    if (
+      PROJECT === "paygateway" ||
+      PROJECT === "paysure" ||
+      PROJECT === "fxmb"
+    ) {
       await delay(waitDuration);
       return;
     }

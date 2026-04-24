@@ -91,7 +91,6 @@ const FeedFields = {
   to_profile_id: z.int(),
   from_profile_id: z.int(),
   trader_id: z.coerce.number().nullable(),
-  agent_id: z.int().nullable(),
   source: z.string().nullable(),
   payment_object: z.object().nullable(),
   payment_object_json: z.object().nullable(),
