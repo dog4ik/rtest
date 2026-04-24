@@ -9,6 +9,7 @@ import type { Context } from "@/test_context/context";
 const NestedPayoutSchema = z.object({
   token: z.string().length(32),
   status: BusinessStatusSchema,
+  decline_reason: z.string().optional(),
 });
 
 const PayoutResponseSchema = z.object({

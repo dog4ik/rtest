@@ -4,41 +4,87 @@ import { payoutSuite } from "@/provider_mocks/brusnika";
 import {
   callbackFinalizationSuite,
   statusFinalizationSuite,
+  defaultSuite,
   providersSuite,
+  payoutPendingSuite,
+  dataFlowTest,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
+import { defaultSettings, providers } from "@/settings_builder";
 import { test } from "@/test_context";
 import { assert, describe } from "vitest";
-import { delay } from "@std/async";
 import { CONFIG } from "@/config";
 
 const CURRENCY = "UZS";
 
-let brusnikaSuite = () => {
+let brusnikaDefaultSuite = () => {
+  let suite = defaultSuite(CURRENCY, payoutSuite());
+  let settings = (secret: string) => {
+    let settings = suite.settings(secret);
+    settings.gateways["skip_card_payout_validation"] = true;
+    settings.gateways["skip_processing_url"] = true;
+    return settings;
+  };
+  let payoutRequest = common.payoutRequest("UZS");
+  let request = () => ({
+    ...payoutRequest,
+    customer: {
+      ...payoutRequest.customer,
+      first_name: common.firstName,
+      last_name: common.lastName,
+    },
+    bank_account: {
+      requisite_type: "card",
+      bank_name: "uzcard",
+    } as const,
+    card: { pan: common.visaCard },
+  });
+  return { ...suite, settings, request };
+};
+
+let brusnikaProvidersSuite = () => {
   let suite = providersSuite(CURRENCY, payoutSuite());
   let settings = (secret: string) => {
     let settings = suite.settings(secret);
     settings["payout_providers_card"] = true;
     return settings;
   };
-  return { ...suite, settings };
+  let payoutRequest = common.payoutRequest("UZS");
+  let request = () => ({
+    ...payoutRequest,
+    customer: {
+      ...payoutRequest.customer,
+      first_name: common.firstName,
+      last_name: common.lastName,
+    },
+    bank_account: {
+      requisite_type: "card",
+      bank_name: "uzcard",
+    } as const,
+    card: { pan: common.visaCard },
+  });
+  return { ...suite, settings, request };
 };
 
 describe
   .runIf(CONFIG.in_project("8pay"))
   .concurrent("brusnika 8pay payout", () => {
-    callbackFinalizationSuite(brusnikaSuite);
-    statusFinalizationSuite(brusnikaSuite);
+    callbackFinalizationSuite(brusnikaProvidersSuite, { tag: "providers" });
+    statusFinalizationSuite(brusnikaProvidersSuite, { tag: "providers" });
+    payoutPendingSuite(brusnikaProvidersSuite(), { tag: "providers" });
+
+    callbackFinalizationSuite(brusnikaDefaultSuite, { tag: "default" });
+    statusFinalizationSuite(brusnikaDefaultSuite, { tag: "default" });
+    payoutPendingSuite(brusnikaDefaultSuite(), { tag: "default" });
 
     test.concurrent("brusnika no balance decline", async ({ ctx }) => {
       await ctx.track_bg_rejections(async () => {
         let merchant = await ctx.create_random_merchant();
         await merchant.cashin("UZS", common.amount / 100);
-        let settings = providers("UZS", {
+        let settings = defaultSettings("UZS", {
           ...BrusnikaPayout.settings(ctx.uuid),
           wrapped_to_json_response: true,
         });
-        settings["payout_providers_card"] = true;
+        settings.gateways["skip_card_payout_validation"] = true;
         await merchant.set_settings(settings);
         let brusnika = ctx.mock_server(
           BrusnikaPayout.mock_params_uzs(ctx.uuid),
@@ -51,19 +97,22 @@ describe
             "declined notification",
           );
         });
-        let response = await merchant
-          .create_payout({
-            ...common.payoutRequest("UZS"),
-            extra_return_param: "card",
-            card: { pan: common.visaCard },
-            bank_account: {
-              bank_name: "sberbank",
-              requisite_type: "card",
-            },
-          })
-          .then((p) => p.followFirstProcessingUrl());
-        let err = await response.as_error();
-        err.assert_message(
+        let response = await merchant.create_payout({
+          ...common.payoutRequest("UZS"),
+          extra_return_param: "card",
+          card: { pan: common.visaCard },
+          bank_account: {
+            bank_name: "sberbank",
+            requisite_type: "card",
+          },
+        });
+        assert.strictEqual(
+          response.payout?.status,
+          "declined",
+          "payout status should be decrlined",
+        );
+        assert.strictEqual(
+          response.payout?.decline_reason,
           "gateway response error: Not enough money on balance",
         );
         await notification;
@@ -120,73 +169,36 @@ describe
       });
     });
 
-    test.concurrent("brusnika pending if 500", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.cashin("UZS", common.amount / 100);
-        let settings = providers("UZS", {
-          ...BrusnikaPayout.settings(ctx.uuid),
-          wrapped_to_json_response: true,
-        });
-        settings["payout_providers_card"] = true;
-        await merchant.set_settings(settings);
-        let brusnika = ctx.mock_server(
-          BrusnikaPayout.mock_params_uzs(ctx.uuid),
-        );
-        brusnika.queue(common.nginx500);
-        merchant.queue_notification(() => {
-          assert.fail("merchant should not get any notifications");
-        });
-        let response = await merchant.create_payout({
-          ...common.payoutRequest("UZS"),
-          extra_return_param: "card",
-          card: { pan: common.visaCard },
-          bank_account: {
-            bank_name: "sberbank",
-            requisite_type: "card",
-          },
-        });
-        await response.followFirstProcessingUrl();
-        let feed = await ctx.get_feed(response.token);
-        assert.strictEqual(feed.status, 0, "feed should be pending");
-        await ctx.healthcheck(response.token);
-      });
-    });
-
-    test.concurrent("brusnika pending if timeout", async ({ ctx }) => {
-      await ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.cashin("UZS", common.amount / 100);
-        let settings = providers("UZS", {
-          ...BrusnikaPayout.settings(ctx.uuid),
-          wrapped_to_json_response: true,
-        });
-        settings["payout_providers_card"] = true;
-        await merchant.set_settings(settings);
-        let brusnika = ctx.mock_server(
-          BrusnikaPayout.mock_params_uzs(ctx.uuid),
-        );
-        brusnika.queue(async (c) => {
-          await delay(950_000);
-          c.status(500);
-          return c.json({});
-        });
-        merchant.queue_notification(() => {
-          assert.fail("merchant should not get any notifications");
-        });
-        let response = await merchant.create_payout({
-          ...common.payoutRequest("UZS"),
-          extra_return_param: "card",
-          card: { pan: common.visaCard },
-          bank_account: {
-            bank_name: "sberbank",
-            requisite_type: "card",
-          },
-        });
-        await response.followFirstProcessingUrl();
-        let feed = await ctx.get_feed(response.token);
-        assert.strictEqual(feed.status, 0, "feed should be pending");
-        await ctx.healthcheck(response.token);
-      });
-    });
+    dataFlowTest(
+      "card",
+      {
+        ...brusnikaDefaultSuite(),
+        after_create_check() {
+          let gw = this.gw as BrusnikaPayout;
+          assert(gw.request_data);
+          assert(gw.request_data.amount, (common.amount / 100).toString());
+          assert(gw.request_data.bankName, "uzcard");
+          assert(gw.request_data.nameMediator, common.fullName);
+          assert(gw.request_data.number, common.visaCard);
+          assert(gw.request_data.paymentMethod, "toCard");
+        },
+      },
+      { tag: "default" },
+    );
+    dataFlowTest(
+      "card",
+      {
+        ...brusnikaProvidersSuite(),
+        after_create_check() {
+          let gw = this.gw as BrusnikaPayout;
+          assert(gw.request_data);
+          assert(gw.request_data.amount, (common.amount / 100).toString());
+          assert(gw.request_data.bankName, "uzcard");
+          assert(gw.request_data.nameMediator, common.fullName);
+          assert(gw.request_data.number, common.visaCard);
+          assert(gw.request_data.paymentMethod, "toCard");
+        },
+      },
+      { tag: "providers" },
+    );
   });
