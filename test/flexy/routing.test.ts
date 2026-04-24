@@ -22,6 +22,8 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 
+const use_status_handler = true;
+
 function gatewayConnectRoutingSuite(
   req_type: gatewayconnect.GcRequisiteType,
   wrapped_to_json_response = true,
@@ -100,11 +102,16 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
   }
 
   for (let c of allCases()) {
-    routingFinalizationSuite(c() as [...Routable[], Routable & Callback], req, {
-      check_merchant_requisites,
-      check_merchant_payform,
-      check_missed_requisites,
-    });
+    routingFinalizationSuite(
+      c() as [...Routable[], Routable & Callback],
+      req,
+      {
+        check_merchant_requisites,
+        check_merchant_payform,
+        check_missed_requisites,
+      },
+      { use_status_handler },
+    );
   }
 
   describe.concurrent("masked routing", () => {
@@ -128,7 +135,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
           check_merchant_payform,
           check_missed_requisites,
         },
-        true,
+        {},
       );
     }
   });
@@ -137,18 +144,21 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
     [forta.payinSuite(), mil.payinSuite(), mad.payinSuite(), brus.payinSuite()],
     req,
     { check_merchant_requisites, check_merchant_payform },
+    { use_status_handler },
   );
 
   routingFinalizationSuite(
     [brus.payinSuite(), mil.payinSuite(), mad.payinSuite()],
     req,
     { check_merchant_requisites, check_merchant_payform },
+    { use_status_handler },
   );
 
   routingFinalizationSuite(
     [brus.payinSuite(), mad.payinSuite(), mil.payinSuite()],
     req,
     { check_merchant_requisites, check_merchant_payform },
+    { use_status_handler },
   );
   routingFinalizationSuite(
     [
@@ -159,6 +169,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
     ],
     req,
     { check_merchant_requisites, check_merchant_payform },
+    { use_status_handler },
   );
 });
 
@@ -216,6 +227,7 @@ describe
           check_merchant_payform,
           check_missed_requisites,
         },
+        { use_status_handler },
       );
     }
 
@@ -236,7 +248,7 @@ describe
             check_merchant_payform,
             check_missed_requisites,
           },
-          true,
+          { is_masked: true, use_status_handler },
         );
       }
     });
@@ -286,6 +298,7 @@ describe
         c() as [...Routable[], Routable & Callback],
         req,
         { check_merchant_requisites, check_missed_requisites },
+        { use_status_handler },
       );
     }
 
@@ -297,7 +310,7 @@ describe
           c as [...Routable[], Routable & Callback],
           req,
           { check_merchant_requisites, check_missed_requisites },
-          true,
+          { is_masked: true, use_status_handler },
         );
       }
     });

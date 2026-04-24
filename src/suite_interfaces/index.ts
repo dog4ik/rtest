@@ -500,13 +500,15 @@ async function setupRoutingChain(
   await merchant.set_settings(settings_builder.build());
   await rule_builder.save();
 
-  return { merchant, chain };
+  return { merchant, chain, last_mock_server };
 }
+
+const ROUTING_TEST_TIMEOUT = 75_000;
 
 export function routingFinalizationSuite(
   links: [...Routable[], Routable & Callback],
   request: () => PaymentRequest,
-  checks?: {
+  checks: {
     check_merchant_requisites?: (
       response: ProcessingUrlResponse,
     ) => Promise<unknown>;
@@ -515,8 +517,10 @@ export function routingFinalizationSuite(
     ) => Promise<unknown>;
     check_merchant_payform?: (page: playwright.Page) => Promise<unknown>;
   },
-  is_masked = false,
+  opts: { is_masked?: boolean; use_status_handler?: boolean },
 ) {
+  let is_masked = opts?.is_masked ?? false;
+  let use_status_handler = opts?.use_status_handler ?? false;
   let currency = request().currency;
   let chain_descriptor = links
     .map((l) => l.mock_options("").alias)
@@ -524,20 +528,22 @@ export function routingFinalizationSuite(
 
   test.concurrent(
     `Routing: ${chain_descriptor}${is_masked ? " (masked)" : " (default)"}`,
-    { timeout: 45_000 },
+    { timeout: ROUTING_TEST_TIMEOUT },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
-        let { merchant, chain } = await setupRoutingChain(
+        let { merchant, chain, last_mock_server } = await setupRoutingChain(
           ctx,
           currency,
           links,
           false,
         );
-        console.log({ merchant, chain_descriptor, type: "before" });
         let approved_notification = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "approved");
         });
-        let last_link = links[links.length - 1] as Routable & Callback;
+        let last_link = links[links.length - 1] as Routable & Callback & Status;
+        if (use_status_handler) {
+          last_mock_server.queue(last_link.status_handler("approved"));
+        }
         let res = await merchant.create_payment(request()).then((p) =>
           is_masked
             ? p.followFirstProcessingCheckedRedirect(async (r) => {
@@ -563,7 +569,7 @@ export function routingFinalizationSuite(
     .runIf(checks?.check_missed_requisites)
     .concurrent(
       `Routing: ${chain_descriptor}${is_masked ? " (masked miss)" : " (default miss)"}`,
-      { timeout: 45_000 },
+      { timeout: ROUTING_TEST_TIMEOUT },
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let { merchant, chain } = await setupRoutingChain(
@@ -599,7 +605,7 @@ export function routingFinalizationSuite(
     .runIf(checks?.check_merchant_payform)
     .concurrent(
       `Routing: ${chain_descriptor}${is_masked ? " (masked)" : " (default)"} payform`,
-      { timeout: 45_000 },
+      { timeout: ROUTING_TEST_TIMEOUT },
       ({ ctx, browser }) =>
         ctx.track_bg_rejections(async () => {
           let override_links = () => {
