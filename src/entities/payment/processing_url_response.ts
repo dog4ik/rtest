@@ -4,6 +4,15 @@ import { ErrorResponse } from "./error_response";
 import type { Context } from "@/test_context/context";
 import { CONFIG } from "@/config";
 
+// export const EightpayRequesiteSchema = z.object({
+//   id: z.string().nonempty(),
+//   pan: z.string().nonempty(),
+//   name_seller: z.string(),
+//   deeplink: z.url().optional(),
+//   support_banks: z.array(z.string()).min(1),
+//   support_bank_native: z.record(z.string(), z.string()).optional(),
+// });
+
 export const EightpayRequesiteSchema = z.object({
   id: z.string().nonempty(),
   pan: z.string().nonempty(),
@@ -11,6 +20,18 @@ export const EightpayRequesiteSchema = z.object({
   deeplink: z.url().optional(),
   support_banks: z.array(z.string()).min(1),
   support_bank_native: z.record(z.string(), z.string()).optional(),
+  payment: z.object({
+    amount: z.int().min(1),
+    currency: z.string().length(3),
+    gateway_amount: z.int().min(1),
+    gateway_currency: z.string().length(3),
+    status: z.literal("pending"),
+  }),
+  processing_url: z.url(),
+  order_number: z.string().optional(),
+  token: z.string().length(32),
+  gateway_token: z.string().min(1),
+  success: z.literal(true),
 });
 
 export const PayoutResponseSchema = z.object({

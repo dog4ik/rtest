@@ -172,11 +172,14 @@ describe
           assert.strictEqual(req?.curr, CURRENCY);
           assert.strictEqual(req?.local_amount, common.amount / 100);
         },
-        async check_merchant_response({ processing_response }) {
+        async check_merchant_response({
+          processing_response,
+          create_response,
+        }) {
           let requisites = await processing_response?.as_8pay_requisite();
           assert.strictEqual(requisites?.pan, `+${common.phoneNumber}`);
           assert.strictEqual(requisites?.name_seller, common.fullName);
-          assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
+          assert.strictEqual(requisites?.id, create_response.token);
         },
       });
 
@@ -240,11 +243,14 @@ describe
           assert.strictEqual(req?.curr, CURRENCY);
           assert.strictEqual(req?.local_amount, common.amount / 100);
         },
-        async check_merchant_response({ processing_response }) {
+        async check_merchant_response({
+          processing_response,
+          create_response,
+        }) {
           let requisites = await processing_response?.as_8pay_requisite();
           assert.strictEqual(requisites?.pan, common.visaCard);
           assert.strictEqual(requisites?.name_seller, common.fullName);
-          assert.strictEqual(requisites?.id, this.gw.gateway_id.toString());
+          assert.strictEqual(requisites?.id, create_response.token);
         },
       });
 

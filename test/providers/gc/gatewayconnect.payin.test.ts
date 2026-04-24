@@ -375,43 +375,43 @@ describe
 
     dataFlowTest("card method setting", {
       ...methodH2HSuite("card", "card"),
-      async check_merchant_response({ processing_response }) {
+      async check_merchant_response({ processing_response, create_response }) {
         let req = await processing_response?.as_8pay_requisite();
         assert.strictEqual(req?.pan, common.visaCard);
         assert.strictEqual(req?.name_seller, common.fullName);
-        assert.strictEqual(req?.id, this.gw.gateway_id);
+        assert.strictEqual(req?.id, create_response.token);
       },
     });
 
     dataFlowTest("sbp method setting", {
       ...methodH2HSuite("sbp", "sbp"),
-      async check_merchant_response({ processing_response }) {
+      async check_merchant_response({ processing_response, create_response }) {
         let req = await processing_response?.as_8pay_requisite();
         assert.strictEqual(req?.pan, common.phoneNumber);
         assert.strictEqual(req?.name_seller, common.fullName);
-        assert.strictEqual(req?.id, this.gw.gateway_id);
+        assert.strictEqual(req?.id, create_response.token);
       },
     });
 
     dataFlowTest("link method setting", {
       ...methodH2HSuite("link", "sbp_aquiring"),
-      async check_merchant_response({ processing_response }) {
+      async check_merchant_response({ processing_response, create_response }) {
         let json = (await processing_response?.as_raw_json()) as any;
         assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
         assert.strictEqual(json.deeplink, common.redirectPayUrl);
         assert.strictEqual(json.name_seller, common.fullName);
-        assert.strictEqual(json.id, this.gw.gateway_id);
+        assert.strictEqual(json.id, create_response.token);
       },
     });
 
     dataFlowTest("tpay method setting", {
       ...methodH2HSuite("tpay", "tpay"),
-      async check_merchant_response({ processing_response }) {
+      async check_merchant_response({ processing_response, create_response }) {
         let json = (await processing_response?.as_raw_json()) as any;
         assert.isNotEmpty(json.link?.deeplink);
         assert.isNotEmpty(json.deeplink);
         assert.strictEqual(json.name_seller, common.fullName);
-        assert.strictEqual(json.id, this.gw.gateway_id);
+        assert.strictEqual(json.id, create_response.token);
       },
     });
 
@@ -442,11 +442,11 @@ describe
 
     dataFlowTest("unknown extra_return_param with method priority setting", {
       ...methodPriorityH2HSuite("card", "UnrecognizedExtraReturnParam"),
-      async check_merchant_response({ processing_response }) {
+      async check_merchant_response({ processing_response, create_response }) {
         let req = await processing_response?.as_8pay_requisite();
         assert.strictEqual(req?.pan, common.visaCard);
         assert.strictEqual(req?.name_seller, common.fullName);
-        assert.strictEqual(req?.id, this.gw.gateway_id);
+        assert.strictEqual(req?.id, create_response.token);
       },
     });
   });
