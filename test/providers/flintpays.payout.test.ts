@@ -33,7 +33,7 @@ function payoutRequest() {
 }
 
 vitest.describe
-  .runIf(CONFIG.in_project(["8pay", "reactivepay"]))
+  .runIf(CONFIG.in_project(["reactivepay"]))
   .concurrent("flintpays payout gateway", () => {
     const CASES = [
       ["rejected" as FlintpayStatus, "declined"],
