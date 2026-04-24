@@ -1,9 +1,8 @@
 import type { CreateTraderOptions } from "@/driver/core";
-import { TraderDriver } from "@/driver/trader";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
 import { RoutingBuilder } from "@/flexy_guard_builder";
-import { basic_healthcheck } from "@/healthcheck";
+import { basic_healthcheck, type HealthcheckOpts } from "@/healthcheck";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
@@ -173,10 +172,11 @@ export class Context {
     return await this.state.business_db.paymentByGwToken(token);
   }
 
-  async healthcheck(token: string) {
+  async healthcheck(token: string, opts?: HealthcheckOpts) {
     let hc = await basic_healthcheck(
       { business_db: this.state.business_db, core_db: this.state.core_db },
       token,
+      opts,
     );
     hc.assert();
   }

@@ -79,9 +79,14 @@ class HealthcheckResult {
   }
 }
 
+export type HealthcheckOpts = {
+  skip_interaction_log_card_check?: boolean;
+};
+
 export async function basic_healthcheck(
   { core_db, business_db }: Pick<SharedState, "core_db" | "business_db">,
   token: string,
+  opts?: HealthcheckOpts,
 ) {
   let [business, interaction_logs, core, entries] = await Promise.all([
     business_db.paymentByToken(token),
@@ -95,9 +100,11 @@ export async function basic_healthcheck(
       assert.notInclude(s, common.mastercardCard, msg);
     }
   };
-  for (let log of interaction_logs) {
-    checkSensitiveData(log.request, "interaction_logs.request");
-    checkSensitiveData(log.response, "interaction_logs.response");
+  if (!opts?.skip_interaction_log_card_check) {
+    for (let log of interaction_logs) {
+      checkSensitiveData(log.request, "interaction_logs.request");
+      checkSensitiveData(log.response, "interaction_logs.response");
+    }
   }
   checkSensitiveData(JSON.stringify(business.details), "payments.details");
   checkSensitiveData(

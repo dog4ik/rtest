@@ -8,7 +8,7 @@ import {
 } from "./merchant_notification";
 import type { HttpContext } from "@/mock_server/api";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
-import { basic_healthcheck } from "@/healthcheck";
+import { basic_healthcheck, type HealthcheckOpts } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest, CurlBuilder } from "@/story/curl";
@@ -217,7 +217,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   type NotificationHandlerOptions = {
     skip_healthcheck?: boolean;
     skip_signature_check?: boolean;
-  };
+  } & HealthcheckOpts;
 
   /**
    * Setup notification handler.
@@ -246,6 +246,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
           let hc = await basic_healthcheck(
             { business_db, core_db },
             callback.token,
+            { skip_interaction_log_card_check: options?.skip_interaction_log_card_check },
           );
           console.log(hc.toString());
           hc.assert();
