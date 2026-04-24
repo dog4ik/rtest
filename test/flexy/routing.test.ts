@@ -80,6 +80,11 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
       ],
       () => [brus.payinSuite(), forta.payinSuite()],
       () => [gatewayConnectRoutingSuite("card"), brus.payinSuite()],
+      () => [
+        gatewayConnectRoutingSuite("card"),
+        gatewayConnectRoutingSuite("card"),
+        gatewayConnectRoutingSuite("card"),
+      ],
       () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
     ];
     if (CONFIG.extra_mapping?.["pixelwave"]) {
@@ -95,15 +100,11 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
   }
 
   for (let c of allCases()) {
-    routingFinalizationSuite(
-      c() as [...Routable[], Routable & Callback],
-      req,
-      {
-        check_merchant_requisites,
-        check_merchant_payform,
-        check_missed_requisites,
-      },
-    );
+    routingFinalizationSuite(c() as [...Routable[], Routable & Callback], req, {
+      check_merchant_requisites,
+      check_merchant_payform,
+      check_missed_requisites,
+    });
   }
 
   describe.concurrent("masked routing", () => {
@@ -122,7 +123,11 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
       routingFinalizationSuite(
         c as [...Routable[], Routable & Callback],
         req,
-        { check_merchant_requisites, check_merchant_payform, check_missed_requisites },
+        {
+          check_merchant_requisites,
+          check_merchant_payform,
+          check_missed_requisites,
+        },
         true,
       );
     }
@@ -259,6 +264,11 @@ describe
           brus.payinSuite(),
           gatewayConnectRoutingSuite("card"),
           iron.payinSuite(),
+        ],
+        () => [
+          gatewayConnectRoutingSuite("card"),
+          gatewayConnectRoutingSuite("card"),
+          gatewayConnectRoutingSuite("card"),
         ],
         () => [brus.payinSuite(), mad.payinSuite(), iron.payinSuite()],
         () => [mad.payinSuite(), iron.payinSuite(), brus.payinSuite()],
