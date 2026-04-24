@@ -196,7 +196,7 @@ export class GatewayConnectTransaction {
   requisites_payin_handler(
     status: PrimeBusinessStatus,
     requisite_type: GcRequisiteType,
-    requisite_data?: { bank?: string; holder?: string },
+    requisite_data?: { bank?: string; holder?: string, payment_form_url?: string },
   ): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();
@@ -270,6 +270,7 @@ export class GatewayConnectTransaction {
         amount: common.amount,
         requisites,
         currency: "RUB",
+        payment_form_url: requisite_data?.payment_form_url,
         details: status === "declined" ? "Test error message" : undefined,
         redirect_request:
           status === "pending"
