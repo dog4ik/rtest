@@ -59,15 +59,12 @@ class RandomizerTester {
   }
 
   queue_decline() {
-    this.brusnika.queue(this.capturing_decline_handler());
+    return this.brusnika.queue(this.capturing_decline_handler());
   }
 
-  // Queues `n` decline handlers plus a small buffer so that unexpected extra
-  // retries hit a real handler rather than the default fallback, which would
-  // produce a misleading error instead of a clean count/uniqueness failure.
+  // Queues `n` decline handlers
   queue_declines(n: number) {
-    let BUFFER = 4;
-    for (let i = 0; i < n + BUFFER; i++) {
+    for (let i = 0; i < n; i++) {
       this.queue_decline();
     }
   }
@@ -396,5 +393,56 @@ describe
 
           tester.assert_state(3);
         }),
+    );
+
+    /// Common case with declined
+    test.concurrent("common use case declined", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [1000, 12000],
+          random_retries: 5,
+          random_step: 1000,
+        });
+
+        tester.queue_declines(6);
+        await tester.pay_expecting_decline();
+
+        tester.assert_state(6);
+      }),
+    );
+
+    /// Common case with declined
+    test.concurrent("common use case approved", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [1000, 12000],
+          random_retries: 5,
+          random_step: 1000,
+        });
+
+        tester.queue_declines(5);
+        await tester.queue_and_pay_approve();
+
+        tester.assert_state(6);
+      }),
+    );
+
+    /// Common case early approve
+    test.concurrent("common use case early approved", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [1000, 12000],
+          random_retries: 5,
+          random_step: 1000,
+        });
+
+        tester.queue_declines(2);
+        await tester.queue_and_pay_approve();
+
+        tester.assert_state(3);
+      }),
     );
   });
