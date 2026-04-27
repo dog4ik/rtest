@@ -122,6 +122,7 @@ export function commonSettings(alias: string, secret: string) {
     },
     [SETTINGS_INTERNAL_SECRET_KEY]: secret,
     sign_key: ANY_GATEWAY_CONNECT_SIGN_KEY,
+    wrapped_to_json_response: true,
   };
 }
 
