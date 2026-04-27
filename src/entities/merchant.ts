@@ -59,6 +59,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return core_db.profileWallets(merchant.id, currency);
   }
 
+  async function settlements(currency?: string) {
+    return core_db.settlements(merchant.id, currency);
+  }
+
   async function cashin(currency: string, amount: number) {
     ctx.story.add_chapter(`MID ${merchant.id} cashin`, `${currency} ${amount}`);
     return core_harness.cashin(merchant.id, currency, amount);
@@ -336,5 +340,6 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     callbackUrl,
     set_commission,
     block_traffic,
+    settlements,
   };
 }

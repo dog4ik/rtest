@@ -130,6 +130,23 @@ export class CoreDb extends Db {
     return await this.fetch_all(WalletQuery.schema, query);
   }
 
+  async settlements(mid: number, currency?: string) {
+    let query = `select ${FeedQuery.select(this.project)} from feeds where order_number = 'SETTLEMENT' and to_profile_id = '${mid}' and from_profile_id = '${mid}'`;
+    if (currency) {
+      query += ` and feeds.currency = '${currency}'`;
+    }
+    return await this.fetch_all(FeedQuery.schema, query);
+  }
+
+  async unsafe_set_wallet_balance(
+    wallet: number,
+    available: number,
+    held: number,
+  ) {
+    let query = `update wallets set available = '${available}', held = '${held}' where wallets.id = '${wallet}' returning wallets.id`;
+    return await this.fetch_one(z.object({ id: z.number() }), query);
+  }
+
   async profileWallet(mid: number, currency: string) {
     let query = `select ${WalletQuery.select(this.project)} from wallets where wallets.profile_id = '${mid}' and currency = '${currency}'`;
     return await this.fetch_one(WalletQuery.schema, query);

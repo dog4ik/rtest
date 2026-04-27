@@ -39,6 +39,11 @@ export async function initState(config: Config) {
     credentials.flexy_commission_credentials,
   );
 
+  let guard_service = new FlexyGuardHarness(
+    "http://127.0.0.1:7081",
+    credentials.flexy_guard_credentials,
+  );
+
   let [core_db, business_db, settings_db, mapping, browser] = await Promise.all(
     [
       connectPool("reactivepay_core_production"),
@@ -52,6 +57,7 @@ export async function initState(config: Config) {
       core_harness.login(credentials.core_credentials),
       settings_service.login(),
       commission_service.login(credentials.flexy_commission_credentials),
+      guard_service.login(credentials.flexy_guard_credentials),
     ],
   );
 
@@ -72,10 +78,7 @@ export async function initState(config: Config) {
     core_harness,
     settings_service,
     commission_service,
-    guard_service: new FlexyGuardHarness(
-      "http://127.0.0.1:7081",
-      credentials.flexy_guard_credentials,
-    ),
+    guard_service,
     mock_servers: new MockServerState(mapping),
     browser,
   };

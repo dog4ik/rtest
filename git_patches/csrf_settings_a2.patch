@@ -5,9 +5,9 @@ index b59359ec..6ee19396 100644
 @@ -10,6 +10,10 @@ RailsAdmin::ApplicationHelper.module_eval do
    end
  end
- 
-+RailsAdmin::ApplicationController.class_eval do
-+  skip_before_action :verify_authenticity_token
+
++Rails.application.config.after_initialize do
++  RailsAdmin::ApplicationController.skip_before_action :verify_authenticity_token
 +end
 +
  RailsAdmin.config do |config|
@@ -19,5 +19,5 @@ index b59359ec..6ee19396 100644
    }
 +  config.forgery_protection_settings = {with: :null_session}
  end
- 
+
  class RailsAdmin::Config::Fields::Types::Json

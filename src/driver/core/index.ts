@@ -23,6 +23,8 @@ export type CreateTrader = {
   telegram: string;
   currency: string;
   password: string;
+  main_address: string;
+  deposit_address: string;
   companyName: string;
   email: string;
   convert_to_usdt: boolean;
@@ -155,6 +157,22 @@ export class CoreDriver {
       "api_v1_profile[contact_person_name]": "",
       "api_v1_profile[contact_person_position]": "",
       "api_v1_profile[web_site]": undefined,
+      "api_v1_profile[merchant_settlement_info_attributes][account_number]":
+        "stheseh",
+      "api_v1_profile[merchant_settlement_info_attributes][account_name]":
+        "shshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
+        "nhsensh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
+        "ntshesnhesnth",
+      "api_v1_profile[merchant_settlement_info_attributes][swift_code]":
+        "sthesnthesnh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_name]":
+        "tnshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_address]":
+        "hesthesh",
+      "api_v1_profile[merchant_settlement_info_attributes][country]": "shesnth",
+      "api_v1_profile[merchant_settlement_info_attributes][iban]": "shesth",
     };
 
     await this.action("/merchants", form);
@@ -181,8 +199,8 @@ export class CoreDriver {
       "trader[web_site]": params.telegram,
       "trader[temp_password]": params.password,
       "trader[payout_hold_period]": params.payout_hold_priod,
-      main_address: "",
-      deposit_address: "",
+      main_address: params.main_address,
+      deposit_address: params.deposit_address,
       white_list: "",
       min_limit: "",
       max_limit: "",
@@ -200,6 +218,8 @@ export class CoreDriver {
       email: `${uuid}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
       convert_to_usdt: opts?.usdt ?? true,
+      main_address: crypto.randomUUID(),
+      deposit_address: crypto.randomUUID(),
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: opts?.currency ?? "RUB",
@@ -402,5 +422,13 @@ export class CoreDriver {
       "api_v1_profile[new_password]": "",
     };
     await this.action(`/merchants/${merchant_id}`, form);
+  }
+
+  async confirm_settlement(feed_id: number, status: "approved" | "declined") {
+    let form = {
+      _method: "put",
+    };
+    let suffix = status === "approved" ? "accepted" : "declined";
+    await this.action(`/settlements/${feed_id}/${suffix}`, form);
   }
 }

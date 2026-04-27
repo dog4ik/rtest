@@ -14,8 +14,45 @@ export async function authorize_client(
     loginInitRes.headers.getSetCookie?.() ??
     [loginInitRes.headers.get("set-cookie")].filter(Boolean);
 
-  let keycloakUrl = loginInitRes.headers.get("location");
-  if (!keycloakUrl) throw new Error("No redirect to Keycloak");
+  let keycloakUrl: string;
+  if (loginInitRes.status >= 300 && loginInitRes.status < 400) {
+    let location = loginInitRes.headers.get("location");
+    if (!location) throw new Error("No redirect to Keycloak");
+    keycloakUrl = location;
+  } else {
+    let html = await loginInitRes.text();
+    let hrefMatch = html.match(/href="([^"]*keycloak[^"]*)"/);
+    if (!hrefMatch) throw new Error("No Keycloak link found in page");
+    let href = hrefMatch[1].replace(/&amp;/g, "&");
+
+    if (href.startsWith("http")) {
+      keycloakUrl = href;
+    } else {
+      // Relative href — follow local redirects until we leave the service origin (= Keycloak URL)
+      let loginOrigin = new URL(login_url).origin;
+      let currentUrl = new URL(href, login_url).toString();
+      keycloakUrl = "";
+      while (true) {
+        let res = await fetch(currentUrl, {
+          redirect: "manual",
+          headers: { Cookie: flaskCookies.join("; ") },
+        });
+        let cookies: string[] = (res.headers.getSetCookie?.() ??
+          [res.headers.get("set-cookie")].filter(Boolean)) as string[];
+        flaskCookies = [...flaskCookies, ...cookies];
+        let location = res.headers.get("location");
+        if (!location) throw new Error("No Keycloak redirect from login link");
+        let nextUrl = location.startsWith("http")
+          ? location
+          : new URL(location, currentUrl).toString();
+        if (new URL(nextUrl).origin !== loginOrigin) {
+          keycloakUrl = nextUrl;
+          break;
+        }
+        currentUrl = nextUrl;
+      }
+    }
+  }
 
   let keycloakPageRes = await fetch(keycloakUrl, { redirect: "follow" });
   let loginPageHtml = await keycloakPageRes.text();
