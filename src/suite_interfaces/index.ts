@@ -172,7 +172,15 @@ function callbackFinalizationTest<T>(
               `merchant should get ${target_status} notification`,
             );
           });
-          await create_transaction();
+          let res = await create_transaction();
+          if (
+            res.processing_response &&
+            res.processing_response
+              .content_type()
+              ?.startsWith("application/json")
+          ) {
+            await res.processing_response.as_raw_json();
+          }
           await notification;
         }),
     );

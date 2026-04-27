@@ -203,4 +203,8 @@ export class ProcessingUrlResponse {
   async as_raw_json() {
     return await this.consume_json_body();
   }
+
+  content_type() {
+    return this.response.headers.get("content-type");
+  }
 }
