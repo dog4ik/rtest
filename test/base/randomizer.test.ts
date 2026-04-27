@@ -160,7 +160,7 @@ class RandomizerTester {
 }
 
 describe
-  .runIf(CONFIG.in_project("reactivepay"))
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
   .concurrent("randomizer", () => {
     // range [100,200] step 100 -> candidate list has exactly 2 values.
     // random_retries:3 is capped to 2 by the list size.
@@ -207,7 +207,7 @@ describe
   });
 
 describe
-  .runIf(CONFIG.in_project("reactivepay"))
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
   .concurrent("randomizer settings combinations", () => {
     // range [100, 300] step 100 -> list = [100, 200, 300] (3 elements).
     // random_retries:3 matches list size exactly -> all 3 retries fire, each with
