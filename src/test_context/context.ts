@@ -66,6 +66,7 @@ export class Context {
       merchant.id,
       true,
     );
+    await this.state.core_db.set_force_password_change(merchant.id, false);
     return merchant;
   }
 
