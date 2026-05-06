@@ -189,7 +189,10 @@ describe
         });
       },
       async check_merchant_response({ processing_response }) {
-        let requisites = await processing_response?.as_raw_json() as Record<string, any>;
+        let requisites = (await processing_response?.as_raw_json()) as Record<
+          string,
+          any
+        >;
         assert.strictEqual(requisites.payment_form_url, common.redirectPayUrl);
       },
     });
@@ -883,5 +886,57 @@ describe.concurrent("commission healthcheck payins", () => {
           "declined: wallet unchanged",
         );
       }),
+  );
+});
+
+describe.concurrent("gateway connect refund", () => {
+  function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
+    let suite = payinSuite();
+    return defaultSuite("RUB", {
+      ...suite,
+      create_handler: (s) => suite.gw.basic_payin_handler(s),
+      request: () => ({
+        ...common.paymentRequest("RUB"),
+        card: common.cardObject(),
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  }
+
+  test.concurrent("approved refund", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = h2hSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let provider_request = provider
+        .queue(suite.gw.basic_payin_handler("pending"));
+
+      let status_request = provider
+        .queue(suite.gw.status_handler("approved"));
+
+      let response = await merchant.create_payment(suite.request());
+      let token = response.token;
+
+      await provider_request;
+
+      await status_request;
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      provider.queue(suite.gw.refund_handler("approved"));
+      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved");
+
+      await merchant.create_refund({ token, amount: common.amount });
+
+      await provider.queue(suite.gw.status_handler("refunded"));
+      await notification;
+      await merchant_refund_notification;
+    }),
   );
 });

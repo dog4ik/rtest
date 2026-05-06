@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { assert } from "vitest";
-import type { PrimeBusinessStatus } from "@/db/business";
+import type { BusinessStatus, PrimeBusinessStatus } from "@/db/business";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { MAPPING_START_PORT } from "@/patch/production_file";
 import * as collections from "@std/collections";
@@ -16,6 +16,7 @@ import { delay } from "@std/async";
 import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
 import { CONFIG } from "@/config";
+import { RefundRequestSchema } from "./refund";
 
 export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
 
@@ -102,6 +103,16 @@ export function commonSettings(alias: string, secret: string) {
           params_fields: {
             params: ["gateway_token", "token", "merchant_private_key"],
             payment: ["gateway_token", "token"],
+            refund: ["amount", "gateway_amount", "token"],
+            settings: [SETTINGS_INTERNAL_SECRET_KEY],
+          },
+        },
+        refund: {
+          enable_status_checker: true,
+          params_fields: {
+            params: ["gateway_token", "token", "merchant_private_key"],
+            payment: ["gateway_token", "token", "currency"],
+            refund: ["amount", "token"],
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
         },
@@ -131,6 +142,7 @@ export class GatewayConnectTransaction {
   payin_request: z.infer<ReturnType<typeof PayinRequestSchema>> | undefined;
   payout_request: z.infer<ReturnType<typeof PayoutRequestSchema>> | undefined;
   status_request: z.infer<ReturnType<typeof StatusRequestSchema>> | undefined;
+  refund_request: z.infer<ReturnType<typeof RefundRequestSchema>> | undefined;
   constructor(
     private alias: string,
     private gw_settings: Partial<GCSettingsType>,
@@ -197,7 +209,11 @@ export class GatewayConnectTransaction {
   requisites_payin_handler(
     status: PrimeBusinessStatus,
     requisite_type: GcRequisiteType,
-    requisite_data?: { bank?: string; holder?: string, payment_form_url?: string },
+    requisite_data?: {
+      bank?: string;
+      holder?: string;
+      payment_form_url?: string;
+    },
   ): Handler {
     return async (c) => {
       let interaction_logs = new InteractionLogs();
@@ -257,7 +273,7 @@ export class GatewayConnectTransaction {
             requisites["link"] = common.redirectPayUrl;
             // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
             // Отсавлю так чтобы его интеграция не померла.
-            requisites["deeplink"] = true;
+            requisites["deeplink"] = "https://duckduckgo.com";
           }
         }
       }
@@ -484,7 +500,38 @@ export class GatewayConnectTransaction {
     };
   }
 
-  status_handler(status: PrimeBusinessStatus): Handler {
+  refund_handler(status: PrimeBusinessStatus): Handler {
+    return async (c) => {
+      this.refund_request = RefundRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
+
+      let interaction_logs = new InteractionLogs();
+      let span = interaction_logs.span("status");
+      span.set_request(
+        common.redirectPayUrl,
+        JSON.stringify({
+          amount: this.refund_request.refund.amount,
+          currency: this.refund_request.payment.currency,
+        }),
+      );
+
+      await delay(200);
+      span.set_response_status(200);
+      span.set_response_body(JSON.stringify({ status }));
+
+      return c.json({
+        status,
+        amount: this.refund_request.refund.amount,
+        currency: "RUB",
+        details: status === "declined" ? "Test error message " : undefined,
+        logs: interaction_logs.build(),
+        result: true,
+      } as ConnectStatusResponse);
+    };
+  }
+
+  status_handler(status: BusinessStatus): Handler {
     return async (c) => {
       this.status_request = StatusRequestSchema(z.object({})).parse(
         await c.req.json(),

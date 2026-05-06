@@ -7,9 +7,16 @@ export const StatusPaymentSchema = z.object({
   token: z.string(),
 });
 
+export const StatusRefundSchema = z.object({
+  token: z.string(),
+  amount: z.number(),
+  gateway_amount: z.number(),
+});
+
 export const StatusRequestSchema = (settingsSchema: z.ZodType) => {
   return z.object({
     payment: StatusPaymentSchema,
+    refund: StatusRefundSchema.nullish(),
     settings: settingsSchema,
   });
 };
