@@ -7,13 +7,12 @@ import * as common from "@/common";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
 import { MAPPING_START_PORT } from "@/patch/production_file";
-import { defaultSettings } from "@/settings_builder";
+import { defaultSettings, providers } from "@/settings_builder";
 
 export const REACTIVEPAY_MOCK_PORT = MAPPING_START_PORT - 2;
 export const REACTIVEPAY_MAPPING_KEY = "_reactivepay";
 
-const DECLINE_REASON =
-  'gateway response error: test error';
+const DECLINE_REASON = "gateway response error: test error";
 
 const PayRequestSchema = z.object({
   product: z.string(),
@@ -83,24 +82,60 @@ function computeCallbackSignature(
   return crypto.createHash("md5").update(sig).digest("hex");
 }
 
+type IntegrationType = "reactivepayp2p" | "reactivepay";
+
 export class ReactivepayTransaction {
   gateway_id: string;
+  token: string;
+  secret: string | undefined;
   request_data?: z.infer<typeof PayRequestSchema>;
 
-  constructor() {
-    this.gateway_id = crypto.randomBytes(16).toString("hex");
+  constructor(private integration_type: IntegrationType) {
+    this.secret = undefined;
+    this.gateway_id = crypto.randomUUID();
+    this.token = crypto.randomBytes(16).toString("hex");
   }
 
-  create_response(status: PrimeBusinessStatus, request: any) {
-    this.request_data = PayRequestSchema.parse(request);
+  private processingUrl() {
+    return `http://host.docker.internal:${REACTIVEPAY_MOCK_PORT}/process/${this.secret}`;
+  }
 
-    const processingUrl = `https://business.reactivepay.com/checkout_results/${this.gateway_id}/processing`;
+  p2p_create_response(request: any) {
+    this.request_data = PayRequestSchema.parse(request);
+    assert(this.secret);
+
+    const processing_url = this.processingUrl();
     const response: Record<string, any> = {
       success: true,
       result: 0,
       status: 200,
-      token: this.gateway_id,
+      token: this.token,
+      processingUrl: [{ gateway: processing_url }],
+      payment: {
+        amount: this.request_data.amount,
+        gateway_amount: this.request_data.amount,
+        currency: this.request_data.currency,
+        status: "init",
+        two_stage_mode: false,
+        commission: 0,
+      },
+    };
+
+    return response;
+  }
+
+  h2h_create_response(status: PrimeBusinessStatus, request: any) {
+    this.request_data = PayRequestSchema.parse(request);
+    assert(this.secret);
+
+    const processingUrl = this.processingUrl();
+    const response: Record<string, any> = {
+      success: true,
+      result: 0,
+      status: 200,
+      token: this.token,
       processingUrl,
+      gateway_token: this.gateway_id,
       payment: {
         amount: this.request_data.amount,
         gateway_amount: this.request_data.amount,
@@ -127,9 +162,44 @@ export class ReactivepayTransaction {
     return response;
   }
 
-  create_handler(status: PrimeBusinessStatus): Handler {
+  requisite_response(status: PrimeBusinessStatus) {
+    assert(this.request_data);
+
+    const response: Record<string, any> = {
+      success: true,
+      result: 0,
+      status: 200,
+      token: this.token,
+      processingUrl:
+        "http://business:4000/checkout_results/JRsRm3qHUccmDGs2eqL81Gkb84Z6tYzs/processing",
+      payment: {
+        amount: this.request_data.amount,
+        currency: this.request_data.currency,
+        gateway_amount: this.request_data.amount,
+        gateway_currency: this.request_data.currency,
+        status,
+      },
+      card: {
+        name: common.fullName,
+        bank: common.bankName,
+        pan: common.visaCard,
+      },
+    };
+
+    return response;
+  }
+
+  h2h_create_handler(status: PrimeBusinessStatus): Handler {
     return async (c) =>
-      c.json(this.create_response(status, await c.req.json()));
+      c.json(this.h2h_create_response(status, await c.req.json()));
+  }
+
+  p2p_create_handler(): Handler {
+    return async (c) => c.json(this.p2p_create_response(await c.req.json()));
+  }
+
+  processing_requisite_handler(status: PrimeBusinessStatus): Handler {
+    return async (c) => c.json(this.requisite_response(status));
   }
 
   status_handler(_status: PrimeBusinessStatus): Handler {
@@ -140,7 +210,7 @@ export class ReactivepayTransaction {
 
   no_requisites_handler(): Handler {
     return async (c) =>
-      c.json(this.create_response("declined", await c.req.json()));
+      c.json(this.h2h_create_response("declined", await c.req.json()));
   }
 
   callback(status: PrimeBusinessStatus, signKey: string) {
@@ -195,32 +265,50 @@ export class ReactivepayTransaction {
     }).then(err_bad_status);
   }
 
-  static settings(secret: string) {
-    return {
-      class: "reactivepay",
+  settings(secret: string) {
+    this.secret = secret;
+    let settings = {
+      class: this.integration_type,
       token: secret,
       sign_key: secret,
       base_url: `http://host.docker.internal:${REACTIVEPAY_MOCK_PORT}`,
+      wrapped_to_json_response: true,
     };
+    if (this.integration_type === "reactivepay") {
+      return settings;
+    } else {
+      return {
+        ...settings,
+        p2p_payment: true,
+      };
+    }
   }
 
   static mock_params(secret: string): MockProviderParams {
     return {
       alias: REACTIVEPAY_MAPPING_KEY,
-      filter_fn: (req) => req.header("authorization") === `Bearer ${secret}`,
+      filter_fn: (req) => {
+        console.log({ path: req.path });
+        if (req.path.startsWith("/process/")) {
+          let path_secret = req.path.slice("/process/".length);
+          console.log({ path_secret });
+          return path_secret === secret;
+        }
+        return req.header("authorization") === `Bearer ${secret}`;
+      },
     };
   }
 }
 
 export function payinSuite(currency = "USD"): P2PSuite<ReactivepayTransaction> {
-  const gw = new ReactivepayTransaction();
+  const gw = new ReactivepayTransaction("reactivepay");
   return {
     type: "payin",
     gw,
     send_callback: async (status, secret) => {
       await gw.send_callback(status, secret);
     },
-    create_handler: (s) => gw.create_handler(s),
+    create_handler: (s) => gw.h2h_create_handler(s),
     mock_options: ReactivepayTransaction.mock_params,
     request: () => ({
       ...common.paymentRequest(currency),
@@ -255,8 +343,27 @@ export function payinSuite(currency = "USD"): P2PSuite<ReactivepayTransaction> {
       },
       extra_return_param: "VISA",
     }),
-    settings: (secret) =>
-      defaultSettings(currency, ReactivepayTransaction.settings(secret)),
+    settings: (secret) => defaultSettings(currency, gw.settings(secret)),
+    status_handler: (s) => gw.status_handler(s),
+    no_requisites_handler: () => gw.no_requisites_handler(),
+  };
+}
+
+export function p2pSuite(currency = "USD"): P2PSuite<ReactivepayTransaction> {
+  const gw = new ReactivepayTransaction("reactivepayp2p");
+  return {
+    type: "payin",
+    gw,
+    send_callback: async (status, secret) => {
+      await gw.send_callback(status, secret);
+    },
+    create_handler: (s) => gw.h2h_create_handler(s),
+    mock_options: ReactivepayTransaction.mock_params,
+    request: () => ({
+      ...common.p2pPaymentRequest(currency, "card"),
+      extra_return_param: "foobar",
+    }),
+    settings: (secret) => providers(currency, gw.settings(secret)),
     status_handler: (s) => gw.status_handler(s),
     no_requisites_handler: () => gw.no_requisites_handler(),
   };
