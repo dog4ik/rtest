@@ -1,7 +1,7 @@
 import * as encoding from "@std/encoding";
 import { authorize_client, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 export class FlexyGuardHarness {
   base_url: string;
@@ -51,7 +51,10 @@ export class FlexyGuardHarness {
     }).then(err_bad_status);
   }
 
-  async add_rule(payload: {}, comment = "Test comment", priority = 1) {
+  async add_rule(payload: Record<string, any>, comment = "Test comment", priority = 1) {
+    if (CONFIG.flexy_flexy && payload.header?.mid) {
+      payload.header.mid = +payload.header.mid;
+    }
     await this.action("/add", {
       comment,
       priority,

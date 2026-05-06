@@ -6,7 +6,7 @@ import * as forta from "@/provider_mocks/forta";
 import * as pixel from "@/provider_mocks/pixelwave";
 import * as argos from "@/provider_mocks/argos";
 import * as gatewayconnect from "@/provider_mocks/gateway_connect";
-import { CONFIG } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 import { describe } from "vitest";
 import * as common from "@/common";
 import * as playwright from "playwright";
@@ -22,6 +22,7 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 
+// Use status additional finalization handler for the last gateway in routing
 const use_status_handler = true;
 
 function gatewayConnectRoutingSuite(
@@ -119,8 +120,9 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
       c().map((link) => {
         // Gateway connect integrations fail with masked_provider setting
         if (
-          link.gw instanceof pixel.PixelwavePayment ||
-          link.gw instanceof gatewayconnect.GatewayConnectTransaction
+          (link.gw instanceof pixel.PixelwavePayment ||
+            link.gw instanceof gatewayconnect.GatewayConnectTransaction) &&
+          PROJECT != "spinpay"
         ) {
           return link;
         }
@@ -179,7 +181,9 @@ describe
     let req = () => ({ ...common.p2pPaymentRequest(CURRENCY, "card") });
     let check_merchant_requisites = (r: ProcessingUrlResponse) =>
       r.as_trader_requisites();
-    let check_missed_requisites = (r: ProcessingUrlResponse) => r.as_error();
+    let check_missed_requisites = async (r: ProcessingUrlResponse) => {
+      await r.as_error();
+    };
 
     let check_merchant_payform = async (page: playwright.Page) => {
       let payform = new SpinpayRequisitesPage(page);
