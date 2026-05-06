@@ -1,4 +1,5 @@
-import type { CreateTraderOptions } from "@/driver/core";
+import { CONFIG } from "@/config";
+import type { CreateSmsParser, CreateTraderOptions } from "@/driver/core";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
 import { RoutingBuilder } from "@/flexy_guard_builder";
@@ -66,7 +67,9 @@ export class Context {
       merchant.id,
       true,
     );
-    await this.state.core_db.set_force_password_change(merchant.id, false);
+    if (CONFIG.in_project(["reactivepay"])) {
+      await this.state.core_db.set_force_password_change(merchant.id, false);
+    }
     return merchant;
   }
 
@@ -97,13 +100,21 @@ export class Context {
   /**
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
-  async add_flexy_guard_rule(payload: {}, comment?: string, priority?: number) {
+  async add_flexy_guard_rule(payload: Record<string, any>, comment?: string, priority?: number) {
     this.story.add_chapter("Add flexy guard rule", payload);
     await this.shared_state().guard_service.add_rule(
       payload,
       comment,
       priority ?? 1,
     );
+  }
+
+  /**
+   * Create a new sms parser
+   */
+  async create_sms_parser(parser: CreateSmsParser) {
+    this.story.add_chapter("Add sms parser", parser);
+    await this.state.core_harness.add_sms_parser(parser);
   }
 
   /**

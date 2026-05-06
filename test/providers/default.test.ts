@@ -22,6 +22,15 @@ test.concurrent("default declined payin", async ({ ctx }) => {
   assert(response.payment.status == "declined");
 });
 
+test.concurrent("default declined payin (flexy)", async ({ ctx }) => {
+  let merchant = await ctx.create_random_merchant();
+  await merchant.set_settings(default_provider.fullSettings("RUB"));
+  let response = await merchant.create_payment(
+    default_provider.request("RUB", 12345, "pay", false),
+  );
+  assert(response.payment.status == "declined");
+});
+
 test.concurrent("default approved payout", async ({ ctx }) => {
   let merchant = await ctx.create_random_merchant();
 

@@ -24,6 +24,7 @@ const PaymentResponseSchema = z.object({
   status: z.int(),
   success: z.boolean(),
   token: z.string().length(32),
+  gateway_token: z.string().optional(),
 });
 
 export class PayinResponse {

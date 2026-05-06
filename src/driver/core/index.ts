@@ -23,8 +23,6 @@ export type CreateTrader = {
   telegram: string;
   currency: string;
   password: string;
-  main_address: string;
-  deposit_address: string;
   companyName: string;
   email: string;
   convert_to_usdt: boolean;
@@ -48,6 +46,7 @@ export type CreateSmsParser = {
   currency: string;
   pattern: string;
   payer_pattern?: string;
+  card_mask?: string;
   bank_id: string;
 };
 
@@ -199,8 +198,6 @@ export class CoreDriver {
       "trader[web_site]": params.telegram,
       "trader[temp_password]": params.password,
       "trader[payout_hold_period]": params.payout_hold_priod,
-      main_address: params.main_address,
-      deposit_address: params.deposit_address,
       white_list: "",
       min_limit: "",
       max_limit: "",
@@ -218,8 +215,6 @@ export class CoreDriver {
       email: `${uuid}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
       convert_to_usdt: opts?.usdt ?? true,
-      main_address: crypto.randomUUID(),
-      deposit_address: crypto.randomUUID(),
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: opts?.currency ?? "RUB",
@@ -293,6 +288,7 @@ export class CoreDriver {
     currency,
     pattern,
     payer_pattern,
+    card_mask,
     bank_id,
   }: CreateSmsParser) {
     let data = {
@@ -304,6 +300,7 @@ export class CoreDriver {
       "sms_parser[currency]": currency,
       "sms_parser[pattern]": pattern,
       "sms_parser[payer_pattern]": payer_pattern ?? "",
+      "sms_parser[card_mask]": card_mask ?? "",
       "sms_parser[bank_id]": bank_id,
       commit: "Create+a+new+sms+parser",
     };

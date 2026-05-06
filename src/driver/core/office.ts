@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
 import type { Requisite } from "../trader";
-import type { PrimeBusinessStatus } from "@/db/business";
 import { authorize_client, type Credentials } from "..";
 
 export type CreateMerchant = {
@@ -133,13 +131,12 @@ export class CoreOfficeDriver {
     }
     const form = {
       utf8: "✓",
-      authenticity_token: "TODO",
-      email: credentials.login,
-      password: credentials.password,
+      "signin[email]": credentials.login,
+      "signin[password]": credentials.password,
       commit: "Login",
     };
 
-    await this.action("/sessions", form);
+    await this.action("/auth/login", form);
   }
 
   async create_settlment(currency: string, amount: number) {
