@@ -255,7 +255,7 @@ for (const usdt of [true, false]) {
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
-          let converted_amount = common.amount / (usdt ? 78.01 : 1);
+          let converted_amount = common.amount / (usdt ? 74.01 : 1);
           await setup_merchant(merchant, trader.id);
           if (usdt) {
             await merchant.cashin(
@@ -499,3 +499,47 @@ test
       await approve_notification;
     }),
   );
+
+test.todo("card payin randomizer", ({ ctx, merchant }) =>
+  ctx.track_bg_rejections(async () => {
+    let trader = await ctx.create_random_trader({
+      usdt: true,
+      currency: "RUB",
+    });
+    merchant.set_commission({ operation: "PayinRequest" });
+    await trader.setup({ card: true, bank: "sberbank" });
+    let transactions_amount = 6;
+    await trader.cashin("main", "USDT", 1000000);
+    let settings = traderSetttings([trader.id]);
+    let trader_block = settings.gateways["trader"] as Record<string, any>;
+    trader_block["random_range"] = [10_00, 20_00];
+    trader_block["random_retries"] = 5;
+    trader_block["random_step"] = 1_00;
+    await merchant.set_settings(settings);
+    let tokens: string[] = [];
+    let notifications: any[] = [];
+    for (let _ of [...new Array(transactions_amount)]) {
+      let res = await merchant
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: 100_00,
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+      assert(res.card, "card filed should not be empty");
+      assert.strictEqual(res.card.pan, common.visaCard);
+      assert.strictEqual(res.card.bank, "sberbank");
+      assert.strictEqual(res.card.name, common.fullName);
+      notifications.push(
+        merchant.queue_notification((cb) => {
+          assert.strictEqual(cb.status, "approved");
+        }),
+      );
+      tokens.push(res.token);
+    }
+    for (let token of tokens) {
+      await trader.finalizeTransaction(token, "approved");
+    }
+    await Promise.all(notifications);
+  }),
+);

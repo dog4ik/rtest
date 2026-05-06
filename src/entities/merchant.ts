@@ -19,6 +19,7 @@ import { RefundResponse } from "./payment/refund_response";
 import { DisputeResponse } from "./payment/dispute_response";
 import type { PrimeBusinessStatus } from "@/db/business";
 import { assert } from "vitest";
+import { delay } from "@std/async";
 
 export type DisputeRequest = {
   token: string;
@@ -159,6 +160,9 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     let res = await make_request("/api/v1/refunds", request).then(
       async (r) => new RefundResponse(ctx, r, await r.json()),
     );
+    try {
+      ctx.annotate(`Created refund: ${res.as_ok().refund.token}`);
+    } catch {}
     return res;
   }
 
@@ -221,6 +225,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   type NotificationHandlerOptions = {
     skip_healthcheck?: boolean;
     skip_signature_check?: boolean;
+    timeout?: number;
   } & HealthcheckOpts;
 
   /**
@@ -250,7 +255,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
           let hc = await basic_healthcheck(
             { business_db, core_db },
             callback.token,
-            { skip_interaction_log_card_check: options?.skip_interaction_log_card_check },
+            {
+              skip_interaction_log_card_check:
+                options?.skip_interaction_log_card_check,
+            },
           );
           console.log(hc.toString());
           hc.assert();
@@ -265,17 +273,33 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         return c.json({ message: "Notification handler error", error });
       }
     });
-    return promise;
+
+    if (options?.timeout) {
+      let cancelled = false;
+      let racing = delay(options.timeout).then(() => {
+        if (!cancelled) {
+          assert.fail(
+            `Merchant notification timed out, timeout ${options.timeout}`,
+          );
+        }
+      });
+
+      return Promise.race([racing, promise.finally(() => (cancelled = true))]);
+    } else {
+      return promise;
+    }
   }
 
-  function queue_refund_or_pay_notifictation(refund_status: PrimeBusinessStatus) {
+  function queue_refund_or_pay_notifictation(
+    refund_status: PrimeBusinessStatus,
+  ) {
     let got_refund = false;
     function handle(notification: Notification) {
       assert.ok(
         ["pay", "refund"].includes(notification.type),
         `Unexpected notification type: ${notification.type}`,
       );
-        if (notification.type === "refund") {
+      if (notification.type === "refund") {
         assert.ok(!got_refund, "Duplicate refund notification");
         got_refund = true;
         assert.strictEqual(notification.status, refund_status);
@@ -283,7 +307,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         assert.strictEqual(notification.status, "refunded");
       }
     }
-    return Promise.all([queue_notification(handle), queue_notification(handle)]);
+    return Promise.all([
+      queue_notification(handle),
+      queue_notification(handle),
+    ]);
   }
 
   async function set_commission(rule?: Partial<CreateRuleFormData>) {

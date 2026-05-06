@@ -11,6 +11,8 @@ import { assert } from "vitest";
 import type { Context } from "@/test_context/context";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { TestCaseBase } from "@/suite_interfaces";
+import { z } from "zod";
+import { err_bad_status } from "@/fetch_utils";
 
 const BANKLIST = [
   "sberbank",
@@ -90,6 +92,17 @@ function createMiddleware(api_key: string): Middleware {
     },
   };
 }
+
+const SmsResponseSchema = z.object({
+  card: z.string().nullish(),
+  currency: z.string(),
+  delivery_time: z.string(),
+  from: z.string(),
+  original_text: z.string(),
+  payer: z.string().nullish(),
+  transaction_amount: z.number().nullish(),
+  uuid: z.uuid(),
+});
 
 type CreateProfilePayload = {
   bank: Bank | {};
@@ -215,14 +228,18 @@ export class TraderDriver {
     let body = JSON.stringify(payload_with_time);
     this.ctx.story.add_chapter("Send sms", payload_with_time);
     console.log("Cerate sms body", body);
-    return await fetch("http://localhost:5070", {
+    let sms_res = await fetch("http://localhost:5070", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-api-key": this.session_token,
       },
       body,
-    }).then((r) => r.json());
+    })
+      .then(err_bad_status)
+      .then((r) => r.json());
+    this.ctx.story.add_chapter("Sms response", sms_res as Record<string, any>);
+    return { as_parsed: () => SmsResponseSchema.parse(sms_res), res: sms_res };
   }
 
   async approve_transaction(feed_id: number) {
