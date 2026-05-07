@@ -5,10 +5,11 @@ import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Context } from "@/test_context/context";
+import { CONFIG } from "@/config";
 
 const TRADER_DELAY = 5_000;
 
-describe.concurrent("commission healthcheck payins", () => {
+describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("commission healthcheck payins", () => {
   const AMOUNT = 100_000;
   const AMOUNT_RUB = AMOUNT / 100; // 1000 RUB
   const SELF_RATE = 0.1; // 10%
