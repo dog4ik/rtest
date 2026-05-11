@@ -1,6 +1,5 @@
 import { EntryCodes, type Entry } from "@/db/core/entry";
 import { Match } from ".";
-import type { OperationType } from "@/db/business";
 import { CoreStatusMap, type CoreStatus, type FeedType } from "@/db/core";
 
 /**
@@ -191,12 +190,18 @@ export class EntryValidator {
           this.current_available,
         );
         hold_match = new Match(0, this.current_hold);
-      } else if (
-        status === CoreStatusMap.declined ||
-        status === CoreStatusMap.init
-      ) {
+      } else if (status === CoreStatusMap.declined) {
         available_match = new Match(0, this.current_available);
         hold_match = new Match(0, this.current_hold);
+      } else if (status === CoreStatusMap.init) {
+        available_match = new Match(
+          -target_amount - commission_amount,
+          this.current_available,
+        );
+        hold_match = new Match(
+          target_amount + commission_amount,
+          this.current_hold,
+        );
       } else {
         throw Error(`Unexpected refund status: ${status}`);
       }
@@ -218,7 +223,7 @@ export class EntryValidator {
 
     if (type === "PayinRequest") {
       let available_match =
-        status === CoreStatusMap.approved
+        status === CoreStatusMap.approved || status === CoreStatusMap.init
           ? new Match(-target_amount, this.current_available)
           : new Match(0, this.current_available);
 

@@ -5,6 +5,7 @@ import { CoreDb, type CoreStatus, type Feed } from "@/db/core";
 import type { Entry } from "@/db/core/entry";
 import type { SharedState } from "@/state";
 import { EntryValidator, BalanceValidation } from "./entries";
+import { delay } from "@std/async";
 
 export class Match<T> {
   constructor(
@@ -118,6 +119,7 @@ export async function basic_healthcheck(
   token: string,
   opts?: HealthcheckOpts,
 ) {
+  await delay(1_000);
   let [business, interaction_logs, core, entries] = await Promise.all([
     business_db.paymentByToken(token),
     business_db.interactionLogs(token),
@@ -157,7 +159,7 @@ export async function basic_healthcheck(
   }
 
   if (opts?.expect) {
-    for (let [key, val] of Object.keys(opts.expect)) {
+    for (let [key, val] of Object.entries(opts.expect)) {
       assert.strictEqual(
         core[key as keyof Feed],
         val,
