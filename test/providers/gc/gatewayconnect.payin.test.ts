@@ -28,6 +28,7 @@ let MAP: Record<GcRequisiteType, string> = {
   link: "sbp_aquiring",
   deeplink: "sbp_aquiring",
   tpay: "tpay",
+  tpay_qr_data: "tpay",
 };
 
 let providersP2PSuite = () => providersSuite("RUB", payinSuite());
@@ -91,6 +92,22 @@ dataFlowTest(
   "tpay 8pay",
   {
     ...requisitesP2PSuite("tpay"),
+    request: () => common.p2pPaymentRequest("RUB", "tpay"),
+    async check_merchant_response({ processing_response, create_response }) {
+      let json = (await processing_response?.as_raw_json()) as any;
+      assert.isNotEmpty(json.link?.deeplink);
+      assert.isNotEmpty(json.deeplink);
+      assert.strictEqual(json.name_seller, common.fullName);
+      assert.strictEqual(json.id, create_response.token);
+    },
+  },
+  { skip_if: !CONFIG.in_project("8pay") },
+);
+
+dataFlowTest(
+  "tpay_qr_data 8pay",
+  {
+    ...requisitesP2PSuite("tpay_qr_data"),
     request: () => common.p2pPaymentRequest("RUB", "tpay"),
     async check_merchant_response({ processing_response, create_response }) {
       let json = (await processing_response?.as_raw_json()) as any;
@@ -269,6 +286,20 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
       });
     },
   });
+
+  payformDataFlowTest("tpay_qr_data", {
+    ...methodPayformSuite("tpay_qr_data", "tpay"),
+    request: () => common.p2pPaymentRequest("RUB", "tpay"),
+    check_pf_page: async (page) => {
+      let form = new EightpayTpayQrForm(page, "android");
+      await form.validateRequisites({
+        amount: common.amount,
+        bank: common.bankName,
+        name: common.fullName,
+        number: common.phoneNumber,
+      });
+    },
+  });
 });
 
 describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
@@ -279,6 +310,7 @@ describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
       link: "link",
       sbp: "sbp",
       tpay: "link",
+      tpay_qr_data: "link",
     };
     let suite = payinSuite();
     return providersSuite("RUB", {
@@ -909,11 +941,11 @@ describe.concurrent("gateway connect refund", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider
-        .queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
-      let status_request = provider
-        .queue(suite.gw.status_handler("approved"));
+      let status_request = provider.queue(suite.gw.status_handler("approved"));
 
       let response = await merchant.create_payment(suite.request());
       let token = response.token;
@@ -930,7 +962,8 @@ describe.concurrent("gateway connect refund", () => {
       );
 
       provider.queue(suite.gw.refund_handler("approved"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved");
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("approved");
 
       await merchant.create_refund({ token, amount: common.amount });
 

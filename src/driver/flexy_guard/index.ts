@@ -52,7 +52,7 @@ export class FlexyGuardHarness {
   }
 
   async add_rule(payload: Record<string, any>, comment = "Test comment", priority = 1) {
-    if (CONFIG.flexy_flexy && payload.header?.mid) {
+    if (CONFIG.flexy_flexy && payload.header?.mid && typeof payload.header.mid === "string") {
       payload.header.mid = +payload.header.mid;
     }
     await this.action("/add", {

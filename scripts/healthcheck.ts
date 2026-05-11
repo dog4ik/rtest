@@ -30,3 +30,5 @@ let business_db = new BusinessDb(
 let token = await prompt_token();
 let hc = await basic_healthcheck({ core_db, business_db }, token);
 hc.assert();
+
+process.exit(0);

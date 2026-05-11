@@ -8,7 +8,7 @@ import {
 } from "./merchant_notification";
 import type { HttpContext } from "@/mock_server/api";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
-import { basic_healthcheck, type HealthcheckOpts } from "@/healthcheck";
+import { type HealthcheckOpts } from "@/healthcheck";
 import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { Context } from "@/test_context/context";
 import { constructCurlRequest, CurlBuilder } from "@/story/curl";
@@ -49,7 +49,6 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   let {
     core_db,
     settings_db,
-    business_db,
     core_harness,
     settings_service,
     business_url,
@@ -247,21 +246,8 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         if (options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
         }
-        if (
-          !options?.skip_healthcheck &&
-          ["pay", "payout"].includes(callback.type) &&
-          !["refunded"].includes(callback.status)
-        ) {
-          let hc = await basic_healthcheck(
-            { business_db, core_db },
-            callback.token,
-            {
-              skip_interaction_log_card_check:
-                options?.skip_interaction_log_card_check,
-            },
-          );
-          console.log(hc.toString());
-          hc.assert();
+        if (!options?.skip_healthcheck) {
+          await ctx.healthcheck(callback.token, options);
         } else {
           console.log("Skipping transaction healthcheck");
         }

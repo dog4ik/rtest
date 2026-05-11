@@ -24,8 +24,8 @@ export async function initState(config: Config) {
   console.log("Initiating state", config);
   let p = config.project;
   let business_url = "http://localhost:4000";
-  let core_harness = new CoreDriver("http://localhost:3000");
   let project_dir = new ProjectDir(config);
+  let core_harness = new CoreDriver("http://localhost:3000", project_dir.dockerComposePath());
 
   let credentials = projectCredentials(config);
 

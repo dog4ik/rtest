@@ -1,10 +1,10 @@
 import { assert } from "vitest";
 import * as common from "@/common";
-import { businessOfCoreStatus, type BusinessPayment } from "@/db/business";
+import { businessOfCoreStatus } from "@/db/business";
 import { CoreDb, type CoreStatus, type Feed } from "@/db/core";
 import type { Entry } from "@/db/core/entry";
 import type { SharedState } from "@/state";
-import { EntryValidator, ValidationSummary } from "./entries";
+import { EntryValidator, BalanceValidation } from "./entries";
 
 export class Match<T> {
   constructor(
@@ -29,17 +29,25 @@ class HealthcheckResult {
   constructor(
     public status: Match<CoreStatus>,
     public amount: Match<number>,
-    public midWalletValidation: ValidationSummary,
-    public traderWalletValidation: ValidationSummary | undefined,
+    public wallet_state: WalletState,
+    public disputes?: WalletState[],
   ) {}
+
+  static is_valid_wallet_state(state: WalletState) {
+    return (
+      state.mid.valid() &&
+      (state.trader == undefined ||
+        (state.trader.main.valid() && state.trader.income.valid()))
+    );
+  }
 
   assert() {
     if (
       !this.status.eq() ||
       !this.amount.eq() ||
-      !this.midWalletValidation.valid() ||
-      (this.traderWalletValidation !== undefined &&
-        !this.midWalletValidation.valid())
+      !HealthcheckResult.is_valid_wallet_state(this.wallet_state) ||
+      (this.disputes &&
+        this.disputes.some((d) => !HealthcheckResult.is_valid_wallet_state(d)))
     ) {
       assert.fail(this.toString());
     }
@@ -58,21 +66,29 @@ class HealthcheckResult {
     lines.push("Entries");
     lines.push("");
 
-    if (this.midWalletValidation instanceof Error) {
-      lines.push(
-        `Failed to validate mid entries: ${this.midWalletValidation.message}`,
-      );
-    } else {
-      lines.push("Merchant balance entries:");
-      lines.push(this.midWalletValidation.toString());
-      lines.push("");
-    }
+    lines.push("Merchant balance entries:");
+    lines.push(this.wallet_state.mid.toString());
+    lines.push("");
 
-    if (this.traderWalletValidation === undefined) {
+    if (this.wallet_state.trader === undefined) {
       lines.push(`Failed to validate trader entries: missing trader_id`);
     } else {
-      lines.push("Trader balance entries:");
-      lines.push(this.traderWalletValidation.toString());
+      lines.push("Trader balance main entries:");
+      lines.push(this.wallet_state.trader.main.toString());
+      lines.push("Trader balance income entries:");
+      lines.push(this.wallet_state.trader.income.toString());
+
+      lines.push(`Dispute entries:\n`);
+      for (let dispute of this.disputes ?? []) {
+        lines.push(`Dispute mid entries:`);
+        lines.push(dispute.mid.toString());
+
+        lines.push(`Dispute trader main entries:`);
+        lines.push(dispute.trader!.main.toString());
+
+        lines.push(`Dispute trader income entries:`);
+        lines.push(dispute.trader!.income.toString());
+      }
     }
 
     return lines.join("\n");
@@ -81,7 +97,21 @@ class HealthcheckResult {
 
 export type HealthcheckOpts = {
   skip_interaction_log_card_check?: boolean;
+  expect?: Partial<Feed>;
 };
+
+function check_sensitive_data(s: string | null, msg: string) {
+  if (s !== null) {
+    assert.notInclude(s, common.visaCard, msg);
+    assert.notInclude(s, common.mastercardCard, msg);
+  }
+}
+
+function feed_profile(feed: Feed) {
+  if (feed.type == "RefundRequest") {
+    return feed.from_profile_id;
+  }
+}
 
 export async function basic_healthcheck(
   { core_db, business_db }: Pick<SharedState, "core_db" | "business_db">,
@@ -94,34 +124,29 @@ export async function basic_healthcheck(
     core_db.feed(token),
     core_db.entries(token),
   ]);
-  let checkSensitiveData = (s: string | null, msg: string) => {
-    if (s !== null) {
-      assert.notInclude(s, common.visaCard, msg);
-      assert.notInclude(s, common.mastercardCard, msg);
-    }
-  };
+
   if (!opts?.skip_interaction_log_card_check) {
     for (let log of interaction_logs) {
-      checkSensitiveData(log.request, "interaction_logs.request");
-      checkSensitiveData(log.response, "interaction_logs.response");
+      check_sensitive_data(log.request, "interaction_logs.request");
+      check_sensitive_data(log.response, "interaction_logs.response");
     }
   }
-  checkSensitiveData(JSON.stringify(business.details), "payments.details");
-  checkSensitiveData(
+  check_sensitive_data(JSON.stringify(business.details), "payments.details");
+  check_sensitive_data(
     JSON.stringify(business.gateway_details),
     "payments.gateway_details",
   );
-  checkSensitiveData(
+  check_sensitive_data(
     JSON.stringify(core.payment_object),
     "feeds.payment_object",
   );
-  checkSensitiveData(
+  check_sensitive_data(
     JSON.stringify(core.payment_object_json),
     "feeds.payment_object_json",
   );
 
   assert.isNotNull(core.target_amount, "target amount should not be null");
-  assert(core.target_amount > 0, "target amount should not be 0");
+  assert(core.target_amount > 0, "target amount should be > 0");
   if (core.target_currency_rate !== null) {
     assert.approximately(
       core.target_amount,
@@ -131,64 +156,110 @@ export async function basic_healthcheck(
     );
   }
 
+  if (opts?.expect) {
+    for (let [key, val] of Object.keys(opts.expect)) {
+      assert.strictEqual(
+        core[key as keyof Feed],
+        val,
+        `expected ${key} equality`,
+      );
+    }
+  }
+
   let status = new Match(core.status, businessOfCoreStatus(business.status));
   let amount = new Match(core.amount, business.amount / 100);
+  let mid_id = business.business_account_profileID ?? feed_profile(core);
+  assert(mid_id, "Failed to figure out mid id to perform healthcheck");
+  let disputes_validations: WalletState[] = [];
+  if (core.trader_id && core.type == "PayinRequest") {
+    assert(
+      core.api_payment_token,
+      "trader payin should have api_payment_token",
+    );
+    let disputes = await core_db.disputes(core.api_payment_token);
+    for (let dispute of disputes) {
+      disputes_validations.push(
+        await validate_wallets_state(core_db, dispute, mid_id),
+      );
+    }
+  }
 
   let mid_wallet_validation = await validate_mid_wallets(
     core_db,
-    business,
+    mid_id,
     core,
     entries,
   );
   let trader_wallet_validation = await validate_trader_wallets(
     core_db,
-    business,
     core,
     entries,
   );
   return new HealthcheckResult(
     status,
     amount,
-    mid_wallet_validation,
-    trader_wallet_validation,
+    { mid: mid_wallet_validation, trader: trader_wallet_validation },
+    disputes_validations,
   );
+}
+
+type WalletState = {
+  mid: BalanceValidation;
+  trader?: {
+    main: BalanceValidation;
+    income: BalanceValidation;
+  };
+};
+
+async function validate_wallets_state(
+  core_db: CoreDb,
+  feed: Feed,
+  profile_id: number,
+): Promise<WalletState> {
+  let entries = await core_db.entries_by_feed_id(feed.id);
+
+  let mid_wallet_validation = await validate_mid_wallets(
+    core_db,
+    profile_id,
+    feed,
+    entries,
+  );
+  let trader_wallet_validation = await validate_trader_wallets(
+    core_db,
+    feed,
+    entries,
+  );
+  return {
+    mid: mid_wallet_validation,
+    trader: trader_wallet_validation,
+  };
 }
 
 async function validate_mid_wallets(
   core_db: CoreDb,
-  payment: BusinessPayment,
+  mid_id: number,
   feed: Feed,
   entries: Entry[],
 ) {
-  let mid_id = payment.business_account_profileID;
-  if (!mid_id) {
-    throw Error("Missing business_account_profileID");
-  }
-  let operation_type = payment.operation_type;
-  if (!operation_type) {
-    throw Error("Missing operation type");
-  }
-  let wallets = await core_db.profileWallets(mid_id);
-  let wallet = wallets.find(
-    (w) =>
-      w.currency == (feed.target_currency || feed.currency || payment.currency),
-  );
+  let currency = feed.target_currency ?? feed.currency;
+
+  let wallets = await core_db.profileWallets(mid_id, currency ?? undefined);
+  let wallet = wallets.find((w) => w.currency === currency);
   let validator = new EntryValidator(wallet?.id ?? 0);
   for (let entry of entries) {
-    validator.feedEntryMimicRuby(entry);
+    validator.feed_entry_mimic_ruby(entry);
   }
 
-  return validator.validateMidState(
+  return validator.validate_mid_state(
     feed.target_amount || feed.amount,
     feed.commission_amount || 0,
-    operation_type,
+    feed.type,
     feed.status,
   );
 }
 
 async function validate_trader_wallets(
   client: CoreDb,
-  payment: BusinessPayment,
   feed: Feed,
   entries: Entry[],
 ) {
@@ -196,31 +267,36 @@ async function validate_trader_wallets(
   if (!trader_id) {
     return undefined;
   }
-  let operation_type = payment.operation_type;
-  if (!operation_type) {
-    throw Error("Missing operation_type");
-  }
   let wallets = await client.profileWallets(trader_id);
+  assert.lengthOf(wallets, 3, "trader should have 3 wallets");
 
-  // todo: validate income wallet
   let main_wallet = wallets.reduce((min, item) =>
     item.id < min.id ? item : min,
   );
   let profit_wallet = wallets.reduce((max, item) =>
     item.id > max.id ? item : max,
   );
-  if (!main_wallet) {
-    throw Error("failed to find wallet with minimum id");
+
+  if (!main_wallet || !profit_wallet) {
+    throw Error("failed to find wallet trader wallets");
   }
 
-  let validator = new EntryValidator(main_wallet.id);
+  let main_validator = new EntryValidator(main_wallet.id);
+  let profit_validator = new EntryValidator(profit_wallet.id);
   for (let entry of entries) {
-    validator.feedEntryMimicRuby(entry);
+    main_validator.feed_entry_mimic_ruby(entry);
+    profit_validator.feed_entry_mimic_ruby(entry);
   }
-  return validator.validateTraderState(
+  let main = main_validator.validate_trader_main_state(
     feed.target_amount || feed.amount,
-    0.0,
-    operation_type,
+    feed.type,
     feed.status,
   );
+
+  let income = profit_validator.validate_trader_profit_state(
+    feed.commission_provider_amount ?? 0,
+    feed.type,
+    feed.status,
+  );
+  return { main, income };
 }

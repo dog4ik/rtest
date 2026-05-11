@@ -107,6 +107,11 @@ describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
     default_provider.payinSuite(),
   );
 
+  testHeaderMatch(
+    (mid) => ({ mid, amount: {  gt: 1000, lt: common.amount + 1 } }),
+    default_provider.payinSuite(),
+  );
+
   testHeaderMiss(
     (mid) => ({ mid, amount: { range: [100, 2000] } }),
     default_provider.payinSuite(),

@@ -33,6 +33,8 @@ export function businessOfCoreStatus(status: BusinessStatus): CoreStatus {
     return CoreStatusMap.approved;
   } else if ((["declined", "expired"] as BusinessStatus[]).includes(status)) {
     return CoreStatusMap.declined;
+  } else if (status === "refunded") {
+    return CoreStatusMap.refunded;
   } else {
     throw Error(`Unhandled business status: ${status}`);
   }
@@ -73,7 +75,8 @@ export const BusinessInteractionLog = z.object({
   request: z.string().nullable(),
   response: z.string().nullable(),
   duration: z.string().nullable(),
-  status: z.coerce.number().nullable(),
+  // status is not guaranteed to be a number, disputes show status as a string
+  status: z.coerce.string(),
   direction: z.enum(["in", "out"]),
 });
 

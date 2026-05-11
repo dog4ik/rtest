@@ -15,6 +15,7 @@ export const CoreStatusMap = {
   init: 0,
   approved: 1,
   declined: 2,
+  refunded: 4,
 } as const;
 
 export type CoreStatus = z.infer<typeof CoreStatusSchema>;
@@ -97,7 +98,9 @@ const FeedFields = {
   created_at: z.date(),
   updated_at: z.date(),
   commission_amount: z.float64().nullable(),
+  commission_fee: z.float64().nullable(),
   commission_provider_amount: z.float64().nullable(),
+  commission_provider_fee: z.float64().nullable(),
 };
 
 export const FeedSchema = z.object(FeedFields);
@@ -188,6 +191,16 @@ JOIN wallet_requests ON wallet_requests.feed_id = feeds.id \
 JOIN entries ON entries.wallet_request_id = wallet_requests.id";
 
     let query = `${entrySelect} where feeds.api_payment_token = '${token}' order by entries.created_at desc`;
+    return await this.fetch_all(EntrySchema, query);
+  }
+
+  async entries_by_feed_id(id: number) {
+    let entrySelect =
+      "SELECT entries.amount, entries.operation_code, entries.debit_wallet_id, entries.credit_wallet_id, entries.created_at FROM feeds \
+JOIN wallet_requests ON wallet_requests.feed_id = feeds.id \
+JOIN entries ON entries.wallet_request_id = wallet_requests.id";
+
+    let query = `${entrySelect} where feeds.id = '${id}' order by entries.created_at desc`;
     return await this.fetch_all(EntrySchema, query);
   }
 

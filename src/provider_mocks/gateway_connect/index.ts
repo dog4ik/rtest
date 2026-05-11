@@ -18,7 +18,7 @@ import { PayoutRequestSchema } from "./payout";
 import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
 
-export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink";
+export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink" | "tpay_qr_data";
 
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
@@ -273,7 +273,10 @@ export class GatewayConnectTransaction {
             requisites["link"] = common.redirectPayUrl;
             // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
             // Отсавлю так чтобы его интеграция не померла.
-            requisites["deeplink"] = "https://duckduckgo.com";
+            requisites["deeplink"] = true;
+          } else if (requisite_type === "tpay_qr_data") {
+            requisites["qr_data"] = common.redirectPayUrl;
+            requisites["deeplink"] = true;
           }
         }
       }

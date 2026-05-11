@@ -86,6 +86,23 @@ export class FlexyCommission {
     await this.action("/rules", { ...INITIALIZED_RULE, ...data });
   }
 
+  private async add_as_json(data: Partial<CreateRuleFormData>) {
+    let rule = {
+      header: {
+        currency: data.currency,
+        type: data.operation,
+        source: data.source,
+      },
+      body: {
+        self: { rate: data.self_rate },
+        provider: { rate: "0.005" },
+        agent: { rate: "0.002" },
+      },
+    };
+
+    await this.action("/add", {});
+  }
+
   async remove(hash: string) {
     await this.action("/update", {
       hash,

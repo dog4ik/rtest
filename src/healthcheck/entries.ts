@@ -1,7 +1,7 @@
 import { EntryCodes, type Entry } from "@/db/core/entry";
 import { Match } from ".";
 import type { OperationType } from "@/db/business";
-import { CoreStatusMap, type CoreStatus } from "@/db/core";
+import { CoreStatusMap, type CoreStatus, type FeedType } from "@/db/core";
 
 /**
  * Target wallet id, basically wallet id for the entity we calculate amount changes.
@@ -10,24 +10,24 @@ export class EntryValidator {
   private readonly wallet_id: number;
 
   // trackers
-  private current_amount: number;
+  private current_available: number;
   private current_hold: number;
 
   constructor(walletId: number) {
     this.wallet_id = walletId;
-    this.current_amount = 0;
+    this.current_available = 0;
     this.current_hold = 0;
   }
 
   /**
    * Mimic ruby implementation of entries.
    */
-  feedEntryMimicRuby(entry: Entry): void {
+  feed_entry_mimic_ruby(entry: Entry): void {
     switch (entry.operation_code) {
       case EntryCodes.CASHIN:
       case EntryCodes.TRADER_CASHIN:
         if (entry.credit_wallet_id === this.wallet_id) {
-          this.current_amount += entry.amount;
+          this.current_available += entry.amount;
         }
         break;
 
@@ -35,7 +35,7 @@ export class EntryValidator {
       case EntryCodes.TRADER_HOLD:
       case EntryCodes.HOLD_COMMISSION:
         if (entry.debit_wallet_id === this.wallet_id) {
-          this.current_amount -= entry.amount;
+          this.current_available -= entry.amount;
           this.current_hold += entry.amount;
         }
         break;
@@ -44,7 +44,7 @@ export class EntryValidator {
       case EntryCodes.TRADER_CANCELLATION:
       case EntryCodes.CANCELLATION_COMMISSION_FROM_HOLD:
         if (entry.debit_wallet_id === this.wallet_id) {
-          this.current_amount += entry.amount;
+          this.current_available += entry.amount;
           this.current_hold -= entry.amount;
         }
         break;
@@ -55,16 +55,16 @@ export class EntryValidator {
       case EntryCodes.AGENT_COMMISSION_RETURN:
         // TODO: all these calculation should be performed on rational numbers
         if (this.wallet_id === entry.debit_wallet_id) {
-          this.current_amount -= entry.amount;
+          this.current_available -= entry.amount;
         }
         if (this.wallet_id === entry.credit_wallet_id) {
-          this.current_amount += entry.amount;
+          this.current_available += entry.amount;
         }
         break;
 
       case EntryCodes.CUSTOMER_COMMISSION:
         if (entry.credit_wallet_id === this.wallet_id) {
-          this.current_amount += entry.amount;
+          this.current_available += entry.amount;
         }
         break;
 
@@ -75,7 +75,7 @@ export class EntryValidator {
           this.current_hold -= entry.amount;
         }
         if (this.wallet_id === entry.credit_wallet_id) {
-          this.current_amount += entry.amount;
+          this.current_available += entry.amount;
         }
         break;
 
@@ -85,7 +85,7 @@ export class EntryValidator {
           this.current_hold += entry.amount;
         }
         if (this.wallet_id === entry.credit_wallet_id) {
-          this.current_amount -= entry.amount;
+          this.current_available -= entry.amount;
         }
         break;
 
@@ -112,7 +112,7 @@ export class EntryValidator {
       {
         created_at: entry.created_at,
         amount: entry.amount,
-        state_amount: this.current_amount,
+        state_amount: this.current_available,
         state_hold: this.current_hold,
       },
       `${entry.operation_code} ${entry.debit_wallet_id} -> ${entry.credit_wallet_id}`,
@@ -120,83 +120,187 @@ export class EntryValidator {
   }
 
   getCurrentAmount(): number {
-    return this.current_amount;
+    return this.current_available;
   }
 
   getCurrentHold(): number {
     return this.current_hold;
   }
 
-  validateMidState(
+  validate_mid_state(
     target_amount: number,
     commission_amount: number,
-    operation_type: OperationType,
+    type: FeedType,
     status: CoreStatus,
-  ): ValidationSummary {
+  ): BalanceValidation {
     console.log({ wallet_id: this.wallet_id }, "Validating merchant entries");
 
-    if (operation_type === "pay") {
+    if (type === "PayinRequest") {
       let available_match =
-        status === CoreStatusMap.approved
-          ? new Match(target_amount - commission_amount, this.current_amount)
-          : new Match(0, this.current_amount);
+        status === CoreStatusMap.approved || status === CoreStatusMap.refunded
+          ? new Match(target_amount - commission_amount, this.current_available)
+          : new Match(0, this.current_available);
 
       let hold_match = new Match(0, this.current_hold);
 
-      return new ValidationSummary(available_match, hold_match);
-    } else if (operation_type === "payout") {
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "PayoutRequest") {
       let available_match =
         status === CoreStatusMap.init || status === CoreStatusMap.approved
-          ? new Match(-target_amount - commission_amount, this.current_amount)
-          : new Match(0, this.current_amount);
+          ? new Match(
+              -target_amount - commission_amount,
+              this.current_available,
+            )
+          : new Match(0, this.current_available);
 
       let hold_match =
         status === CoreStatusMap.init
           ? new Match(target_amount + commission_amount, this.current_hold)
           : new Match(0, this.current_hold);
 
-      return new ValidationSummary(available_match, hold_match);
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "DisputeRequest") {
+      let available_match: Match<number>;
+      let hold_match: Match<number>;
+      if (status === CoreStatusMap.approved) {
+        available_match = new Match(
+          target_amount - commission_amount,
+          this.current_available,
+        );
+        hold_match = new Match(0, this.current_hold);
+      } else if (status === CoreStatusMap.declined) {
+        available_match = new Match(0, this.current_available);
+        hold_match = new Match(0, this.current_hold);
+      } else if (status === CoreStatusMap.init) {
+        available_match = new Match(0, this.current_available);
+        hold_match = new Match(
+          -target_amount - commission_amount,
+          this.current_hold,
+        );
+      } else {
+        throw Error(`Unexpected dispute status: ${status}`);
+      }
+
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "RefundRequest") {
+      let available_match: Match<number>;
+      let hold_match: Match<number>;
+      if (status === CoreStatusMap.approved) {
+        available_match = new Match(
+          -target_amount - commission_amount,
+          this.current_available,
+        );
+        hold_match = new Match(0, this.current_hold);
+      } else if (
+        status === CoreStatusMap.declined ||
+        status === CoreStatusMap.init
+      ) {
+        available_match = new Match(0, this.current_available);
+        hold_match = new Match(0, this.current_hold);
+      } else {
+        throw Error(`Unexpected refund status: ${status}`);
+      }
+      return new BalanceValidation(available_match, hold_match);
     } else {
-      throw new Error(`Validation of ${operation_type} is not yet implemented`);
+      throw new Error(`Validation of ${type} is not yet implemented`);
     }
   }
 
-  validateTraderState(
+  validate_trader_main_state(
     target_amount: number,
-    trader_commission: number,
-    operation_type: OperationType,
+    type: FeedType,
     status: CoreStatus,
-  ): ValidationSummary {
-    console.log({ wallet_id: this.wallet_id }, "Validating trader entries");
+  ): BalanceValidation {
+    console.log(
+      { wallet_id: this.wallet_id },
+      "Validating trader main entries",
+    );
 
-    if (operation_type === "pay") {
+    if (type === "PayinRequest") {
       let available_match =
         status === CoreStatusMap.approved
-          ? new Match(-target_amount, this.current_amount)
-          : new Match(0, this.current_amount);
+          ? new Match(-target_amount, this.current_available)
+          : new Match(0, this.current_available);
 
       let hold_match =
         status === CoreStatusMap.init
           ? new Match(target_amount, this.current_hold)
           : new Match(0, this.current_hold);
 
-      return new ValidationSummary(available_match, hold_match);
-    } else if (operation_type === "payout") {
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "PayoutRequest") {
       let available_match =
         status === CoreStatusMap.approved
-          ? new Match(target_amount, this.current_amount)
-          : new Match(0, this.current_amount);
+          ? new Match(target_amount, this.current_available)
+          : new Match(0, this.current_available);
 
       let hold_match = new Match(0, this.current_hold);
 
-      return new ValidationSummary(available_match, hold_match);
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "DisputeRequest") {
+      let available_match: Match<number>;
+      let hold_match: Match<number>;
+      if (status === CoreStatusMap.approved) {
+        available_match = new Match(-target_amount, this.current_available);
+        hold_match = new Match(0, this.current_hold);
+      } else if (status === CoreStatusMap.declined) {
+        available_match = new Match(0, this.current_available);
+        hold_match = new Match(0, this.current_hold);
+      } else if (status === CoreStatusMap.init) {
+        available_match = new Match(-target_amount, this.current_available);
+        hold_match = new Match(target_amount, this.current_hold);
+      } else {
+        throw Error(`Unexpected dispute status: ${status}`);
+      }
+
+      return new BalanceValidation(available_match, hold_match);
     } else {
-      throw new Error(`Validation of ${operation_type} is not yet implemented`);
+      throw new Error(`Validation of ${type} is not yet implemented`);
+    }
+  }
+
+  validate_trader_profit_state(
+    comission_amount: number,
+    type: FeedType,
+    status: CoreStatus,
+  ): BalanceValidation {
+    console.log(
+      { wallet_id: this.wallet_id },
+      "Validating trader profit entries",
+    );
+
+    if (type === "PayinRequest") {
+      let available_match =
+        status === CoreStatusMap.approved
+          ? new Match(comission_amount, this.current_available)
+          : new Match(0, this.current_available);
+
+      let hold_match = new Match(0, this.current_hold);
+
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "PayoutRequest") {
+      let available_match =
+        status === CoreStatusMap.approved
+          ? new Match(comission_amount, this.current_available)
+          : new Match(0, this.current_available);
+
+      let hold_match = new Match(0, this.current_hold);
+      return new BalanceValidation(available_match, hold_match);
+    } else if (type === "DisputeRequest") {
+      let available_match =
+        status === CoreStatusMap.approved
+          ? new Match(comission_amount, this.current_available)
+          : new Match(0, this.current_available);
+
+      let hold_match = new Match(0, this.current_hold);
+      return new BalanceValidation(available_match, hold_match);
+    } else {
+      throw new Error(`Validation of ${type} is not yet implemented`);
     }
   }
 }
 
-export class ValidationSummary {
+export class BalanceValidation {
   constructor(
     public readonly available_match: Match<number>,
     public readonly hold_match: Match<number>,
@@ -209,7 +313,7 @@ export class ValidationSummary {
     );
   }
 
-  valid(): boolean {
+  valid() {
     return this.available_match.eq() && this.hold_match.eq();
   }
 }

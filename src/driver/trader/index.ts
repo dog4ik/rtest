@@ -83,6 +83,8 @@ export type Bank = (typeof BANKLIST)[number];
 
 export type Requisite = "card" | "sbp" | "link" | "account";
 
+export const TRADER_DELAY = 5_000;
+
 function createMiddleware(api_key: string): Middleware {
   return {
     async onRequest({ request }) {
@@ -282,7 +284,10 @@ export class TraderDriver {
   }
 }
 
-export function traderSetttings(list: number[]) {
+export function traderSetttings(
+  list: number[],
+  opts?: { pay_expired_minutes?: number },
+) {
   return {
     USDT: {
       gateways: {
@@ -307,7 +312,7 @@ export function traderSetttings(list: number[]) {
       allow_host2host: true,
       trader: {
         list,
-        pay_expired_minutes: 15,
+        pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
       },
@@ -315,7 +320,11 @@ export function traderSetttings(list: number[]) {
   };
 }
 
-export function traderNoConvertSettings(currency: string, list: number[]) {
+export function traderNoConvertSettings(
+  currency: string,
+  list: number[],
+  opts?: { pay_expired_minutes?: number },
+) {
   return {
     [currency]: {
       gateways: {
@@ -339,7 +348,7 @@ export function traderNoConvertSettings(currency: string, list: number[]) {
       allow_host2host: true,
       trader: {
         list,
-        pay_expired_minutes: 15,
+        pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
       },
