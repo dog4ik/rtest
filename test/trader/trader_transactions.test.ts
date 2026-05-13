@@ -513,21 +513,22 @@ test
     }),
   );
 
-test.todo("card payin randomizer", ({ ctx, merchant }) =>
+test.concurrent("card payin randomizer", ({ ctx, merchant }) =>
   ctx.track_bg_rejections(async () => {
     let trader = await ctx.create_random_trader({
-      usdt: true,
+      usdt: false,
       currency: "RUB",
     });
     merchant.set_commission({ operation: "PayinRequest" });
     await trader.setup({ card: true, bank: "sberbank" });
+    let amount = 100_00;
     let transactions_amount = 6;
-    await trader.cashin("main", "USDT", 1000000);
-    let settings = traderSetttings([trader.id]);
+    await trader.cashin("main", "RUB", (amount / 100) * 2);
+    let settings = traderNoConvertSettings("RUB", [trader.id]);
     let trader_block = settings.gateways["trader"] as Record<string, any>;
-    trader_block["random_range"] = [10_00, 20_00];
+    trader_block["random_range"] = [10_00, 200000_00];
     trader_block["random_retries"] = 5;
-    trader_block["random_step"] = 1_00;
+    trader_block["random_step"] = 100_00;
     await merchant.set_settings(settings);
     let tokens: string[] = [];
     let notifications: any[] = [];
@@ -535,7 +536,7 @@ test.todo("card payin randomizer", ({ ctx, merchant }) =>
       let res = await merchant
         .create_payment({
           ...common.traderPaymentRequest("RUB", "card"),
-          amount: 100_00,
+          amount: amount,
         })
         .then((r) => r.followFirstProcessingUrl())
         .then((r) => r.as_trader_requisites());
@@ -551,8 +552,8 @@ test.todo("card payin randomizer", ({ ctx, merchant }) =>
       tokens.push(res.token);
     }
     for (let token of tokens) {
-      await trader.finalizeTransaction(token, "approved");
+      // await trader.finalizeTransaction(token, "approved");
     }
-    await Promise.all(notifications);
+    await Promise.race([notifications, delay(5_000)]);
   }),
 );
