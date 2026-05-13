@@ -13,7 +13,7 @@ import { delay } from "@std/async";
 const CURRENCY = "USD";
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay", "paysure"]))
+  .runIf(CONFIG.in_project(["reactivepay", "paysure", "8pay"]))
   .concurrent("reactivepay payin", () => {
     callbackFinalizationSuite(() => payinSuite(CURRENCY));
 

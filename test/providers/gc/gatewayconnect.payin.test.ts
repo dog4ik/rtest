@@ -972,4 +972,44 @@ describe.concurrent("gateway connect refund", () => {
       await merchant_refund_notification;
     }),
   );
+
+  test.concurrent("declined refund", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = h2hSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
+
+      let status_request = provider.queue(suite.gw.status_handler("approved"));
+
+      let response = await merchant.create_payment(suite.request());
+      let token = response.token;
+
+      await provider_request;
+
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      await status_request;
+      await notification;
+
+      provider.queue(suite.gw.refund_handler("pending"));
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("declined");
+
+      await merchant.create_refund({ token, amount: common.amount });
+
+      await provider.queue(suite.gw.status_handler("declined"));
+      await merchant_refund_notification;
+    }),
+  );
 });

@@ -12,6 +12,7 @@ import { ProjectDir } from "./patch/project_dir";
 import { createBrowser } from "./test_context/browser";
 import { FlexyCommission } from "./driver/flexy_commission";
 import { FlexyGuardHarness } from "./driver/flexy_guard";
+import { AdminDriver } from "./driver/admin";
 import { GC_MAPPING_KEY, GC_MOCK_PORT } from "./provider_mocks/gateway_connect";
 import {
   REACTIVEPAY_MAPPING_KEY,
@@ -25,7 +26,10 @@ export async function initState(config: Config) {
   let p = config.project;
   let business_url = "http://localhost:4000";
   let project_dir = new ProjectDir(config);
-  let core_harness = new CoreDriver("http://localhost:3000", project_dir.dockerComposePath());
+  let core_harness = new CoreDriver(
+    "http://localhost:3000",
+    project_dir.dockerComposePath(),
+  );
 
   let credentials = projectCredentials(config);
 
@@ -44,6 +48,8 @@ export async function initState(config: Config) {
     credentials.flexy_guard_credentials,
   );
 
+  let admin_service = new AdminDriver("http://localhost:3002");
+
   let [core_db, business_db, settings_db, mapping, browser] = await Promise.all(
     [
       connectPool("reactivepay_core_production"),
@@ -58,6 +64,9 @@ export async function initState(config: Config) {
       settings_service.login(),
       commission_service.login(credentials.flexy_commission_credentials),
       guard_service.login(credentials.flexy_guard_credentials),
+      config.project === "reactivepay"
+        ? admin_service.login(credentials.admin_credentials)
+        : Promise.resolve(),
     ],
   );
 
@@ -79,6 +88,7 @@ export async function initState(config: Config) {
     settings_service,
     commission_service,
     guard_service,
+    admin_service,
     mock_servers: new MockServerState(mapping),
     browser,
   };

@@ -34,6 +34,7 @@ export async function patchProject(config: Config) {
   );
 
   await applyGitPatch(project_dir.path, "csrf_core.patch");
+  await applyGitPatch(project_dir.path, "csrf_admin.patch");
   if (config.project === "a2") {
     await applyGitPatch(project_dir.path, "csrf_settings_a2.patch");
   } else {

@@ -8,6 +8,11 @@ const DEFAULT_LOGIN_PASSWORD = {
   password: "admin@admin.admin",
 };
 
+const DEFAULT_ADMIN_CREDENTIALS = {
+  login: "admin@admin.admin",
+  password: "admin@admin.admin",
+};
+
 const DUMMY_KEY_PLACEHOLDER = "replace with the path to the minio assert";
 
 const DEFAULT_PROJECT_CONFIG = {
@@ -15,6 +20,7 @@ const DEFAULT_PROJECT_CONFIG = {
   flexy_commission_credentials: DEFAULT_LOGIN_PASSWORD,
   flexy_guard_credentials: DEFAULT_LOGIN_PASSWORD,
   settings_credentials: DEFAULT_LOGIN_PASSWORD,
+  admin_credentials: DEFAULT_ADMIN_CREDENTIALS,
   dummy_ssl_path: DUMMY_KEY_PLACEHOLDER,
   dummy_rsa_public_key_path: DUMMY_KEY_PLACEHOLDER,
   dummy_rsa_private_key_path: DUMMY_KEY_PLACEHOLDER,
@@ -55,11 +61,19 @@ const LOGIN_PASSWORD_SCHEMA = z
   })
   .default(DEFAULT_LOGIN_PASSWORD);
 
+const ADMIN_CREDENTIALS_SCHEMA = z
+  .strictObject({
+    login: z.string().default(DEFAULT_ADMIN_CREDENTIALS.login),
+    password: z.string().default(DEFAULT_ADMIN_CREDENTIALS.password),
+  })
+  .default(DEFAULT_ADMIN_CREDENTIALS);
+
 const PROJECT_CONFIG = z.strictObject({
   core_credentials: LOGIN_PASSWORD_SCHEMA,
   settings_credentials: LOGIN_PASSWORD_SCHEMA,
   flexy_guard_credentials: LOGIN_PASSWORD_SCHEMA,
   flexy_commission_credentials: LOGIN_PASSWORD_SCHEMA,
+  admin_credentials: ADMIN_CREDENTIALS_SCHEMA,
   dummy_ssl_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
   dummy_rsa_public_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
   dummy_rsa_private_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),

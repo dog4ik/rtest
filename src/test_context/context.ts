@@ -1,5 +1,6 @@
 import { CONFIG } from "@/config";
 import type { CreateSmsParser, CreateTraderOptions } from "@/driver/core";
+import type { FeedStatus, FeedType } from "@/driver/admin";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
 import { RoutingBuilder } from "@/flexy_guard_builder";
@@ -191,6 +192,11 @@ export class Context {
       opts,
     );
     hc.assert();
+  }
+
+  async admin_change_status(type: FeedType, id: number, status: FeedStatus) {
+    this.story.add_chapter("Admin change status", { type, id, status });
+    await this.state.admin_service.change_status(type, id, status);
   }
 
   routing_builder(mid: number, start: string): RoutingBuilder {
