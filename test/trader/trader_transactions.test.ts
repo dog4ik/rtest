@@ -342,29 +342,42 @@ test
     ctx.track_bg_rejections(async () => {
       let trader = await ctx.create_random_trader({ usdt: false });
       await trader.setup({ card: true, bank: "sberbank" });
-      let transactions_amount = 2;
+      let transactions_amount = 3;
+      let extra_requests = 2;
       let amount = 10000;
-      await trader.cashin("main", "RUB", transactions_amount * (amount / 100));
+      await trader.cashin(
+        "main",
+        "RUB",
+        transactions_amount * (amount / 100),
+      );
       await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
-      let requisites = [...new Array(transactions_amount)].map(async (_, i) => {
-        let res = await merchant
-          .create_payment({
+      let barrier = Promise.withResolvers<unknown>();
+      let got_requests = 0;
+      let got_requisites = 0;
+      let requisites = [...new Array(transactions_amount + extra_requests)].map(
+        async (_, i) => {
+          let res = await merchant.create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
-            amount: amount + i * 100,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        if (res) {
-          assert(res.card, "card filed should not be empty");
-          assert.strictEqual(res.card.pan, common.visaCard);
-          assert.strictEqual(res.card.bank, "sberbank");
-          assert.strictEqual(res.card.name, common.fullName);
-        }
-      });
+            amount: amount - i,
+          });
+          got_requests += 1;
+          if (got_requests == transactions_amount + extra_requests) {
+            barrier.resolve(undefined);
+          }
+          await barrier.promise;
+          let json = await res
+            .followFirstProcessingUrl()
+            .then((r) => r.as_raw_json() as Record<string, any>);
+          if (json?.card?.pan === common.visaCard) {
+            got_requisites += 1;
+          }
+        },
+      );
       // for (let req of requisites) {
       //   await req;
       // }
       await Promise.all(requisites);
+      assert.strictEqual(got_requisites, transactions_amount);
     }),
   );
 
