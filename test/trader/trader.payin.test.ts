@@ -259,3 +259,48 @@ describe
       }),
     );
   });
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .concurrent("only one requisite assigned", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+        payout_hold_period: 0,
+      });
+      await trader.setup({ card: true, bank: "sberbank" });
+      let transactions_amount = 3;
+      let amount = 10000;
+      await trader.cashin("main", "RUB", transactions_amount * (amount / 100));
+      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+      let barrier = Promise.withResolvers<unknown>();
+      let got_requests = 0;
+      let got_requisites = 0;
+
+      let results = [...new Array(transactions_amount)].map(async () => {
+        let res = await merchant.create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount,
+        });
+        got_requests += 1;
+        if (got_requests === transactions_amount) {
+          barrier.resolve(undefined);
+        }
+        await barrier.promise;
+        let json = await res
+          .followFirstProcessingUrl()
+          .then((r) => r.as_raw_json() as Record<string, any>);
+        if (json?.card?.pan === common.visaCard) {
+          got_requisites += 1;
+        }
+      });
+
+      await Promise.all(results);
+      assert.strictEqual(
+        got_requisites,
+        1,
+        "merchant should get only one requisite",
+      );
+    }),
+  );
