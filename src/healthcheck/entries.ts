@@ -52,7 +52,6 @@ export class EntryValidator {
       case EntryCodes.TRADER_COMMISSION:
       case EntryCodes.AGENT_COMMISSION:
       case EntryCodes.AGENT_COMMISSION_RETURN:
-        // TODO: all these calculation should be performed on rational numbers
         if (this.wallet_id === entry.debit_wallet_id) {
           this.current_available -= entry.amount;
         }
@@ -69,7 +68,6 @@ export class EntryValidator {
 
       case EntryCodes.PAYMENT:
       case EntryCodes.TRADER_PAYMENT:
-        // TODO: all these calculation should be rational
         if (this.wallet_id === entry.debit_wallet_id) {
           this.current_hold -= entry.amount;
         }
@@ -79,7 +77,6 @@ export class EntryValidator {
         break;
 
       case EntryCodes.CANCELLATION_PAYMENT:
-        // TODO: all these calculation should be rational
         if (this.wallet_id === entry.debit_wallet_id) {
           this.current_hold += entry.amount;
         }
@@ -92,6 +89,14 @@ export class EntryValidator {
       case EntryCodes.TRADER_CASHOUT:
         if (entry.debit_wallet_id === this.wallet_id) {
           this.current_hold -= entry.amount;
+        }
+        break;
+      case EntryCodes.TRADER_TRANSFER_HOLD:
+        if (entry.debit_wallet_id === this.wallet_id) {
+          this.current_hold -= entry.amount;
+        }
+        if (entry.credit_wallet_id === this.wallet_id) {
+          this.current_hold += entry.amount;
         }
         break;
 
@@ -208,6 +213,22 @@ export class EntryValidator {
       return new BalanceValidation(available_match, hold_match);
     } else {
       throw new Error(`Validation of ${type} is not yet implemented`);
+    }
+  }
+
+  validate_agent_state(
+    commission_amount: number,
+    status: CoreStatus,
+  ): BalanceValidation {
+    console.log({ wallet_id: this.wallet_id }, "Validating merchant entries");
+    if (status == CoreStatusMap.approved) {
+      let available = new Match(commission_amount, this.current_available);
+      let held = new Match(0, this.current_hold);
+      return new BalanceValidation(available, held);
+    } else {
+      let available = new Match(0, this.current_available);
+      let held = new Match(0, this.current_hold);
+      return new BalanceValidation(available, held);
     }
   }
 
