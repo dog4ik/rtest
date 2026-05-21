@@ -19,7 +19,10 @@ export async function patchProject(config: Config) {
   );
   fs.writeFileSync(
     docker_compose_path,
-    patchedDockerCompose(docker_compose_contents.toString(), config.patch_volumes),
+    patchedDockerCompose(
+      docker_compose_contents.toString(),
+      config.patch_volumes,
+    ),
   );
 
   let production_rb_path = project_dir.businessProductionRbPath();

@@ -185,37 +185,35 @@ describe
         }),
     );
 
-    test.concurrent(
-      "ip_in_country blocks unknown IP",
-      ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          await merchant.set_settings(default_provider.fullSettings(CURRENCY));
+    test.concurrent("ip_in_country blocks unknown IP", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        await merchant.set_settings(default_provider.fullSettings(CURRENCY));
 
-          await ctx.add_flexy_guard_rule(
-            {
-              header: { mid: merchant.id.toString() },
-              body: {
-                ip: {
-                  in_ip_country: ["AU", "CN"],
-                },
+        await ctx.add_flexy_guard_rule(
+          {
+            header: { mid: merchant.id.toString() },
+            body: {
+              ip: {
+                in_ip_country: ["AU", "CN"],
               },
-              routing: {},
-              action: null,
-              dispatching: null,
             },
-            "in_ip_country AU,CN rule",
-          );
+            routing: {},
+            action: null,
+            dispatching: null,
+          },
+          "in_ip_country AU,CN rule",
+        );
 
-          let req = {
-            ...default_provider.request(CURRENCY, common.amount, "pay", true),
-            customer: {
-              email: "test@test.com",
-              ip: UNKNOWN_IP,
-            },
-          };
+        let req = {
+          ...default_provider.request(CURRENCY, common.amount, "pay", true),
+          customer: {
+            email: "test@test.com",
+            ip: UNKNOWN_IP,
+          },
+        };
 
-          let err = await merchant.create_payment_err(req);
-          assert.include(err.errors as string, `${UNKNOWN_IP}:`);
-        }),
+        let err = await merchant.create_payment_err(req);
+        assert.include(err.errors as string, `${UNKNOWN_IP}:`);
+      }),
     );
   });

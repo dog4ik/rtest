@@ -21,7 +21,7 @@ async function main() {
     await client.query("BEGIN");
 
     let { rows: profiles } = await client.query<{ id: number; email: string }>(
-      "SELECT id, email FROM profiles WHERE email LIKE '%@mail.com'"
+      "SELECT id, email FROM profiles WHERE email LIKE '%@mail.com'",
     );
 
     if (profiles.length === 0) {
@@ -42,54 +42,62 @@ async function main() {
     // Nullify self-referential master_id to avoid FK violation when deleting profiles
     await client.query(
       "UPDATE profiles SET master_id = NULL WHERE master_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
 
     let feeds_result = await client.query(
       "DELETE FROM feeds WHERE agent_id = ANY($1::int[]) OR trader_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
     console.log(`\n${feeds_result.rowCount} feed(s) will be deleted.`);
 
     let disputes_result = await client.query(
       "DELETE FROM disputes WHERE trader_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
     console.log(`${disputes_result.rowCount} dispute(s) will be deleted.`);
 
     let agents_merchants_result = await client.query(
       "DELETE FROM agents_merchants WHERE agent_id = ANY($1::int[]) OR merchant_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
-    console.log(`${agents_merchants_result.rowCount} agents_merchants row(s) will be deleted.`);
+    console.log(
+      `${agents_merchants_result.rowCount} agents_merchants row(s) will be deleted.`,
+    );
 
     let agents_traders_result = await client.query(
       "DELETE FROM agents_traders WHERE agent_id = ANY($1::int[]) OR trader_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
-    console.log(`${agents_traders_result.rowCount} agents_traders row(s) will be deleted.`);
+    console.log(
+      `${agents_traders_result.rowCount} agents_traders row(s) will be deleted.`,
+    );
 
     let banks_profiles_result = await client.query(
       "DELETE FROM banks_profiles WHERE profile_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
-    console.log(`${banks_profiles_result.rowCount} banks_profiles row(s) will be deleted.`);
+    console.log(
+      `${banks_profiles_result.rowCount} banks_profiles row(s) will be deleted.`,
+    );
 
     let extra_profile_data_result = await client.query(
       "DELETE FROM extra_profile_data WHERE profile_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
-    console.log(`${extra_profile_data_result.rowCount} extra_profile_data row(s) will be deleted.`);
+    console.log(
+      `${extra_profile_data_result.rowCount} extra_profile_data row(s) will be deleted.`,
+    );
 
     let wallets_result = await client.query(
       "DELETE FROM wallets WHERE profile_id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
     console.log(`${wallets_result.rowCount} wallet(s) will be deleted.`);
 
     let profiles_result = await client.query(
       "DELETE FROM profiles WHERE id = ANY($1::int[])",
-      [profile_ids]
+      [profile_ids],
     );
     console.log(`${profiles_result.rowCount} profile(s) will be deleted.\n`);
 

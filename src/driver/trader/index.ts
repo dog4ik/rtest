@@ -13,6 +13,7 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import type { TestCaseBase } from "@/suite_interfaces";
 import { z } from "zod";
 import { err_bad_status } from "@/fetch_utils";
+import { CurlBuilder } from "@/story/curl";
 
 const BANKLIST = [
   "sberbank",
@@ -228,9 +229,15 @@ export class TraderDriver {
       deliveryTime: now.getTime(),
     };
     let body = JSON.stringify(payload_with_time);
-    this.ctx.story.add_chapter("Send sms", payload_with_time);
+
+    let url = "http://localhost:5070";
+    let curl = new CurlBuilder(url, "POST")
+      .header("x-api-key", this.session_token)
+      .json_data(payload_with_time)
+      .build();
+    this.ctx.story.add_chapter("Send sms", curl);
     console.log("Cerate sms body", body);
-    let sms_res = await fetch("http://localhost:5070", {
+    let sms_res = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",

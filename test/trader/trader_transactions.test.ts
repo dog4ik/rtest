@@ -168,11 +168,11 @@ for (const usdt of [true, false]) {
             file_path: assets.PngImgPath,
             description: "test dispute",
           });
+          await dispute_pending_notification;
 
           await delay(TRADER_DELAY);
           let disputes = await ctx.get_disputes(res.token);
           await trader.finalize_dispute(disputes[0].dispute_id, "approved");
-          await dispute_pending_notification;
           await dispute_approved_notification;
         }),
       );
@@ -345,11 +345,7 @@ test
       let transactions_amount = 3;
       let extra_requests = 2;
       let amount = 10000;
-      await trader.cashin(
-        "main",
-        "RUB",
-        transactions_amount * (amount / 100),
-      );
+      await trader.cashin("main", "RUB", transactions_amount * (amount / 100));
       await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
       let barrier = Promise.withResolvers<unknown>();
       let got_requests = 0;
@@ -513,47 +509,49 @@ test
     }),
   );
 
-test.concurrent("card payin randomizer", ({ ctx, merchant }) =>
-  ctx.track_bg_rejections(async () => {
-    let trader = await ctx.create_random_trader({
-      usdt: false,
-      currency: "RUB",
-    });
-    merchant.set_commission({ operation: "PayinRequest" });
-    await trader.setup({ card: true, bank: "sberbank" });
-    let amount = 100_00;
-    let transactions_amount = 6;
-    await trader.cashin("main", "RUB", (amount / 100) * 2);
-    let settings = traderNoConvertSettings("RUB", [trader.id]);
-    let trader_block = settings.gateways["trader"] as Record<string, any>;
-    trader_block["random_range"] = [10_00, 200000_00];
-    trader_block["random_retries"] = 5;
-    trader_block["random_step"] = 100_00;
-    await merchant.set_settings(settings);
-    let tokens: string[] = [];
-    let notifications: any[] = [];
-    for (let _ of [...new Array(transactions_amount)]) {
-      let res = await merchant
-        .create_payment({
-          ...common.traderPaymentRequest("RUB", "card"),
-          amount: amount,
-        })
-        .then((r) => r.followFirstProcessingUrl())
-        .then((r) => r.as_trader_requisites());
-      assert(res.card, "card filed should not be empty");
-      assert.strictEqual(res.card.pan, common.visaCard);
-      assert.strictEqual(res.card.bank, "sberbank");
-      assert.strictEqual(res.card.name, common.fullName);
-      notifications.push(
-        merchant.queue_notification((cb) => {
-          assert.strictEqual(cb.status, "approved");
-        }),
-      );
-      tokens.push(res.token);
-    }
-    for (let token of tokens) {
-      // await trader.finalizeTransaction(token, "approved");
-    }
-    await Promise.race([notifications, delay(5_000)]);
-  }),
-);
+test
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .concurrent("card payin randomizer", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+        currency: "RUB",
+      });
+      merchant.set_commission({ operation: "PayinRequest" });
+      await trader.setup({ card: true, bank: "sberbank" });
+      let amount = 100_00;
+      let transactions_amount = 6;
+      await trader.cashin("main", "RUB", (amount / 100) * 2);
+      let settings = traderNoConvertSettings("RUB", [trader.id]);
+      let trader_block = settings.gateways["trader"] as Record<string, any>;
+      trader_block["random_range"] = [10_00, 200000_00];
+      trader_block["random_retries"] = 5;
+      trader_block["random_step"] = 100_00;
+      await merchant.set_settings(settings);
+      let tokens: string[] = [];
+      let notifications: any[] = [];
+      for (let _ of [...new Array(transactions_amount)]) {
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        assert(res.card, "card filed should not be empty");
+        assert.strictEqual(res.card.pan, common.visaCard);
+        assert.strictEqual(res.card.bank, "sberbank");
+        assert.strictEqual(res.card.name, common.fullName);
+        notifications.push(
+          merchant.queue_notification((cb) => {
+            assert.strictEqual(cb.status, "approved");
+          }),
+        );
+        tokens.push(res.token);
+      }
+      for (let token of tokens) {
+        await trader.finalizeTransaction(token, "approved");
+      }
+      await Promise.race([notifications, delay(5_000)]);
+    }),
+  );

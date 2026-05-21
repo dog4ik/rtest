@@ -70,7 +70,12 @@ export type ConnectPayinResponse = {
   card_enrolled?: boolean;
   redirect_request?: {
     url: string;
-    type: "post" | "get_with_processing" | "redirect_html" | "post_iframes" | "get";
+    type:
+      | "post"
+      | "get_with_processing"
+      | "redirect_html"
+      | "post_iframes"
+      | "get";
     html?: string;
     iframes?: {
       url: string;

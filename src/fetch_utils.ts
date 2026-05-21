@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { } from "@std/async"
+import {} from "@std/async";
 import { assert } from "vitest";
 
 export function err_bad_status(response: Response) {

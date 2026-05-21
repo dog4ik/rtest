@@ -34,11 +34,7 @@ describe.concurrent("settlement basics", () => {
     wallets = await merchant.wallets();
     wallet = wallets[0];
     assert.strictEqual(wallet.available, 0, "available should be gone");
-    assert.strictEqual(
-      wallet.held,
-      0,
-      "hold should be gone after approved",
-    );
+    assert.strictEqual(wallet.held, 0, "hold should be gone after approved");
   });
 
   test.concurrent("settlement declined", async ({ ctx }) => {
@@ -68,11 +64,7 @@ describe.concurrent("settlement basics", () => {
     wallets = await merchant.wallets();
     wallet = wallets[0];
     assert.strictEqual(wallet.available, 100, "available should returned");
-    assert.strictEqual(
-      wallet.held,
-      0,
-      "hold should be gone",
-    );
+    assert.strictEqual(wallet.held, 0, "hold should be gone");
   });
 
   test.concurrent("settlement not enough money", async ({ ctx }) => {

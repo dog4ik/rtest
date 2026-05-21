@@ -4,13 +4,8 @@ import { z } from "zod";
 
 type Entity = { [k: string]: z.ZodType };
 
-function selectColumns<T extends Entity>(
-  table: string,
-  schema: z.ZodObject<T>,
-) {
-  return Object.keys(schema.shape)
-    .map((key) => `${table}."${key}"`)
-    .join(", ");
+function selectColumns(table: string, schema_keys: string[]) {
+  return schema_keys.map((key) => `${table}."${key}"`).join(", ");
 }
 
 export async function connectPool(database: string) {
@@ -31,15 +26,21 @@ export type Queryable<T extends Entity> = {
   select: (project: Project) => string;
 };
 
-// Create a type projection from schema can yield sql dynamic select statements
-// TODO: Project specific columns filtering
+/*
+ *  Create a type projection from schema can yield sql dynamic select statements
+ */
 export function sqlProjection<T extends Entity>(
   table_name: string,
   schema: z.ZodObject<T>,
+  column_filter?: (project: Project) => string[] | undefined,
 ): Queryable<T> {
   return {
     select: (project) => {
-      return selectColumns(table_name, schema);
+      let filter = column_filter?.(project) ?? [];
+      return selectColumns(
+        table_name,
+        Object.keys(schema.shape).filter((c) => !filter.includes(c)),
+      );
     },
     schema: schema,
   };

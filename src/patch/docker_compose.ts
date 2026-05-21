@@ -11,7 +11,10 @@ function makeDependency(
   return [name, { condition }];
 }
 
-export function patchedDockerCompose(dockerCompose: string, patchVolumes: boolean): string {
+export function patchedDockerCompose(
+  dockerCompose: string,
+  patchVolumes: boolean,
+): string {
   console.log("raw document", dockerCompose);
   const doc = yaml.parse(dockerCompose) as Record<string, any>;
   console.log("yaml document:", JSON.stringify(doc, null, 2));
@@ -30,11 +33,9 @@ export function patchedDockerCompose(dockerCompose: string, patchVolumes: boolea
     retries: "5",
   };
 
-  if(patchVolumes) {
+  if (patchVolumes) {
     volumes["postgres-data-test"] = { driver: "local" };
-    postgres["volumes"] = [
-      "postgres-data-test:/var/lib/postgresql/data"
-    ];
+    postgres["volumes"] = ["postgres-data-test:/var/lib/postgresql/data"];
   }
 
   const mongoSetup = services["mongo"];
@@ -42,9 +43,7 @@ export function patchedDockerCompose(dockerCompose: string, patchVolumes: boolea
   if (mongoSetup) {
     if (patchVolumes) {
       volumes["mongo-data-test"] = { driver: "local" };
-      mongoSetup["volumes"] = [
-        "mongo-data-test:/data/db"
-      ];
+      mongoSetup["volumes"] = ["mongo-data-test:/data/db"];
     }
   }
 

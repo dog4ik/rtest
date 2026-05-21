@@ -79,7 +79,9 @@ class HealthcheckResult {
       lines.push("Trader balance income entries:");
       lines.push(this.wallet_state.trader.income.toString());
 
-      lines.push(`Dispute entries:\n`);
+      if ((this.disputes?.length ?? 0) > 1) {
+        lines.push(`Dispute entries:\n`);
+      }
       for (let dispute of this.disputes ?? []) {
         lines.push(`Dispute mid entries:`);
         lines.push(dispute.mid.toString());
@@ -90,6 +92,13 @@ class HealthcheckResult {
         lines.push(`Dispute trader income entries:`);
         lines.push(dispute.trader!.income.toString());
       }
+    }
+
+    if (this.wallet_state.agent === undefined) {
+      lines.push(`Failed to validate agent entries: missing agent_id`);
+    } else {
+      lines.push("Trader balance main entries:");
+      lines.push(this.wallet_state.agent.toString());
     }
 
     return lines.join("\n");
@@ -197,10 +206,20 @@ export async function basic_healthcheck(
     core,
     entries,
   );
+
+  let agent_wallet_validation = await validate_agent_wallets(
+    core_db,
+    core,
+    entries,
+  );
   return new HealthcheckResult(
     status,
     amount,
-    { mid: mid_wallet_validation, trader: trader_wallet_validation },
+    {
+      mid: mid_wallet_validation,
+      trader: trader_wallet_validation,
+      agent: agent_wallet_validation,
+    },
     disputes_validations,
   );
 }
@@ -211,6 +230,7 @@ type WalletState = {
     main: BalanceValidation;
     income: BalanceValidation;
   };
+  agent?: BalanceValidation;
 };
 
 async function validate_wallets_state(
@@ -253,9 +273,39 @@ async function validate_mid_wallets(
   }
 
   return validator.validate_mid_state(
-    feed.target_amount || feed.amount,
-    feed.commission_amount || 0,
+    feed.target_amount ?? feed.amount,
+    feed.commission_amount ?? 0,
     feed.type,
+    feed.status,
+  );
+}
+
+async function validate_agent_wallets(
+  core_db: CoreDb,
+  feed: Feed,
+  entries: Entry[],
+) {
+  if (!feed.agent_id) {
+    return undefined;
+  }
+  let currency = feed.target_currency ?? feed.currency;
+
+  let wallets = await core_db.profileWallets(
+    feed.agent_id,
+    currency ?? undefined,
+  );
+  let wallet = wallets.find((w) => w.currency === currency);
+  assert(
+    wallet?.id,
+    `Agent wallet for target currency: ${currency} is not found`,
+  );
+  let validator = new EntryValidator(wallet.id);
+  for (let entry of entries) {
+    validator.feed_entry_mimic_ruby(entry);
+  }
+
+  return validator.validate_agent_state(
+    feed.agent_commission_amount ?? 0,
     feed.status,
   );
 }

@@ -50,30 +50,25 @@ describe.concurrent("errors before processingUrl", () => {
           email: "octo.mail@mail.com",
         },
       });
-      err.assert_message(
-        "The property '#/' did not contain a required property of 'amount' in schema file:///business/schema/payouts_create.json",
-      );
+      if (CONFIG.in_project(["spinpay"])) {
+        err.assert_message(
+          "The property '#/' did not contain a required property of 'amount' in schema file:///business/schema/payouts_provider_create.json",
+        );
+      } else {
+        err.assert_message(
+          "The property '#/' did not contain a required property of 'amount' in schema file:///business/schema/payouts_create.json",
+        );
+      }
     });
   });
 
   test.concurrent("payout no balance", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
-      if (PROJECT === "spinpay") {
-        let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
-        let res = await adapter.merchant.create_payout(payoutRequest());
-        let error = await res
-          .followFirstProcessingUrl()
-          .then((r) => r.as_error());
-        error.assert_error([
-          { code: "amount_not_enough_money", kind: "amount" },
-        ]);
-      } else {
-        let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
-        let error = await adapter.merchant.create_payout_err(payoutRequest());
-        error.assert_error([
-          { code: "amount_less_than_balance", kind: "processing_error" },
-        ]);
-      }
+      let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
+      let error = await adapter.merchant.create_payout_err(payoutRequest());
+      error.assert_error([
+        { code: "amount_less_than_balance", kind: "processing_error" },
+      ]);
     });
   });
 

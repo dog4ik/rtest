@@ -196,7 +196,8 @@ test
           .then(() => payment.send_callback("ok", ctx.uuid));
 
         const FEE = 10;
-        let commission_amount_double_fee = (common.amount / 100) * ((FEE / 100) * 2);
+        let commission_amount_double_fee =
+          (common.amount / 100) * ((FEE / 100) * 2);
         let commission_amount_fee = (common.amount / 100) * (FEE / 100);
         console.log({ commission_amount: commission_amount_double_fee });
         await merchant.cashin("EUR", commission_amount_double_fee);
@@ -215,7 +216,8 @@ test
         let res = await merchant.create_payment(suite.request());
         await transaction_notification;
 
-        let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
+        let refund_notifications =
+          merchant.queue_refund_or_pay_notifictation("approved");
 
         royalpay
           .queue(payment.create_refund_handler("pending"))

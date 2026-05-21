@@ -1,5 +1,9 @@
 import { CONFIG } from "@/config";
-import type { CreateSmsParser, CreateTraderOptions } from "@/driver/core";
+import type {
+  CreateAgentOptions,
+  CreateSmsParser,
+  CreateTraderOptions,
+} from "@/driver/core";
 import type { FeedStatus, FeedType } from "@/driver/admin";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
@@ -85,6 +89,11 @@ export class Context {
     return trader;
   }
 
+  async create_random_agent(opts?: CreateAgentOptions) {
+    let info = await this.state.core_harness.create_random_agent(opts);
+    await this.annotate(`Created agent: ${info.email} ${info.temp_password}`);
+  }
+
   async create_random_bank() {
     let random_name = () =>
       Math.floor(Math.random() * Math.pow(10, 10)).toString();
@@ -101,7 +110,11 @@ export class Context {
   /**
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
-  async add_flexy_guard_rule(payload: Record<string, any>, comment?: string, priority?: number) {
+  async add_flexy_guard_rule(
+    payload: Record<string, any>,
+    comment?: string,
+    priority?: number,
+  ) {
     this.story.add_chapter("Add flexy guard rule", payload);
     await this.shared_state().guard_service.add_rule(
       payload,

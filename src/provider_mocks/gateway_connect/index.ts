@@ -18,7 +18,13 @@ import { PayoutRequestSchema } from "./payout";
 import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
 
-export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink" | "tpay_qr_data";
+export type GcRequisiteType =
+  | "sbp"
+  | "tpay"
+  | "card"
+  | "link"
+  | "deeplink"
+  | "tpay_qr_data";
 
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
@@ -176,23 +182,11 @@ export class GatewayConnectTransaction {
 
   basic_payin_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status }));
-      span.set_response_status(status === "declined" ? 400 : 200);
+      let logs = await this.build_interaction_logs("pay", status);
 
       return c.json({
         status,
@@ -201,9 +195,52 @@ export class GatewayConnectTransaction {
         details: status === "declined" ? "Test error message" : undefined,
         result: true,
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
+  }
+
+  async build_interaction_logs(name: string, status: PrimeBusinessStatus) {
+    let interaction_logs = new InteractionLogs();
+    let request = this.payin_request || this.payout_request;
+    assert(request, "request is required to build interaction logs");
+
+    let auth_span = interaction_logs.span("authorization");
+    auth_span.set_request(
+      `${common.redirectPayUrl}/auth`,
+      JSON.stringify({
+        login: "login",
+        password: "password",
+      }),
+    );
+
+    await delay(100);
+    auth_span.set_response_body(JSON.stringify({ success: true }));
+    auth_span.set_response_status(200);
+
+    let span = interaction_logs.span(name);
+    if (this.refund_request) {
+      span.set_request(
+        `${common.redirectPayUrl}/transaction`,
+        JSON.stringify({
+          amount: this.refund_request.refund.amount,
+          currency: this.refund_request.payment.currency,
+        }),
+      );
+    } else {
+      span.set_request(
+        common.redirectPayUrl,
+        JSON.stringify({
+          amount: request.payment.gateway_amount,
+          currency: request.payment.gateway_currency,
+        }),
+      );
+    }
+
+    await delay(100);
+    span.set_response_body(JSON.stringify({ status }));
+    span.set_response_status(status === "declined" ? 400 : 200);
+    return interaction_logs.build();
   }
 
   requisites_payin_handler(
@@ -216,23 +253,10 @@ export class GatewayConnectTransaction {
     },
   ): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
-
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status }));
-      span.set_response_status(status === "declined" ? 400 : 200);
+      let logs = await this.build_interaction_logs("pay", status);
 
       let requisites: Record<string, any> | undefined = undefined;
       if (CONFIG.in_project(["spinpay", "reactivepay"])) {
@@ -268,12 +292,13 @@ export class GatewayConnectTransaction {
             requisites["deeplink"] = true;
           } else if (requisite_type === "deeplink") {
             requisites["link"] = common.redirectPayUrl;
-            requisites["deeplink"] = true;
+            // requisites["deeplink"] = true;
           } else if (requisite_type === "link") {
             requisites["link"] = common.redirectPayUrl;
             // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
             // Отсавлю так чтобы его интеграция не померла.
-            requisites["deeplink"] = true;
+            // requisites["deeplink"] = true;
+            requisites["phone"] = common.visaCard;
           } else if (requisite_type === "tpay_qr_data") {
             requisites["qr_data"] = common.redirectPayUrl;
             requisites["deeplink"] = true;
@@ -302,30 +327,18 @@ export class GatewayConnectTransaction {
               }
             : undefined,
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
 
   basic_payout_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payout_request = PayoutRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payout_request.payment.gateway_amount,
-          currency: this.payout_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status }));
-      span.set_response_status(status === "declined" ? 400 : 200);
+      let logs = await this.build_interaction_logs("payout", status);
 
       return c.json({
         status,
@@ -334,7 +347,7 @@ export class GatewayConnectTransaction {
         details: status === "declined" ? "Test error message" : undefined,
         result: true,
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
@@ -344,23 +357,11 @@ export class GatewayConnectTransaction {
     redirect_url = common.redirectPayUrl,
   ): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status }));
-      span.set_response_status(status === "declined" ? 400 : 200);
+      let logs = await this.build_interaction_logs("pay", status);
 
       return c.json({
         status,
@@ -376,30 +377,18 @@ export class GatewayConnectTransaction {
           type: status === "pending" ? "get_with_processing" : "post",
         },
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
 
   get_redirect_response(redirect_url = common.redirectPayUrl): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({ status: "pending" }));
-      span.set_response_status(200);
+      let logs = await this.build_interaction_logs("pay", "pending");
 
       return c.json({
         status: "pending",
@@ -412,30 +401,18 @@ export class GatewayConnectTransaction {
           url: redirect_url,
           type: "get",
         },
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
 
   redirect_3ds_response_handler(): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({}));
-      span.set_response_status(200);
+      let logs = await this.build_interaction_logs("pay", "pending");
 
       return c.json({
         status: "pending",
@@ -448,7 +425,7 @@ export class GatewayConnectTransaction {
           type: "get_with_processing",
         },
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
@@ -461,23 +438,11 @@ export class GatewayConnectTransaction {
     cReq: string;
   }): Handler {
     return async (c) => {
-      let interaction_logs = new InteractionLogs();
       this.payin_request = PayinRequestSchema(z.object({})).parse(
         await c.req.json(),
       );
 
-      let span = interaction_logs.span("pay");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.payin_request.payment.gateway_amount,
-          currency: this.payin_request.payment.gateway_currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_body(JSON.stringify({}));
-      span.set_response_status(200);
+      let logs = await this.build_interaction_logs("pay", "pending");
 
       return c.json({
         status: "pending",
@@ -498,7 +463,7 @@ export class GatewayConnectTransaction {
           ],
         },
         gateway_token: this.gateway_id,
-        logs: interaction_logs.build(),
+        logs,
       } as ConnectPayinResponse);
     };
   }
@@ -509,26 +474,14 @@ export class GatewayConnectTransaction {
         await c.req.json(),
       );
 
-      let interaction_logs = new InteractionLogs();
-      let span = interaction_logs.span("status");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.refund_request.refund.amount,
-          currency: this.refund_request.payment.currency,
-        }),
-      );
-
-      await delay(200);
-      span.set_response_status(200);
-      span.set_response_body(JSON.stringify({ status }));
+      let logs = await this.build_interaction_logs("refund", status);
 
       return c.json({
         status,
         amount: this.refund_request.refund.amount,
         currency: "RUB",
         details: status === "declined" ? "Test error message " : undefined,
-        logs: interaction_logs.build(),
+        logs,
         result: true,
       } as ConnectStatusResponse);
     };
@@ -540,26 +493,17 @@ export class GatewayConnectTransaction {
         await c.req.json(),
       );
 
-      let interaction_logs = new InteractionLogs();
-      let span = interaction_logs.span("status");
-      span.set_request(
-        common.redirectPayUrl,
-        JSON.stringify({
-          amount: this.status_request.payment.token,
-          currency: this.status_request.payment.gateway_token,
-        }),
+      let logs = await this.build_interaction_logs(
+        "status",
+        status as PrimeBusinessStatus,
       );
-
-      await delay(200);
-      span.set_response_status(200);
-      span.set_response_body(JSON.stringify({ status }));
 
       return c.json({
         status,
         amount: common.amount,
         currency: "RUB",
         details: status === "declined" ? "Test error message " : undefined,
-        logs: interaction_logs.build(),
+        logs,
         result: true,
       } as ConnectStatusResponse);
     };

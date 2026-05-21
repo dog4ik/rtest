@@ -82,10 +82,7 @@ describe
           .then((r) => r.as_trader_requisites());
 
         await delay(TRADER_DELAY);
-        await trader_with_balance.finalizeTransaction(
-          res.token,
-          "approved",
-        );
+        await trader_with_balance.finalizeTransaction(res.token, "approved");
         await approve_cb;
       }),
     );
@@ -156,12 +153,8 @@ describe
           .then((r) => r.as_trader_requisites());
 
         await delay(TRADER_DELAY);
-        await trader_with_balance.finalizeTransaction(
-          res.token,
-          "approved",
-        );
+        await trader_with_balance.finalizeTransaction(res.token, "approved");
         await approve_cb;
       }),
     );
   });
-

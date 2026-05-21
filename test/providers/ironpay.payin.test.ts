@@ -70,9 +70,15 @@ describe
           .create_payment(common.paymentRequest("RUB"))
           .then((p) => p.followFirstProcessingUrl());
         let err = await response.as_error();
-        err.assert_message(
-          "gateway response error: There are currently no payment details available. Your request has been rejected, please try again later.",
-        );
+        if (PROJECT === "spinpay") {
+          err.assert_message(
+            "There are currently no payment details available. Your request has been rejected, please try again later.",
+          );
+        } else {
+          err.assert_message(
+            "gateway response error: There are currently no payment details available. Your request has been rejected, please try again later.",
+          );
+        }
         await notification;
       });
     });

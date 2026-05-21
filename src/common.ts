@@ -86,7 +86,10 @@ export function paymentRequest(currency: string): PaymentRequest {
   };
 }
 
-export function p2pPaymentRequest(currency: string, requisite_type: Requisite | (string & {})) {
+export function p2pPaymentRequest(
+  currency: string,
+  requisite_type: Requisite | (string & {}),
+) {
   if (PROJECT === "8pay") {
     const Mapping: Record<Requisite, string> = {
       sbp: "SBP",
@@ -96,7 +99,8 @@ export function p2pPaymentRequest(currency: string, requisite_type: Requisite | 
     };
     return {
       ...paymentRequest(currency),
-      extra_return_param: Mapping[requisite_type as Requisite] ?? requisite_type,
+      extra_return_param:
+        Mapping[requisite_type as Requisite] ?? requisite_type,
     };
   } else {
     return {

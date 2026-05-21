@@ -21,23 +21,22 @@ const PayRequestSchema = z.object({
   orderNumber: z.string(),
   redirectSuccessUrl: z.string(),
   redirectFailUrl: z.string(),
-  callback_url: z.string(),
-  customer: z
-    .object({
-      country: z.string().optional(),
-      address: z.string().optional(),
-      city: z.string().optional(),
-      region: z.string().optional(),
-      postcode: z.string().optional(),
-      phone: z.string().optional(),
-      ip: z.string().optional(),
-      email: z.string().optional(),
-      first_name: z.string().optional(),
-      last_name: z.string().optional(),
-      state: z.string().optional(),
-      browser: z.record(z.string(), z.any()).optional(),
-    })
-    .passthrough(),
+  callback_url: z.string().optional(),
+  callbackUrl: z.string().optional(),
+  customer: z.object({
+    country: z.string().optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    region: z.string().optional(),
+    postcode: z.string().optional(),
+    phone: z.string().optional(),
+    ip: z.string().optional(),
+    email: z.string().optional(),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    state: z.string().optional(),
+    browser: z.record(z.string(), z.any()).optional(),
+  }),
   card: z
     .object({
       pan: z.string().optional(),
@@ -49,14 +48,12 @@ const PayRequestSchema = z.object({
   bank_account: z.record(z.string(), z.any()).optional(),
 });
 
-const PayoutRequestSchema = z
-  .object({
-    amount: z.number(),
-    currency: z.string(),
-    orderNumber: z.string(),
-    // callback_url: z.string(),
-  })
-  .passthrough();
+const PayoutRequestSchema = z.object({
+  amount: z.number(),
+  currency: z.string(),
+  orderNumber: z.string(),
+  callbackUrl: z.string(),
+});
 
 function computeCallbackSignature(
   token: string,
@@ -229,7 +226,8 @@ export class ReactivepayTransaction {
         token: this.token,
         timestamp,
         status,
-        scoring_action: status === "approved" ? "success" : "failed",
+        scoring_action: status === "declined" ? "failed" : "success",
+        decline_reason: status == "declined" ? "Test error message" : undefined,
       },
       token: this.token,
       timestamp,
@@ -238,7 +236,10 @@ export class ReactivepayTransaction {
 
   payout_create_handler(status: PrimeBusinessStatus): Handler {
     return async (c) =>
-      c.json(this.payout_create_response(status, await c.req.json()));
+      c.json(
+        this.payout_create_response(status, await c.req.json()),
+        status === "declined" ? 403 : 200,
+      );
   }
 
   payout_callback(status: PrimeBusinessStatus, signKey: string) {
@@ -277,8 +278,7 @@ export class ReactivepayTransaction {
   async send_payout_callback(status: PrimeBusinessStatus, signKey: string) {
     assert(this.payout_request_data, "payout request data should be defined");
     const payload = this.payout_callback(status, signKey);
-    const url = "http://localhost:4000/callback/reactivepay";
-    // this.payout_request_data.callback_url;
+    let url = this.payout_request_data.callbackUrl!;
     console.log("Sending reactivepay payout callback to", url, payload);
     await fetch(url, {
       method: "POST",
@@ -335,7 +335,10 @@ export class ReactivepayTransaction {
   async send_callback(status: PrimeBusinessStatus, signKey: string) {
     assert(this.payin_request_data, "request data should be defined");
     const payload = this.callback(status, signKey);
-    const url = this.payin_request_data.callback_url;
+    const url =
+      this.payin_request_data.callback_url ||
+      this.payin_request_data.callbackUrl;
+    assert(url, "mising callback url");
     console.log("Sending reactivepay callback to", url, payload);
     await fetch(url, {
       method: "POST",
@@ -352,7 +355,7 @@ export class ReactivepayTransaction {
       sign_key: secret,
       base_url: `http://host.docker.internal:${REACTIVEPAY_MOCK_PORT}`,
       wrapped_to_json_response: true,
-      solvex_request: true,
+      solvex_request: false,
     };
     if (this.integration_type === "reactivepay") {
       return settings;

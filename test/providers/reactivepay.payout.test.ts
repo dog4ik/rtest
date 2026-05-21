@@ -7,7 +7,10 @@ import {
   ReactivepayTransaction,
   payoutSuite,
 } from "@/provider_mocks/reactivepay";
-import { payoutPendingSuite, callbackFinalizationSuite } from "@/suite_interfaces";
+import {
+  payoutPendingSuite,
+  callbackFinalizationSuite,
+} from "@/suite_interfaces";
 
 const CURRENCY = "USD";
 

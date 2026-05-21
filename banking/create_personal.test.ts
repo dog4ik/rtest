@@ -49,9 +49,7 @@ test.concurrent(
     await page.locator('input[name="city"]').click();
     await page.locator('input[name="city"]').fill(faker.location.city());
     await page.locator('input[name="street"]').click();
-    await page
-      .locator('input[name="street"]')
-      .fill(faker.location.street());
+    await page.locator('input[name="street"]').fill(faker.location.street());
     await page.locator('input[name="postcode"]').click();
     await page.locator('input[name="postcode"]').fill(faker.location.zipCode());
     await page.locator('input[name="id_type"]').click();

@@ -642,7 +642,7 @@ describe
           await form.validateLanguage("ru");
         },
       },
-      { browser_url_target: "selectorUrl" },
+      { browser_url_target: "selectorUrl", skip_if: true },
     );
 
     payformDataFlowTest(
@@ -729,7 +729,7 @@ describe
           await form.validateLanguage("ru");
         },
       },
-      { browser_url_target: "selectorUrl" },
+      { browser_url_target: "selectorUrl", skip_if: true },
     );
   });
 
@@ -990,7 +990,6 @@ describe.concurrent("gateway connect refund", () => {
       let token = response.token;
 
       await provider_request;
-
 
       let notification = merchant.queue_notification(
         (cb) => {

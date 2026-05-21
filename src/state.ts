@@ -64,7 +64,7 @@ export async function initState(config: Config) {
       settings_service.login(),
       commission_service.login(credentials.flexy_commission_credentials),
       guard_service.login(credentials.flexy_guard_credentials),
-      config.project === "reactivepay"
+      config.project === "eactivepay"
         ? admin_service.login(credentials.admin_credentials)
         : Promise.resolve(),
     ],

@@ -101,11 +101,26 @@ const FeedFields = {
   commission_fee: z.float64().nullable(),
   commission_provider_amount: z.float64().nullable(),
   commission_provider_fee: z.float64().nullable(),
+  agent_id: z.int().nullish(),
+  agent_commission_amount: z.coerce.number().nullish(),
+  agent_commission_value: z.coerce.number().nullish(),
+  agent_commission_fee: z.coerce.number().nullish(),
 };
+
+const AGENT_COLUMMNS = [
+  "agent_id",
+  "agent_commission_amount",
+  "agent_commission_value",
+  "agent_commission_fee",
+];
 
 export const FeedSchema = z.object(FeedFields);
 export type Feed = z.infer<typeof FeedSchema>;
-export const FeedQuery = sqlProjection("feeds", FeedSchema);
+export const FeedQuery = sqlProjection("feeds", FeedSchema, (project) => {
+  if (!["8pay", "paygateway", "fxmb"].includes(project)) {
+    return AGENT_COLUMMNS;
+  }
+});
 
 export class CoreDb extends Db {
   constructor(

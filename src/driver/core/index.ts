@@ -5,6 +5,20 @@ import { PROJECT } from "@/config";
 import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
 
+export type CreateAgentOptions = {
+  usdt?: boolean;
+  merchant_id?: number;
+  traders_ids?: number[];
+};
+
+export type CreateAgent = {
+  company_name: string;
+  email: string;
+  temp_password: string;
+  merchant_id?: number;
+  trader_ids: number[];
+};
+
 export type CreateMerchant = {
   phone?: string;
   password: string;
@@ -72,13 +86,21 @@ export class CoreDriver {
     this.docker_compose_path = docker_compose_path ?? "";
   }
 
-  private async action(path: string, payload: {}, method?: string) {
-    let body = new URLSearchParams();
-
-    // filter out "undefined" literals from constructed urlencoded payload
-    for (let [key, value] of Object.entries(payload)) {
-      if (value !== undefined) {
-        body.append(key, String(value));
+  private async action(
+    path: string,
+    payload: {} | URLSearchParams,
+    method?: string,
+  ) {
+    let body: URLSearchParams;
+    if (payload instanceof URLSearchParams) {
+      body = payload;
+    } else {
+      body = new URLSearchParams();
+      // filter out "undefined" literals from constructed urlencoded payload
+      for (let [key, value] of Object.entries(payload)) {
+        if (value !== undefined) {
+          body.append(key, String(value));
+        }
       }
     }
     console.log({
@@ -222,6 +244,35 @@ export class CoreDriver {
       currency: opts?.currency ?? "RUB",
     };
     await this.create_trader(params);
+    return params;
+  }
+
+  async create_agent(params: CreateAgent) {
+    let body = new URLSearchParams({
+      utf8: "✓",
+      "agent[company_name]": params.company_name,
+      "agent[email]": params.email,
+      "agent[temp_password]": params.temp_password,
+    });
+    for (let id of params.trader_ids) {
+      body.append("agent[traders][]", id.toString());
+    }
+    if (params.merchant_id !== undefined) {
+      body.append("agent[merchants]", params.merchant_id.toString());
+    }
+    await this.action("/agents", body);
+  }
+
+  async create_random_agent(opts?: CreateAgentOptions) {
+    let uuid = randomUUID();
+    let params: CreateAgent = {
+      company_name: uuid,
+      email: `${uuid}@mail.com`,
+      temp_password: 'c@"6J?Q3:?H@me=',
+      merchant_id: opts?.merchant_id,
+      trader_ids: opts?.traders_ids ?? [],
+    };
+    await this.create_agent(params);
     return params;
   }
 

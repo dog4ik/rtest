@@ -1,5 +1,6 @@
 import * as common from "@/common";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
+import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { providers } from "@/settings_builder";
 import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
@@ -44,6 +45,40 @@ test
             .then((p) => p.followFirstProcessingUrl())
             .then((u) => u.as_trader_requisites());
         }
+        await merchant.queue_notification(
+          (callback) => {
+            assert.strictEqual(callback.status, "expired");
+          },
+          { skip_healthcheck: true },
+        );
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay"]))
+  .concurrent(
+    "expires_in setting (payout)",
+    { timeout: 120_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        let settings = providers(CURRENCY, {
+          ...payment.settings(ctx.uuid),
+          payout_expired_minutes: 1,
+        });
+        await merchant.set_settings(settings);
+        await merchant.cashin(CURRENCY, common.amount / 100);
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.basic_payout_handler("pending"));
+        gw.queue(payment.status_handler("pending"));
+        gw.queue(payment.status_handler("pending"));
+        gw.queue(payment.status_handler("pending"));
+
+        await merchant
+          .create_payout(common.payoutRequest(CURRENCY))
+          .then((p) => p.followFirstProcessingUrl())
+          .then((u) => u.as_payout_response());
+
         await merchant.queue_notification(
           (callback) => {
             assert.strictEqual(callback.status, "expired");

@@ -133,7 +133,8 @@ test
     let approveNotifiaction = merchant.queue_notification((n) => {
       assert.strictEqual(n.status, "approved");
     });
-    let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
+    let refund_notifications =
+      merchant.queue_refund_or_pay_notifictation("approved");
 
     let res = await merchant.create_payment(
       default_provider.request("RUB", common.amount, "pay", true),
@@ -175,7 +176,8 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
   let approveNotifiaction = merchant.queue_notification((n) => {
     assert.strictEqual(n.status, "approved");
   });
-  let refund_notifications = merchant.queue_refund_or_pay_notifictation("approved");
+  let refund_notifications =
+    merchant.queue_refund_or_pay_notifictation("approved");
 
   let res = await merchant.create_payment(
     default_provider.request("RUB", common.amount, "pay", true),

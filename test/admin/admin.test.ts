@@ -47,7 +47,10 @@ describe.concurrent("admin payin state changes", () => {
 
       assert.strictEqual(feed.status, 1, "feed: accepted");
       assert.strictEqual(feed.commission_amount, COMMISSION_RUB);
-      assert.strictEqual(feed.commission_provider_amount, PROVIDER_COMMISSION_RUB);
+      assert.strictEqual(
+        feed.commission_provider_amount,
+        PROVIDER_COMMISSION_RUB,
+      );
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "pay");
@@ -114,7 +117,11 @@ describe.concurrent("admin payin state changes", () => {
         // Drain all funds credited by the payin
         await merchant.cashout("RUB", NET_RUB);
 
-        assert.strictEqual(feed.status, 1, "feed: accepted before reversal attempt");
+        assert.strictEqual(
+          feed.status,
+          1,
+          "feed: accepted before reversal attempt",
+        );
 
         await delay(2_000);
         await ctx.admin_change_status("payin_request", feed.id, 2);
@@ -133,7 +140,11 @@ describe.concurrent("admin payin state changes", () => {
         // Reversal needs NET_RUB, so it will be short by COMMISSION_RUB.
         await merchant.cashout("RUB", COMMISSION_RUB);
 
-        assert.strictEqual(feed.status, 1, "feed: accepted before reversal attempt");
+        assert.strictEqual(
+          feed.status,
+          1,
+          "feed: accepted before reversal attempt",
+        );
 
         await delay(2_000);
         await ctx.admin_change_status("payin_request", feed.id, 2);
@@ -237,7 +248,10 @@ describe.concurrent("admin payout state changes", () => {
       let feed = await ctx.get_feed(response.token);
       assert.strictEqual(feed.status, 1, "feed: accepted");
       assert.strictEqual(feed.commission_amount, COMMISSION_RUB);
-      assert.strictEqual(feed.commission_provider_amount, PROVIDER_COMMISSION_RUB);
+      assert.strictEqual(
+        feed.commission_provider_amount,
+        PROVIDER_COMMISSION_RUB,
+      );
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "payout");
@@ -302,7 +316,11 @@ describe.concurrent("admin payout state changes", () => {
         // Drain all released funds — merchant now has zero balance
         await merchant.cashout("RUB", MERCHANT_CASHIN_RUB);
 
-        assert.strictEqual(feed.status, 2, "feed: declined before acceptance attempt");
+        assert.strictEqual(
+          feed.status,
+          2,
+          "feed: declined before acceptance attempt",
+        );
 
         await delay(2_000);
         await ctx.admin_change_status("payout_request", feed.id, 1);
@@ -321,7 +339,11 @@ describe.concurrent("admin payout state changes", () => {
         // Acceptance needs AMOUNT_RUB + COMMISSION_RUB, so it will be short by COMMISSION_RUB.
         await merchant.cashout("RUB", COMMISSION_RUB);
 
-        assert.strictEqual(feed.status, 2, "feed: declined before acceptance attempt");
+        assert.strictEqual(
+          feed.status,
+          2,
+          "feed: declined before acceptance attempt",
+        );
 
         await delay(2_000);
         await ctx.admin_change_status("payout_request", feed.id, 1);
@@ -386,7 +408,10 @@ describe.concurrent("admin trader payin state changes", () => {
     let trader = await ctx.create_random_trader(TRADER_OPTS);
     await trader.setup({ card: true, bank: "sberbank" });
     await trader.cashin("main", "RUB", AMOUNT_RUB);
-    await merchant.set_commission({ operation: "PayinRequest", currency: "RUB" });
+    await merchant.set_commission({
+      operation: "PayinRequest",
+      currency: "RUB",
+    });
     await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
     return { merchant, trader };
   }
@@ -394,7 +419,10 @@ describe.concurrent("admin trader payin state changes", () => {
   async function setupApproved(ctx: Context) {
     let { merchant, trader } = await setup(ctx);
     let res = await merchant
-      .create_payment({ ...common.traderPaymentRequest("RUB", "card"), amount: AMOUNT })
+      .create_payment({
+        ...common.traderPaymentRequest("RUB", "card"),
+        amount: AMOUNT,
+      })
       .then((r) => r.followFirstProcessingUrl())
       .then((r) => r.as_trader_requisites());
     await delay(TRADER_DELAY);
@@ -416,7 +444,10 @@ describe.concurrent("admin trader payin state changes", () => {
 
       assert.strictEqual(feed.status, 1, "feed: accepted");
       assert.strictEqual(feed.commission_amount, COMMISSION_RUB);
-      assert.strictEqual(feed.commission_provider_amount, PROVIDER_COMMISSION_RUB);
+      assert.strictEqual(
+        feed.commission_provider_amount,
+        PROVIDER_COMMISSION_RUB,
+      );
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "pay");
@@ -443,7 +474,10 @@ describe.concurrent("admin trader payin state changes", () => {
       let { merchant } = await setup(ctx);
 
       let res = await merchant
-        .create_payment({ ...common.traderPaymentRequest("RUB", "card"), amount: AMOUNT })
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: AMOUNT,
+        })
         .then((r) => r.followFirstProcessingUrl())
         .then((r) => r.as_trader_requisites());
       await delay(TRADER_DELAY);
@@ -526,7 +560,10 @@ describe.concurrent("admin trader payin state changes", () => {
       let { merchant } = await setup(ctx);
 
       let res = await merchant
-        .create_payment({ ...common.traderPaymentRequest("RUB", "card"), amount: AMOUNT })
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: AMOUNT,
+        })
         .then((r) => r.followFirstProcessingUrl())
         .then((r) => r.as_trader_requisites());
       await delay(TRADER_DELAY);
@@ -576,7 +613,10 @@ describe.concurrent("admin trader payout state changes", () => {
     let trader = await ctx.create_random_trader(TRADER_OPTS);
     await trader.setup({ card: true, bank: "sberbank" });
     await merchant.cashin("RUB", MERCHANT_CASHIN_RUB);
-    await merchant.set_commission({ operation: "PayoutRequest", currency: "RUB" });
+    await merchant.set_commission({
+      operation: "PayoutRequest",
+      currency: "RUB",
+    });
     await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
     return { merchant, trader };
   }
@@ -623,7 +663,10 @@ describe.concurrent("admin trader payout state changes", () => {
 
       assert.strictEqual(feed.status, 1, "feed: accepted");
       assert.strictEqual(feed.commission_amount, COMMISSION_RUB);
-      assert.strictEqual(feed.commission_provider_amount, PROVIDER_COMMISSION_RUB);
+      assert.strictEqual(
+        feed.commission_provider_amount,
+        PROVIDER_COMMISSION_RUB,
+      );
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "payout");
@@ -650,12 +693,10 @@ describe.concurrent("admin trader payout state changes", () => {
       let { merchant, payout, feed } = await setupDeclined(ctx);
 
       await delay(2_000);
-      let approved_notification = merchant.queue_notification(
-        (n) => {
-          assert.strictEqual(n.type, "payout");
-          assert.strictEqual(n.status, "approved");
-        },
-      );
+      let approved_notification = merchant.queue_notification((n) => {
+        assert.strictEqual(n.type, "payout");
+        assert.strictEqual(n.status, "approved");
+      });
 
       await ctx.admin_change_status("payout_request", feed.id, 1);
       await approved_notification;
@@ -742,11 +783,17 @@ describe.concurrent("admin dispute state changes", () => {
     let trader = await ctx.create_random_trader(TRADER_OPTS);
     await trader.setup({ card: true, bank: "sberbank" });
     await trader.cashin("main", "RUB", AMOUNT_RUB);
-    await merchant.set_commission({ operation: "DisputeRequest", currency: "RUB" });
+    await merchant.set_commission({
+      operation: "DisputeRequest",
+      currency: "RUB",
+    });
     await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
 
     let res = await merchant
-      .create_payment({ ...common.traderPaymentRequest("RUB", "card"), amount: AMOUNT })
+      .create_payment({
+        ...common.traderPaymentRequest("RUB", "card"),
+        amount: AMOUNT,
+      })
       .then((r) => r.followFirstProcessingUrl())
       .then((r) => r.as_trader_requisites());
     await delay(TRADER_DELAY);
@@ -895,7 +942,9 @@ describe.concurrent("admin dispute state changes", () => {
 
         await delay(2_000);
         await ctx.admin_change_status("dispute_request", dispute.id, 2);
-        await ctx.healthcheck(dispute.api_payment_token!, { expect: { status: 1 } });
+        await ctx.healthcheck(dispute.api_payment_token!, {
+          expect: { status: 1 },
+        });
       }),
   );
 
@@ -908,7 +957,9 @@ describe.concurrent("admin dispute state changes", () => {
 
         await delay(2_000);
         await ctx.admin_change_status("dispute_request", dispute.id, 2);
-        await ctx.healthcheck(dispute.api_payment_token!, { expect: { status: 1 } });
+        await ctx.healthcheck(dispute.api_payment_token!, {
+          expect: { status: 1 },
+        });
       }),
   );
 
