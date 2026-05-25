@@ -7,47 +7,44 @@ import { CONFIG } from "@/config";
 
 const CURRENCY = "RUB";
 
-function testHeaderMatch(
-  make_header: (mid: number) => Record<string, any>,
-  suite: TestCaseBase,
-) {
-  _testHeader(make_header, suite, true);
+type HeaderCreator = (mid: number) => Record<string, any>[];
+
+function testHeaderMatch(make_headers: HeaderCreator, suite: TestCaseBase) {
+  _testHeader(make_headers, suite, true);
 }
 
-function testHeaderMiss(
-  make_header: (mid: number) => Record<string, any>,
-  suite: TestCaseBase,
-) {
-  _testHeader(make_header, suite, false);
+function testHeaderMiss(make_headers: HeaderCreator, suite: TestCaseBase) {
+  _testHeader(make_headers, suite, false);
 }
 
 function _testHeader(
-  make_header: (mid: number) => Record<string, any>,
+  make_headers: HeaderCreator,
   suite: TestCaseBase,
   should_match = true,
 ) {
-  let descriptor = JSON.stringify(make_header(0));
+  let descriptor = JSON.stringify(make_headers(0));
   test.concurrent(
     `${descriptor} ${should_match ? "hit" : "miss"}`,
     async ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         await merchant.set_settings(suite.settings(ctx.uuid));
 
-        let header = make_header(merchant.id);
-        await ctx.add_flexy_guard_rule(
-          {
-            header,
-            body: {
-              card: {
-                amount: {
-                  value: [-1, 0],
+        for (let header of make_headers(merchant.id)) {
+          await ctx.add_flexy_guard_rule(
+            {
+              header,
+              body: {
+                card: {
+                  amount: {
+                    value: [-1, 0],
+                  },
                 },
               },
             },
-          },
-          undefined,
-          1,
-        );
+            undefined,
+            1,
+          );
+        }
 
         let request = suite.request();
 
@@ -61,74 +58,76 @@ function _testHeader(
   );
 }
 
-testHeaderMatch((mid) => ({ mid }), default_provider.payinSuite());
+testHeaderMatch((mid) => [{ mid }], default_provider.payinSuite());
 
 testHeaderMatch(
-  (mid) => ({ mid, currency: CURRENCY }),
+  (mid) => [{ mid, currency: CURRENCY }],
   default_provider.payinSuite(),
 );
 
 testHeaderMatch(
-  (mid) => ({ mid, currency: CURRENCY, acq_id: "Gateway::DefaultPayment" }),
+  (mid) => [{ mid, currency: CURRENCY, acq_id: "Gateway::DefaultPayment" }],
   default_provider.payinSuite(),
 );
 
 testHeaderMiss(
-  (mid) => ({ mid, currency: "NAN" }),
+  (mid) => [{ mid, currency: "NAN" }],
   default_provider.payinSuite(),
 );
 
 describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
   testHeaderMatch(
-    (mid) => ({
-      mid: [-100, 1, 3.14, mid],
-      currency: ["NAN", CURRENCY, "USD", "URK", "EUR"],
-    }),
+    (mid) => [
+      {
+        mid: [-100, 1, 3.14, mid],
+        currency: ["NAN", CURRENCY, "USD", "URK", "EUR"],
+      },
+    ],
     default_provider.payinSuite(),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, currency: ["NAN", "USD", "URK", "EUR"] }),
+    (mid) => [{ mid, currency: ["NAN", "USD", "URK", "EUR"] }],
     default_provider.payinSuite(),
   );
 
   testHeaderMatch(
-    (mid) => ({ mid, phone: { eq: null } }),
+    (mid) => [{ mid, phone: { eq: null } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, phone: { card_number: null } }),
+    (mid) => [{ mid, phone: { card_number: null } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMatch(
-    (mid) => ({ mid, amount: { range: [12345, 200000] } }),
+    (mid) => [{ mid, amount: { range: [12345, 200000] } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMatch(
-    (mid) => ({ mid, amount: { gt: 1000, lt: common.amount + 1 } }),
+    (mid) => [{ mid, amount: { gt: 1000, lt: common.amount + 1 } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, amount: { range: [100, 2000] } }),
+    (mid) => [{ mid, amount: { range: [100, 2000] } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, email: { regex: "@gmail.com$" } }),
+    (mid) => [{ mid, email: { regex: "@gmail.com$" } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMatch(
-    (mid) => ({ mid, email: { regex: "@test.com$" } }),
+    (mid) => [{ mid, email: { regex: "@test.com$" } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, phone: { regex: "^7916" } }),
+    (mid) => [{ mid, phone: { regex: "^7916" } }],
     default_provider.payinSuite(),
   );
 
@@ -139,17 +138,369 @@ describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
   }
 
   testHeaderMatch(
-    (mid) => ({ mid, phone: { regex: "^7999" } }),
+    (mid) => [{ mid, phone: { regex: "^7999" } }],
     suiteWithPhone(default_provider.payinSuite()),
   );
 
   testHeaderMiss(
-    (mid) => ({ mid, email: { nin: ["test@test.com"] } }),
+    (mid) => [{ mid, email: { nin: ["test@test.com"] } }],
     default_provider.payinSuite(),
   );
 
   testHeaderMatch(
-    (mid) => ({ mid, email: { nin: ["another@test.com"] } }),
+    (mid) => [{ mid, email: { nin: ["another@test.com"] } }],
+    default_provider.payinSuite(),
+  );
+
+  // Mongo expression: amount at exact lower boundary of range should match
+  testHeaderMatch(
+    (mid) => [
+      { mid, amount: { range: [common.amount, common.amount + 100000] } },
+    ],
+    default_provider.payinSuite(),
+  );
+
+  // Mongo expression: amount at exact upper boundary of range should match
+  testHeaderMatch(
+    (mid) => [
+      { mid, amount: { range: [common.amount - 100000, common.amount] } },
+    ],
+    default_provider.payinSuite(),
+  );
+
+  // Mongo expression: amount one below lower boundary should miss
+  testHeaderMiss(
+    (mid) => [
+      { mid, amount: { range: [common.amount + 1, common.amount + 100000] } },
+    ],
     default_provider.payinSuite(),
   );
 });
+
+describe
+  .runIf(CONFIG.flexy_flexy)
+  .concurrent("pipeline error resilience", () => {
+    // $in requires its second argument to be an array; passing a scalar should not crash the service
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: "RUB" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: 42 } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: null } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: {} } }],
+      default_provider.payinSuite(),
+    );
+
+    // $in (via nin) with non-array values
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: "RUB" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: 42 } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: null } }],
+      default_provider.payinSuite(),
+    );
+
+    // $regexMatch throws on an invalid regex pattern
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "[unclosed" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "*noprefix" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
+      default_provider.payinSuite(),
+    );
+
+    // $regexMatch requires input to be a string; amount is a number in the request
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { regex: "^123" } }],
+      default_provider.payinSuite(),
+    );
+
+    // $arrayElemAt (used by range) requires an array as first argument
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: "1000,5000" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: 1000 } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: {} } }],
+      default_provider.payinSuite(),
+    );
+
+    // range with wrong-length arrays: upper/lower bounds resolve to null
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: [] } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: [1000] } }],
+      default_provider.payinSuite(),
+    );
+  });
+
+describe
+  .runIf(CONFIG.in_project("reactivepay"))
+  .concurrent("system ranges", () => {
+    function suiteWithAmount(
+      suite: TestCaseBase,
+      amount: number,
+    ): TestCaseBase {
+      let req = suite.request();
+      (req as Record<any, any>).amount = amount;
+      return { ...suite, request: () => req };
+    }
+
+    function rangeRule(mid: number, lo: number, hi: number) {
+      return {
+        header: {
+          mid,
+          amount: CONFIG.flexy_flexy
+            ? { range: [lo, hi] }
+            : [String(lo), String(hi)],
+        },
+        body: { card: { amount: { value: [-1, 0] } } },
+      };
+    }
+
+    // Bug fix: rule must fire when request amount is exactly at the range's lower boundary
+    test.concurrent(
+      "range lower boundary triggers rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO = 400000,
+            HI = 600000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+          await merchant.create_payment_err(
+            suiteWithAmount(default_provider.payinSuite(), LO).request(),
+          );
+        }),
+    );
+
+    test.concurrent(
+      "range upper boundary triggers rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO = 400000,
+            HI = 600000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+          await merchant.create_payment_err(
+            suiteWithAmount(default_provider.payinSuite(), HI).request(),
+          );
+        }),
+    );
+
+    test.concurrent(
+      "amount one below lower boundary misses rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO = 400000,
+            HI = 600000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), LO - 1).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    test.concurrent(
+      "amount one above upper boundary misses rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO = 400000,
+            HI = 600000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), HI + 1).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    // Bug fix: overlapping ranges are rejected; rules using the rejected range must not fire
+    test.concurrent(
+      "overlapping range is rejected and its rule does not fire",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const BASE_LO = 1000000,
+            BASE_HI = 2000000;
+          const OVERLAP_LO = 1500000,
+            OVERLAP_HI = 2500000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range(
+            "payin",
+            "amount",
+            `${BASE_LO}, ${BASE_HI}`,
+          );
+          // Adding overlapping range is silently rejected by the service
+          await ctx.add_flexy_guard_range(
+            "payin",
+            "amount",
+            `${OVERLAP_LO}, ${OVERLAP_HI}`,
+          );
+          // Rule using the rejected (non-existent) range must not fire for any amount
+          await ctx.add_flexy_guard_rule(
+            rangeRule(merchant.id, OVERLAP_LO, OVERLAP_HI),
+          );
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), 1750000).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    // Creating range 500-1000, then 600-1200 must be rejected (as described in the fix)
+    test.concurrent(
+      "range 600-1200 cannot be added after 500-1000",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", "500, 1000");
+          // Overlapping range should be silently rejected
+          await ctx.add_flexy_guard_range("payin", "amount", "600, 1200");
+          // A rule using the rejected [600,1200] range must not match
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, 600, 1200));
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), 700).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    // Two non-overlapping ranges must each fire their own rule
+    test.concurrent(
+      "two non-overlapping ranges each fire their rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO1 = 3000000,
+            HI1 = 4000000;
+          const LO2 = 4000001,
+            HI2 = 5000000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO1, HI1));
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
+          await merchant.create_payment_err(
+            suiteWithAmount(default_provider.payinSuite(), 3500000).request(),
+          );
+          await merchant.create_payment_err(
+            suiteWithAmount(default_provider.payinSuite(), 4500000).request(),
+          );
+        }),
+    );
+
+    // Rule whose range pair is absent from system ranges must not fire
+    test.concurrent(
+      "rule with range absent from system ranges does not fire",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          // [8000000, 9000000] is intentionally never added as a system range
+          await ctx.add_flexy_guard_rule(
+            rangeRule(merchant.id, 8000000, 9000000),
+          );
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), 8500000).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    // Rule whose lower bound matches a system range boundary but upper bound differs must not fire
+    test.concurrent(
+      "rule with mismatched upper bound does not fire",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO = 400000,
+            HI = 600000;
+          const WRONG_HI = 500000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+          // [LO, WRONG_HI] is not a system range — rulelookup resolves amount=LO to
+          // the existing [LO,HI] range hash, which does not match the rule's stored hash
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, WRONG_HI));
+          const res = await merchant.create_payment(
+            suiteWithAmount(default_provider.payinSuite(), LO).request(),
+          );
+          assert.strictEqual(res.payment.status, "approved");
+        }),
+    );
+
+    // Lower boundary of the second (higher) range must trigger its rule, not the first range's
+    test.concurrent(
+      "lower boundary of second range fires its own rule",
+      async ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          const LO1 = 3000000,
+            HI1 = 4000000;
+          const LO2 = 4000001,
+            HI2 = 5000000;
+          await merchant.set_settings(
+            default_provider.payinSuite().settings(ctx.uuid),
+          );
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
+          await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
+          // Only rule 2 registered for this merchant — lower boundary of range 2 must hit it
+          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
+          await merchant.create_payment_err(
+            suiteWithAmount(default_provider.payinSuite(), LO2).request(),
+          );
+        }),
+    );
+  });

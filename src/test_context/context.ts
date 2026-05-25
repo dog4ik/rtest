@@ -123,6 +123,11 @@ export class Context {
     );
   }
 
+  async add_flexy_guard_range(type: string, field: string, value: string) {
+    this.story.add_chapter("Add flexy guard range", { type, field, value });
+    await this.shared_state().guard_service.add_range(type, field, value);
+  }
+
   /**
    * Create a new sms parser
    */

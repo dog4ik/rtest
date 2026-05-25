@@ -76,4 +76,8 @@ export class FlexyGuardHarness {
       action: "remove",
     });
   }
+
+  async add_range(type: string, field: string, value: string) {
+    await this.action("/ranges", { type, field, value });
+  }
 }
