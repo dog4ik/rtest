@@ -101,7 +101,8 @@ const FeedFields = {
   commission_fee: z.float64().nullable(),
   commission_provider_amount: z.float64().nullable(),
   commission_provider_fee: z.float64().nullable(),
-  agent_id: z.int().nullish(),
+  amount_in_hold: z.coerce.number().nullish(),
+  agent_id: z.coerce.number().nullish(),
   agent_commission_amount: z.coerce.number().nullish(),
   agent_commission_value: z.coerce.number().nullish(),
   agent_commission_fee: z.coerce.number().nullish(),
@@ -117,9 +118,12 @@ const AGENT_COLUMMNS = [
 export const FeedSchema = z.object(FeedFields);
 export type Feed = z.infer<typeof FeedSchema>;
 export const FeedQuery = sqlProjection("feeds", FeedSchema, (project) => {
-  if (!["8pay", "paygateway", "fxmb"].includes(project)) {
-    return AGENT_COLUMMNS;
+  let filter: string[] = [];
+  if (!["reactivepay", "a2"].includes(project)) {
+    filter.push(...AGENT_COLUMMNS);
+    filter.push("amount_in_hold");
   }
+  return filter;
 });
 
 export class CoreDb extends Db {
@@ -226,6 +230,11 @@ JOIN entries ON entries.wallet_request_id = wallet_requests.id";
       z.object({ confirm_code: z.coerce.number() }),
       query,
     );
+  }
+
+  async agentByEmail(email: string) {
+    let query = `select id from profiles where profiles.email = '${email}'`;
+    return await this.fetch_one(z.object({ id: z.number() }), query);
   }
 
   async bank(system_name: string) {

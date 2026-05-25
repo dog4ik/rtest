@@ -11,7 +11,7 @@ export class Match<T> {
   constructor(
     public expected: T,
     public got: T,
-  ) {}
+  ) { }
 
   toString(): string {
     if (this.expected !== this.got) {
@@ -32,7 +32,7 @@ class HealthcheckResult {
     public amount: Match<number>,
     public wallet_state: WalletState,
     public disputes?: WalletState[],
-  ) {}
+  ) { }
 
   static is_valid_wallet_state(state: WalletState) {
     return (
@@ -97,7 +97,7 @@ class HealthcheckResult {
     if (this.wallet_state.agent === undefined) {
       lines.push(`Failed to validate agent entries: missing agent_id`);
     } else {
-      lines.push("Trader balance main entries:");
+      lines.push("Agent balance main entries:");
       lines.push(this.wallet_state.agent.toString());
     }
 
@@ -343,12 +343,14 @@ async function validate_trader_wallets(
     feed.target_amount || feed.amount,
     feed.type,
     feed.status,
+    feed.amount_in_hold ?? undefined,
   );
 
   let income = profit_validator.validate_trader_profit_state(
     feed.commission_provider_amount ?? 0,
     feed.type,
     feed.status,
+    feed.amount_in_hold ?? undefined,
   );
   return { main, income };
 }

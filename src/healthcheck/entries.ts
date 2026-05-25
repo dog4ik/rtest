@@ -152,9 +152,9 @@ export class EntryValidator {
       let available_match =
         status === CoreStatusMap.init || status === CoreStatusMap.approved
           ? new Match(
-              -target_amount - commission_amount,
-              this.current_available,
-            )
+            -target_amount - commission_amount,
+            this.current_available,
+          )
           : new Match(0, this.current_available);
 
       let hold_match =
@@ -220,7 +220,7 @@ export class EntryValidator {
     commission_amount: number,
     status: CoreStatus,
   ): BalanceValidation {
-    console.log({ wallet_id: this.wallet_id }, "Validating merchant entries");
+    console.log({ wallet_id: this.wallet_id }, "Validating agent entries");
     if (status == CoreStatusMap.approved) {
       let available = new Match(commission_amount, this.current_available);
       let held = new Match(0, this.current_hold);
@@ -236,6 +236,7 @@ export class EntryValidator {
     target_amount: number,
     type: FeedType,
     status: CoreStatus,
+    amount_in_hold: number | undefined,
   ): BalanceValidation {
     console.log(
       { wallet_id: this.wallet_id },
@@ -255,12 +256,23 @@ export class EntryValidator {
 
       return new BalanceValidation(available_match, hold_match);
     } else if (type === "PayoutRequest") {
-      let available_match =
-        status === CoreStatusMap.approved
-          ? new Match(target_amount, this.current_available)
-          : new Match(0, this.current_available);
+      let available_match: Match<number>;
+      let hold_match: Match<number>;
 
-      let hold_match = new Match(0, this.current_hold);
+      if (
+        amount_in_hold !== undefined &&
+        amount_in_hold > 0 &&
+        status === CoreStatusMap.approved
+      ) {
+        available_match = new Match(0, this.current_available);
+        hold_match = new Match(target_amount, this.current_hold);
+      } else {
+        available_match =
+          status === CoreStatusMap.approved
+            ? new Match(target_amount, this.current_available)
+            : new Match(0, this.current_available);
+        hold_match = new Match(0, this.current_hold);
+      }
 
       return new BalanceValidation(available_match, hold_match);
     } else if (type === "DisputeRequest") {
@@ -289,6 +301,7 @@ export class EntryValidator {
     comission_amount: number,
     type: FeedType,
     status: CoreStatus,
+    amount_in_hold: number | undefined,
   ): BalanceValidation {
     console.log(
       { wallet_id: this.wallet_id },
@@ -305,12 +318,24 @@ export class EntryValidator {
 
       return new BalanceValidation(available_match, hold_match);
     } else if (type === "PayoutRequest") {
-      let available_match =
+      let available_match: Match<number>;
+      let hold_match: Match<number>;
+      if (
+        amount_in_hold !== undefined &&
+        amount_in_hold > 0 &&
         status === CoreStatusMap.approved
-          ? new Match(comission_amount, this.current_available)
-          : new Match(0, this.current_available);
+      ) {
+        available_match = new Match(0, this.current_available);
+        // Profit wallet commission is not being held, for simplity.
+        hold_match = new Match(0, this.current_hold);
+      } else {
+        available_match =
+          status === CoreStatusMap.approved
+            ? new Match(comission_amount, this.current_available)
+            : new Match(0, this.current_available);
 
-      let hold_match = new Match(0, this.current_hold);
+        hold_match = new Match(0, this.current_hold);
+      }
       return new BalanceValidation(available_match, hold_match);
     } else if (type === "DisputeRequest") {
       let available_match =
@@ -330,7 +355,7 @@ export class BalanceValidation {
   constructor(
     public readonly available_match: Match<number>,
     public readonly hold_match: Match<number>,
-  ) {}
+  ) { }
 
   toString() {
     return (
