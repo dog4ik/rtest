@@ -509,7 +509,7 @@ export class GatewayConnectTransaction {
     };
   }
 
-  async send_callback(status: PrimeBusinessStatus) {
+  async send_callback(status: PrimeBusinessStatus, amount?: number) {
     let req_data = this.request_data();
     assert(req_data, "request data should be defined");
     let payload = {
@@ -517,7 +517,7 @@ export class GatewayConnectTransaction {
       reason: status === "declined" ? "Test callback error message" : undefined,
       currency: "RUB",
       logs: [{ request: JSON.stringify({ status }) }],
-      amount: common.amount,
+      amount: amount ?? common.amount,
     };
     let jwt = await createJwt(
       payload,

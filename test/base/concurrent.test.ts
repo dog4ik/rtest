@@ -1,6 +1,7 @@
 import { CONFIG, PROJECT } from "@/config";
 import * as common from "@/common";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
+import { providers } from "@/settings_builder";
 import { test } from "@/test_context";
 import { assert } from "vitest";
 import { delay } from "@std/async";
@@ -89,6 +90,321 @@ test
 
         await approved_notification;
         await Promise.race([delay(5_000), another_notification]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
+  .concurrent(
+    "concurrent approved callback & approved status",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings(
+          providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            enable_change_final_status: true,
+          }),
+        );
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.requisites_payin_handler("pending", "card"));
+        // When the status checker polls and gets "approved", it races with the concurrent
+        // callback that fires at the same moment via a different code path.
+        gw.queue(payment.status_handler("approved")).then(async () => {
+          await payment.send_callback("approved");
+        });
+        gw.queue(payment.status_handler("approved"));
+        gw.queue(payment.status_handler("approved"));
+
+        if (PROJECT === "8pay") {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              extra_return_param: "Cards",
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_8pay_requisite());
+        } else {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              bank_account: { requisite_type: "card" },
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_trader_requisites());
+        }
+
+        let approved_notification = merchant.queue_notification((callback) => {
+          assert.notOk(
+            callback.gatewayDetails?.decline_reason,
+            "declination reason should be empty",
+          );
+          assert.strictEqual(callback.status, "approved");
+        });
+        let duplicate_notification = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `Expected only one notification, got second: ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        await approved_notification;
+        await Promise.race([delay(5_000), duplicate_notification]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
+  .concurrent(
+    "concurrent approved status & declined callback",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings(
+          providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            // Required so the decline attempt can reach the lock even if confirm wins first.
+            enable_change_final_status: true,
+          }),
+        );
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.requisites_payin_handler("pending", "card"));
+        gw.queue(payment.status_handler("approved")).then(async () => {
+          await payment.send_callback("declined");
+        });
+        gw.queue(payment.status_handler("approved"));
+
+        if (PROJECT === "8pay") {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              extra_return_param: "Cards",
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_8pay_requisite());
+        } else {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              bank_account: { requisite_type: "card" },
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_trader_requisites());
+        }
+
+        let outcome_notification = merchant.queue_notification((callback) => {
+          assert.ok(
+            callback.status === "approved" || callback.status === "declined",
+            `Expected approved or declined, got: ${callback.status}`,
+          );
+        });
+        let duplicate_notification = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `Expected only one outcome, got second notification: ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        await outcome_notification;
+        await Promise.race([delay(5_000), duplicate_notification]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay"]))
+  .concurrent(
+    "approved callback and status processed only once (payout)",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings({
+          ...providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            enable_change_final_status: true,
+          }),
+          payout_providers_card: true,
+        });
+        await merchant.cashin(CURRENCY, common.amount / 100);
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.basic_payout_handler("pending"));
+        gw.queue(payment.status_handler("approved")).then(async () => {
+          await payment.send_callback("approved");
+        });
+        gw.queue(payment.status_handler("approved"));
+        gw.queue(payment.status_handler("approved"));
+
+        await merchant
+          .create_payout({
+            ...common.payoutRequest(CURRENCY),
+            bank_account: { requisite_type: "card" },
+          })
+          .then((p) => p.followFirstProcessingUrl())
+          .then((u) => u.as_payout_response());
+
+        let approved_notification = merchant.queue_notification((callback) => {
+          assert.strictEqual(callback.status, "approved");
+        });
+        let duplicate_notification = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `Expected only one notification, got second: ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        await approved_notification;
+        await Promise.race([delay(5_000), duplicate_notification]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
+  .concurrent(
+    "double core manage decline",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings(
+          providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            enable_change_final_status: true,
+          }),
+        );
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.requisites_payin_handler("pending", "card"));
+        gw.queue(payment.status_handler("approved"));
+
+        let payment_response;
+        if (PROJECT === "8pay") {
+          payment_response = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            extra_return_param: "Cards",
+          });
+          await payment_response
+            .followFirstProcessingUrl()
+            .then((u) => u.as_8pay_requisite());
+        } else {
+          payment_response = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            bank_account: { requisite_type: "card" },
+          });
+          await payment_response
+            .followFirstProcessingUrl()
+            .then((u) => u.as_trader_requisites());
+        }
+
+        let approved_notification = merchant.queue_notification(
+          (callback) => {
+            assert.strictEqual(callback.status, "approved");
+          },
+          { expect: { status: 1 } },
+        );
+        await payment.send_callback("approved");
+        await approved_notification;
+
+        let feed = await ctx.get_feed(payment_response.token);
+
+        let declined_notification = merchant.queue_notification(
+          (callback) => {
+            assert.strictEqual(callback.status, "declined");
+          },
+          { expect: { status: 2 } },
+        );
+        let duplicate_declined = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `Expected only one reversal notification, got second: ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        await delay(2_000);
+
+        let core = ctx.shared_state().core_harness;
+        // Intentionally ignore 500
+        await Promise.allSettled([
+          core.change_status(feed.id, "declined"),
+          core.change_status(feed.id, "declined"),
+        ]);
+
+        await declined_notification;
+        await Promise.race([delay(5_000), duplicate_declined]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
+  .concurrent(
+    "concurrent callbacks with mixed statuses and amounts leave payment in consistent state",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings(
+          providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            enable_change_final_status: true,
+            enable_update_amount: true,
+          }),
+        );
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.requisites_payin_handler("pending", "card"));
+        gw.queue(payment.status_handler("approved"));
+        gw.queue(payment.status_handler("approved"));
+        gw.queue(payment.status_handler("approved"));
+
+        let payment_response;
+        if (PROJECT === "8pay") {
+          payment_response = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            extra_return_param: "Cards",
+          });
+          await payment_response
+            .followFirstProcessingUrl()
+            .then((u) => u.as_8pay_requisite());
+        } else {
+          payment_response = await merchant.create_payment({
+            ...common.paymentRequest(CURRENCY),
+            bank_account: { requisite_type: "card" },
+          });
+          await payment_response
+            .followFirstProcessingUrl()
+            .then((u) => u.as_trader_requisites());
+        }
+
+        let outcome_notification = merchant.queue_notification((callback) => {
+          assert.ok(
+            callback.status === "approved" || callback.status === "declined",
+            `Expected approved or declined, got: ${callback.status}`,
+          );
+        });
+
+        const spam: [status: "approved" | "declined", amount: number][] = [
+          ["approved", common.amount],
+          ["declined", common.amount + 1000],
+          ["approved", common.amount - 500],
+          ["declined", common.amount * 2],
+          ["approved", common.amount],
+        ];
+        await Promise.allSettled(
+          spam.map(async ([status, amount], i) => {
+            await delay(i * 100);
+            await payment.send_callback(status, amount);
+          }),
+        );
+
+        await outcome_notification;
+        await ctx.healthcheck(payment_response.token);
       }),
   );
 
