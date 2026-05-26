@@ -21,9 +21,9 @@ export const EightpayRequesiteSchema = z.object({
   support_banks: z.array(z.string()).min(1),
   support_bank_native: z.record(z.string(), z.string()).optional(),
   payment: z.object({
-    amount: z.int().min(1),
+    amount: z.coerce.number().min(1),
     currency: z.string().length(3),
-    gateway_amount: z.int().min(1),
+    gateway_amount: z.coerce.number().min(1),
     gateway_currency: z.string().length(3),
     status: z.literal("pending"),
   }),
@@ -31,7 +31,7 @@ export const EightpayRequesiteSchema = z.object({
   order_number: z.string().optional(),
   token: z.string().length(32),
   gateway_token: z.string().min(1),
-  success: z.literal(true),
+  success: z.coerce.boolean(),
 });
 
 export const PayoutResponseSchema = z.object({
@@ -96,7 +96,7 @@ export class ProcessingUrlResponse {
   constructor(
     private ctx: Context,
     private response: Response,
-  ) {}
+  ) { }
 
   private async consume_json_body() {
     let contentType = this.response.headers.get("content-type");

@@ -137,7 +137,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
           check_merchant_payform,
           check_missed_requisites,
         },
-        { use_status_handler },
+        { use_status_handler, is_masked: true },
       );
     }
   });
