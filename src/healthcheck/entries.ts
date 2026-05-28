@@ -177,10 +177,8 @@ export class EntryValidator {
         hold_match = new Match(0, this.current_hold);
       } else if (status === CoreStatusMap.init) {
         available_match = new Match(0, this.current_available);
-        hold_match = new Match(
-          -target_amount - commission_amount,
-          this.current_hold,
-        );
+        // dispute can't be created on approved payin transaction, thus created dispute does not need to hold funds.
+        hold_match = new Match(0, this.current_hold);
       } else {
         throw Error(`Unexpected dispute status: ${status}`);
       }
