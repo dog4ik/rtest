@@ -6,7 +6,7 @@ import * as forta from "@/provider_mocks/forta";
 import * as pixel from "@/provider_mocks/pixelwave";
 import * as argos from "@/provider_mocks/argos";
 import * as gatewayconnect from "@/provider_mocks/gateway_connect";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 import { describe } from "vitest";
 import * as common from "@/common";
 import * as playwright from "playwright";
@@ -74,6 +74,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
         brus.payinSuite(),
       ],
       () => [brus.payinSuite(), mil.payinSuite(), mad.payinSuite()],
+      () => [brus.payinSuite(), mad.payinSuite()],
       () => [brus.payinSuite(), mad.payinSuite(), mil.payinSuite()],
       () => [
         mad.payinSuite(),
@@ -87,6 +88,17 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
         gatewayConnectRoutingSuite("card"),
         gatewayConnectRoutingSuite("card"),
         gatewayConnectRoutingSuite("card"),
+      ],
+      () => [
+        gatewayConnectRoutingSuite("card"),
+        iron.payinSuite(),
+        gatewayConnectRoutingSuite("card"),
+      ],
+
+      () => [
+        iron.payinSuite(),
+        gatewayConnectRoutingSuite("card"),
+        brus.payinSuite(),
       ],
       () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
     ];
@@ -104,7 +116,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
 
   for (let c of allCases()) {
     routingFinalizationSuite(
-      c() as [...Routable[], Routable & Callback],
+      c as () => [...Routable[], Routable & Callback],
       req,
       {
         check_merchant_requisites,
@@ -116,21 +128,13 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
   }
 
   describe.concurrent("masked routing", () => {
-    for (let c of allCases().map((c) =>
-      c().map((link) => {
-        // Gateway connect integrations fail with masked_provider setting
-        if (
-          (link.gw instanceof pixel.PixelwavePayment ||
-            link.gw instanceof gatewayconnect.GatewayConnectTransaction) &&
-          PROJECT != "spinpay"
-        ) {
-          return link;
-        }
-        return maskedSuite(link);
-      }),
-    )) {
+    for (let c of allCases()) {
       routingFinalizationSuite(
-        c as [...Routable[], Routable & Callback],
+        () =>
+          c().map((link) => maskedSuite(link)) as [
+            ...Routable[],
+            Routable & Callback,
+          ],
         req,
         {
           check_merchant_requisites,
@@ -141,38 +145,6 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
       );
     }
   });
-
-  routingFinalizationSuite(
-    [forta.payinSuite(), mil.payinSuite(), mad.payinSuite(), brus.payinSuite()],
-    req,
-    { check_merchant_requisites, check_merchant_payform },
-    { use_status_handler },
-  );
-
-  routingFinalizationSuite(
-    [brus.payinSuite(), mil.payinSuite(), mad.payinSuite()],
-    req,
-    { check_merchant_requisites, check_merchant_payform },
-    { use_status_handler },
-  );
-
-  routingFinalizationSuite(
-    [brus.payinSuite(), mad.payinSuite(), mil.payinSuite()],
-    req,
-    { check_merchant_requisites, check_merchant_payform },
-    { use_status_handler },
-  );
-  routingFinalizationSuite(
-    [
-      mad.payinSuite(),
-      brus.payinSuite(),
-      iron.payinSuite(),
-      forta.payinSuite(),
-    ],
-    req,
-    { check_merchant_requisites, check_merchant_payform },
-    { use_status_handler },
-  );
 });
 
 describe
@@ -224,7 +196,7 @@ describe
 
     for (let c of allCases()) {
       routingFinalizationSuite(
-        c() as [...Routable[], Routable & Callback],
+        c as () => [...Routable[], Routable & Callback],
         req,
         {
           check_merchant_requisites,
@@ -236,16 +208,13 @@ describe
     }
 
     describe.concurrent("masked routing", () => {
-      for (let c of allCases().map((c) =>
-        c().map((link) => {
-          if (link.gw instanceof GatewayConnectTransaction) {
-            return link;
-          }
-          return maskedSuite(link);
-        }),
-      )) {
+      for (let c of allCases()) {
         routingFinalizationSuite(
-          c as [...Routable[], Routable & Callback],
+          () =>
+            c().map((link) => maskedSuite(link)) as [
+              ...Routable[],
+              Routable & Callback,
+            ],
           req,
           {
             check_merchant_requisites,
@@ -299,7 +268,7 @@ describe
 
     for (let c of allCases()) {
       routingFinalizationSuite(
-        c() as [...Routable[], Routable & Callback],
+        c as () => [...Routable[], Routable & Callback],
         req,
         { check_merchant_requisites, check_missed_requisites },
         { use_status_handler },
@@ -307,11 +276,13 @@ describe
     }
 
     describe.concurrent("masked routing", () => {
-      for (let c of allCases().map((c) =>
-        c().map((link) => maskedSuite(link)),
-      )) {
+      for (let c of allCases()) {
         routingFinalizationSuite(
-          c as [...Routable[], Routable & Callback],
+          () =>
+            c().map((link) => maskedSuite(link)) as [
+              ...Routable[],
+              Routable & Callback,
+            ],
           req,
           { check_merchant_requisites, check_missed_requisites },
           { is_masked: true, use_status_handler },

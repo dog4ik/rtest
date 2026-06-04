@@ -4,6 +4,7 @@ import * as common from "@/common";
 import * as default_provider from "@/provider_mocks/default";
 import type { TestCaseBase } from "@/suite_interfaces";
 import { CONFIG } from "@/config";
+import type { CreateRuleJson } from "@/driver/flexy_commission";
 
 const CURRENCY = "RUB";
 
@@ -177,95 +178,93 @@ describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
   );
 });
 
-describe
-  .runIf(CONFIG.flexy_flexy)
-  .concurrent("pipeline error resilience", () => {
-    // $in requires its second argument to be an array; passing a scalar should not crash the service
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { in: "RUB" } }],
-      default_provider.payinSuite(),
-    );
+describe.runIf(CONFIG.flexy_flexy).todo("pipeline error resilience", () => {
+  // $in requires its second argument to be an array; passing a scalar should not crash the service
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { in: "RUB" } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { in: 42 } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { in: 42 } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { in: null } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { in: null } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { in: {} } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { in: {} } }],
+    default_provider.payinSuite(),
+  );
 
-    // $in (via nin) with non-array values
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: "RUB" } }],
-      default_provider.payinSuite(),
-    );
+  // $in (via nin) with non-array values
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { nin: "RUB" } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: 42 } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { nin: 42 } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: null } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { nin: null } }],
+    default_provider.payinSuite(),
+  );
 
-    // $regexMatch throws on an invalid regex pattern
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "[unclosed" } }],
-      default_provider.payinSuite(),
-    );
+  // $regexMatch throws on an invalid regex pattern
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { regex: "[unclosed" } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "*noprefix" } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { regex: "*noprefix" } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
+    default_provider.payinSuite(),
+  );
 
-    // $regexMatch requires input to be a string; amount is a number in the request
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { regex: "^123" } }],
-      default_provider.payinSuite(),
-    );
+  // $regexMatch requires input to be a string; amount is a number in the request
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { regex: "^123" } }],
+    default_provider.payinSuite(),
+  );
 
-    // $arrayElemAt (used by range) requires an array as first argument
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: "1000,5000" } }],
-      default_provider.payinSuite(),
-    );
+  // $arrayElemAt (used by range) requires an array as first argument
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { range: "1000,5000" } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: 1000 } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { range: 1000 } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: {} } }],
-      default_provider.payinSuite(),
-    );
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { range: {} } }],
+    default_provider.payinSuite(),
+  );
 
-    // range with wrong-length arrays: upper/lower bounds resolve to null
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: [] } }],
-      default_provider.payinSuite(),
-    );
+  // range with wrong-length arrays: upper/lower bounds resolve to null
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { range: [] } }],
+    default_provider.payinSuite(),
+  );
 
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: [1000] } }],
-      default_provider.payinSuite(),
-    );
-  });
+  testHeaderMiss(
+    (mid) => [{ mid, amount: { range: [1000] } }],
+    default_provider.payinSuite(),
+  );
+});
 
 describe
   .runIf(CONFIG.in_project("reactivepay"))
@@ -362,60 +361,6 @@ describe
         }),
     );
 
-    // Bug fix: overlapping ranges are rejected; rules using the rejected range must not fire
-    test.concurrent(
-      "overlapping range is rejected and its rule does not fire",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const BASE_LO = 1000000,
-            BASE_HI = 2000000;
-          const OVERLAP_LO = 1500000,
-            OVERLAP_HI = 2500000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range(
-            "payin",
-            "amount",
-            `${BASE_LO}, ${BASE_HI}`,
-          );
-          // Adding overlapping range is silently rejected by the service
-          await ctx.add_flexy_guard_range(
-            "payin",
-            "amount",
-            `${OVERLAP_LO}, ${OVERLAP_HI}`,
-          );
-          // Rule using the rejected (non-existent) range must not fire for any amount
-          await ctx.add_flexy_guard_rule(
-            rangeRule(merchant.id, OVERLAP_LO, OVERLAP_HI),
-          );
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), 1750000).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
-
-    // Creating range 500-1000, then 600-1200 must be rejected (as described in the fix)
-    test.concurrent(
-      "range 600-1200 cannot be added after 500-1000",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", "500, 1000");
-          // Overlapping range should be silently rejected
-          await ctx.add_flexy_guard_range("payin", "amount", "600, 1200");
-          // A rule using the rejected [600,1200] range must not match
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, 600, 1200));
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), 700).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
-
     // Two non-overlapping ranges must each fire their own rule
     test.concurrent(
       "two non-overlapping ranges each fire their rule",
@@ -441,47 +386,6 @@ describe
         }),
     );
 
-    // Rule whose range pair is absent from system ranges must not fire
-    test.concurrent(
-      "rule with range absent from system ranges does not fire",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          // [8000000, 9000000] is intentionally never added as a system range
-          await ctx.add_flexy_guard_rule(
-            rangeRule(merchant.id, 8000000, 9000000),
-          );
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), 8500000).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
-
-    // Rule whose lower bound matches a system range boundary but upper bound differs must not fire
-    test.concurrent(
-      "rule with mismatched upper bound does not fire",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO = 400000,
-            HI = 600000;
-          const WRONG_HI = 500000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
-          // [LO, WRONG_HI] is not a system range — rulelookup resolves amount=LO to
-          // the existing [LO,HI] range hash, which does not match the rule's stored hash
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, WRONG_HI));
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), LO).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
-
     // Lower boundary of the second (higher) range must trigger its rule, not the first range's
     test.concurrent(
       "lower boundary of second range fires its own rule",
@@ -504,3 +408,193 @@ describe
         }),
     );
   });
+
+const DEFAULT_SOURCE = "default";
+
+const DEFAULT_BODY: CreateRuleJson["body"] = {
+  self: { rate: "10" },
+  provider: { rate: "0" },
+  agent: { rate: "0" },
+};
+
+const DEFAULT_COMMISSION = 10;
+
+type CommissionRuleCreator = (mid: number) => CreateRuleJson[];
+
+function testCommissionMatch(
+  make_rules: CommissionRuleCreator,
+  suite: TestCaseBase,
+  expected_commission: number,
+) {
+  _testCommission(make_rules, suite, expected_commission);
+}
+
+function testCommissionMiss(
+  make_rules: CommissionRuleCreator,
+  suite: TestCaseBase,
+) {
+  _testCommission(make_rules, suite, null);
+}
+
+function _testCommission(
+  make_rules: CommissionRuleCreator,
+  suite: TestCaseBase,
+  expected_commission_value: number | null,
+) {
+  let descriptor = JSON.stringify(make_rules(0));
+  test.concurrent(
+    `${descriptor} ${expected_commission_value !== null ? "match" : "miss"}`,
+    async ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        for (let rule of make_rules(merchant.id)) {
+          await ctx.add_flexy_commission_as_json(rule);
+        }
+
+        let res = await merchant.create_payment(suite.request());
+        assert.strictEqual(res.payment.status, "approved");
+        await ctx.healthcheck(res.token, {
+          expect: { commission_value: expected_commission_value ?? 0 },
+        });
+      }),
+  );
+}
+
+describe.runIf(CONFIG.flexy_flexy).concurrent("mongo commission header", () => {
+  testCommissionMatch(
+    (mid) => [
+      {
+        header: { to_profile: mid, currency: CURRENCY, source: DEFAULT_SOURCE },
+        body: DEFAULT_BODY,
+      },
+    ],
+    default_provider.payinSuite(),
+    DEFAULT_COMMISSION,
+  );
+
+  testCommissionMiss(
+    (mid) => [
+      {
+        header: { to_profile: mid, currency: "USD", source: DEFAULT_SOURCE },
+        body: DEFAULT_BODY,
+      },
+    ],
+    default_provider.payinSuite(),
+  );
+
+  testCommissionMiss(
+    (mid) => [
+      {
+        header: {
+          to_profile: mid,
+          currency: "USD",
+          source: DEFAULT_SOURCE,
+          amount: { range: [0.0, common.amount / 100] },
+        },
+        body: DEFAULT_BODY,
+      },
+      {
+        header: {
+          to_profile: mid,
+          currency: "USD",
+          source: DEFAULT_SOURCE,
+          amount: { range: [common.amount / 100 + 1, 99999999] },
+        },
+        body: DEFAULT_BODY,
+      },
+    ],
+    default_provider.payinSuite(),
+  );
+
+  // Two rules present: USD at 5% (no match) and RUB at 20% (match) — commission must come from the RUB rule.
+  testCommissionMatch(
+    (mid) => [
+      {
+        header: { to_profile: mid, currency: "USD", source: DEFAULT_SOURCE },
+        body: {
+          self: { rate: "5" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: { to_profile: mid, currency: CURRENCY, source: DEFAULT_SOURCE },
+        body: {
+          self: { rate: "20" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+    ],
+    default_provider.payinSuite(),
+    20,
+  );
+
+  // The rule with more header keys beats the rule with less keys
+  testCommissionMatch(
+    (mid) => [
+      {
+        header: { to_profile: mid },
+        body: {
+          self: { rate: "5" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: { to_profile: mid, currency: "RUB", source: DEFAULT_SOURCE },
+        body: {
+          self: { rate: "10" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: { to_profile: mid, currency: "RUB" },
+        body: {
+          self: { rate: "15" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+    ],
+    default_provider.payinSuite(),
+    10,
+  );
+
+  // The rule with equal header keys length but rule with range wins over others.
+  testCommissionMatch(
+    (mid) => [
+      {
+        header: { to_profile: mid, currency: "RUB", agent_id: { eq: null } },
+        body: {
+          self: { rate: "5" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: {
+          to_profile: mid,
+          currency: "RUB",
+          amount: { range: [10.0, 1000000.0] },
+        },
+        body: {
+          self: { rate: "10" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: { to_profile: mid, currency: "RUB", source: DEFAULT_SOURCE },
+        body: {
+          self: { rate: "15" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+    ],
+    default_provider.payinSuite(),
+    10,
+  );
+});

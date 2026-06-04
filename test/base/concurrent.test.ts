@@ -107,15 +107,81 @@ test
             enable_change_final_status: true,
           }),
         );
+        await merchant.cashin(CURRENCY, 10);
+        await merchant.cashout(CURRENCY, 10);
+        await merchant.set_balance(CURRENCY, {hold: 9999999, available: 9999999 });
         let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
         gw.queue(payment.requisites_payin_handler("pending", "card"));
         // When the status checker polls and gets "approved", it races with the concurrent
         // callback that fires at the same moment via a different code path.
         gw.queue(payment.status_handler("approved")).then(async () => {
           await payment.send_callback("approved");
+          await delay(100);
+          await payment.send_callback("approved");
         });
         gw.queue(payment.status_handler("approved"));
         gw.queue(payment.status_handler("approved"));
+
+        if (PROJECT === "8pay") {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              extra_return_param: "Cards",
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_8pay_requisite());
+        } else {
+          await merchant
+            .create_payment({
+              ...common.paymentRequest(CURRENCY),
+              bank_account: { requisite_type: "card" },
+            })
+            .then((p) => p.followFirstProcessingUrl())
+            .then((u) => u.as_trader_requisites());
+        }
+
+        let approved_notification = merchant.queue_notification((callback) => {
+          assert.notOk(
+            callback.gatewayDetails?.decline_reason,
+            "declination reason should be empty",
+          );
+          assert.strictEqual(callback.status, "approved");
+        });
+        let duplicate_notification = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `Expected only one notification, got second: ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        await approved_notification;
+        await Promise.race([delay(5_000), duplicate_notification]);
+      }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
+  .concurrent(
+    "concurrent approved callback & pending status",
+    { timeout: 60_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        await merchant.set_settings(
+          providers(CURRENCY, {
+            ...payment.settings(ctx.uuid),
+            enable_change_final_status: true,
+          }),
+        );
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.requisites_payin_handler("pending", "card"));
+        // When the status checker polls and gets "approved", it races with the concurrent
+        // callback that fires at the same moment via a different code path.
+        gw.queue(payment.status_handler("pending")).then(async () => {
+          await payment.send_callback("approved");
+        });
 
         if (PROJECT === "8pay") {
           await merchant

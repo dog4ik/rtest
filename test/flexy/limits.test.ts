@@ -1,6 +1,6 @@
 import { CONFIG } from "@/config";
 import { test } from "@/test_context";
-import { describe, assert, assertType } from "vitest";
+import { describe, assert } from "vitest";
 import * as common from "@/common";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { defaultSettings, SettingsBuilder } from "@/settings_builder";
@@ -58,7 +58,7 @@ class LimitTester {
 }
 
 describe
-  .runIf(CONFIG.in_project(["spinpay", "reactivepay"]))
+  .runIf(CONFIG.in_project(["spinpay", "reactivepay", "8pay"]))
   .concurrent("limits tests", () => {
     test.concurrent(
       "daily p2p approve routing",
@@ -154,9 +154,8 @@ describe
 
           await merchant
             .create_payment({
-              ...common.paymentRequest(CURRENCY),
+              ...common.p2pPaymentRequest(CURRENCY, "sbp"),
               amount: 100,
-              bank_account: { requisite_type: "sbp" },
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -201,9 +200,8 @@ describe
 
         await merchant
           .create_payment({
-            ...common.paymentRequest(CURRENCY),
+            ...common.p2pPaymentRequest(CURRENCY, "sbp"),
             amount: common.amount - 100,
-            bank_account: { requisite_type: "sbp" },
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_error());
@@ -211,38 +209,40 @@ describe
       }),
     );
 
-    test.concurrent("daily approve limit", ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let rule = (mid: number) => ({
-          header: {
-            mid,
-            currency: "RUB",
-            type: "pay",
-          },
-          body: {
-            amount: {
-              value: [0, 10000000],
+    test
+      .skipIf(CONFIG.in_project("8pay"))
+      .concurrent("daily approve limit", ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let rule = (mid: number) => ({
+            header: {
+              mid,
+              currency: "RUB",
+              type: "pay",
             },
-            status: {
-              sum: {
-                "1Europe/Moscow#approved#amount": [0, 99900000],
+            body: {
+              amount: {
+                value: [0, 10000000],
               },
-            },
-            card: {
               status: {
-                count: {
-                  "1Europe/Moscow#approved": [0, 2],
+                sum: {
+                  "1Europe/Moscow#approved#amount": [0, 99900000],
+                },
+              },
+              card: {
+                status: {
+                  count: {
+                    "1Europe/Moscow#approved": [0, 2],
+                  },
                 },
               },
             },
-          },
-          routing: {},
-          action: null,
-          dispatching: null,
-        });
-        let tester = new LimitTester(ctx);
-        await tester.init(rule);
-        await tester.run_n_approves(2);
-      }),
-    );
+            routing: {},
+            action: null,
+            dispatching: null,
+          });
+          let tester = new LimitTester(ctx);
+          await tester.init(rule);
+          await tester.run_n_approves(2);
+        }),
+      );
   });

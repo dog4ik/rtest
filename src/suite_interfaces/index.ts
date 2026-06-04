@@ -514,7 +514,7 @@ async function setupRoutingChain(
 const ROUTING_TEST_TIMEOUT = 75_000;
 
 export function routingFinalizationSuite(
-  links: [...Routable[], Routable & Callback],
+  links: () => [...Routable[], Routable & Callback],
   request: () => PaymentRequest,
   checks: {
     check_merchant_requisites?: (
@@ -530,7 +530,7 @@ export function routingFinalizationSuite(
   let is_masked = opts?.is_masked ?? false;
   let use_status_handler = opts?.use_status_handler ?? false;
   let currency = request().currency;
-  let chain_descriptor = links
+  let chain_descriptor = links()
     .map((l) => l.mock_options("").alias)
     .join(" -> ");
 
@@ -539,16 +539,17 @@ export function routingFinalizationSuite(
     { timeout: ROUTING_TEST_TIMEOUT },
     ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
+        let chain_links = links();
         let { merchant, chain, last_mock_server } = await setupRoutingChain(
           ctx,
           currency,
-          links,
+          chain_links,
           false,
         );
         let approved_notification = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "approved");
         });
-        let last_link = links[links.length - 1] as Routable & Callback & Status;
+        let last_link = chain_links[chain_links.length - 1] as Routable & Callback & Status;
         if (use_status_handler) {
           last_mock_server.queue(last_link.status_handler("approved"));
         }
@@ -580,10 +581,11 @@ export function routingFinalizationSuite(
       { timeout: ROUTING_TEST_TIMEOUT },
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
+          let chain_links = links();
           let { merchant, chain } = await setupRoutingChain(
             ctx,
             currency,
-            links,
+            chain_links,
             true,
           );
           console.log({ merchant, chain_descriptor, type: "before" });
@@ -616,9 +618,10 @@ export function routingFinalizationSuite(
       { timeout: ROUTING_TEST_TIMEOUT },
       ({ ctx, browser }) =>
         ctx.track_bg_rejections(async () => {
+          let chain_links = links();
           let override_links = () => {
             if (CONFIG.in_project("8pay")) {
-              return links.map((l) => ({
+              return chain_links.map((l) => ({
                 ...l,
                 settings: (secret: string) => ({
                   ...l.settings(secret),
@@ -626,7 +629,7 @@ export function routingFinalizationSuite(
                 }),
               }));
             } else {
-              return links.map((l) => {
+              return chain_links.map((l) => {
                 return {
                   ...l,
                   settings: (secret: string) => ({
