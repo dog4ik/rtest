@@ -1,6 +1,7 @@
 import { EntryCodes, type Entry } from "@/db/core/entry";
 import { Match } from ".";
 import { CoreStatusMap, type CoreStatus, type FeedType } from "@/db/core";
+import { hash } from "crypto";
 
 /**
  * Target wallet id, basically wallet id for the entity we calculate amount changes.
@@ -50,6 +51,7 @@ export class EntryValidator {
 
       case EntryCodes.COMMISSION:
       case EntryCodes.TRADER_COMMISSION:
+      case EntryCodes.TRADER_COMMISSION_RETURN:
       case EntryCodes.AGENT_COMMISSION:
       case EntryCodes.AGENT_COMMISSION_RETURN:
         if (this.wallet_id === entry.debit_wallet_id) {
@@ -214,6 +216,64 @@ export class EntryValidator {
     }
   }
 
+  validate_system_state(
+    commission_amount: number,
+    commission_provider_amount: number,
+    agent_commission_amount: number,
+    type: FeedType,
+    status: CoreStatus,
+    is_trader_payment: boolean,
+    amount_in_hold?: number,
+  ): BalanceValidation {
+    console.log({ wallet_id: this.wallet_id }, "Validating system entries");
+    // The system wallet is a clearing account: the merchant pays it the full
+    // commission_amount, and it forwards the provider share to the trader
+    // income wallet and the agent share to the agent wallet. What it keeps is
+    // the residual. It never carries any held: a payout holds the commission
+    // on the merchant wallet, and a payin's cashin/hold/payment pass-through
+    // nets to zero on the system wallet.
+    if (commission_amount === 0) {
+      return BalanceValidation.default();
+    }
+
+    let held_match = new Match(0, this.current_hold);
+
+    // Commission only reaches the system once the request is approved. A payin
+    // refund is reflected on a separate RefundRequest feed, so the payin feed
+    // still shows the collected commission (same as approved).
+    let earns_commission =
+      status === CoreStatusMap.approved ||
+      (type === "PayinRequest" && status === CoreStatusMap.refunded);
+
+    if (!earns_commission) {
+      return new BalanceValidation(
+        new Match(0, this.current_available),
+        held_match,
+      );
+    }
+
+    // Provider commission flows out of the system to the trader income wallet
+    // only for a trader-sourced transaction (the TRADER_COMMISSION entry is
+    // gated on `source == 'trader'`). commission_provider_amount is populated on
+    // the feed even without a trader, but no entry moves it, so it stays on the
+    // system wallet. It is also not forwarded for a payout still inside its
+    // trader hold period (deferred to PayoutTransferWorker) or for a refund
+    // (confirm pays no trader commission at all).
+    let provider_deferred =
+      type === "PayoutRequest" && (amount_in_hold ?? 0) > 0;
+    let provider_out =
+      !is_trader_payment || type === "RefundRequest" || provider_deferred
+        ? 0
+        : commission_provider_amount;
+
+    let residual = commission_amount - provider_out - agent_commission_amount;
+
+    return new BalanceValidation(
+      new Match(residual, this.current_available),
+      held_match,
+    );
+  }
+
   validate_agent_state(
     commission_amount: number,
     status: CoreStatus,
@@ -364,5 +424,9 @@ export class BalanceValidation {
 
   valid() {
     return this.available_match.eq() && this.hold_match.eq();
+  }
+
+  static default() {
+    return new BalanceValidation(new Match(0, 0), new Match(0, 0));
   }
 }

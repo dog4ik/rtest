@@ -37,6 +37,8 @@ class HealthcheckResult {
   static is_valid_wallet_state(state: WalletState) {
     return (
       state.mid.valid() &&
+      state.system.valid() &&
+      (state.agent == undefined || state.agent.valid()) &&
       (state.trader == undefined ||
         (state.trader.main.valid() && state.trader.income.valid()))
     );
@@ -69,6 +71,10 @@ class HealthcheckResult {
 
     lines.push("Merchant balance entries:");
     lines.push(this.wallet_state.mid.toString());
+    lines.push("");
+
+    lines.push("System balance entries:");
+    lines.push(this.wallet_state.system.toString());
     lines.push("");
 
     if (this.wallet_state.trader === undefined) {
@@ -128,7 +134,7 @@ export async function basic_healthcheck(
   token: string,
   opts?: HealthcheckOpts,
 ) {
-  await delay(1_000);
+  await delay(2_000);
   let [business, interaction_logs, core, entries] = await Promise.all([
     business_db.paymentByToken(token),
     business_db.interactionLogs(token),
@@ -212,6 +218,11 @@ export async function basic_healthcheck(
     core,
     entries,
   );
+  let system_wallet_validation = await validate_system_wallets(
+    core_db,
+    core,
+    entries,
+  );
   return new HealthcheckResult(
     status,
     amount,
@@ -219,6 +230,7 @@ export async function basic_healthcheck(
       mid: mid_wallet_validation,
       trader: trader_wallet_validation,
       agent: agent_wallet_validation,
+      system: system_wallet_validation,
     },
     disputes_validations,
   );
@@ -231,6 +243,7 @@ type WalletState = {
     income: BalanceValidation;
   };
   agent?: BalanceValidation;
+  system: BalanceValidation;
 };
 
 async function validate_wallets_state(
@@ -251,9 +264,15 @@ async function validate_wallets_state(
     feed,
     entries,
   );
+  let system_wallet_validation = await validate_system_wallets(
+    core_db,
+    feed,
+    entries,
+  );
   return {
     mid: mid_wallet_validation,
     trader: trader_wallet_validation,
+    system: system_wallet_validation,
   };
 }
 
@@ -307,6 +326,31 @@ async function validate_agent_wallets(
   return validator.validate_agent_state(
     feed.agent_commission_amount ?? 0,
     feed.status,
+  );
+}
+
+async function validate_system_wallets(
+  core_db: CoreDb,
+  feed: Feed,
+  entries: Entry[],
+) {
+  let currency = feed.target_currency ?? feed.currency;
+  assert(currency, "feed should have currency to validate system wallet");
+
+  let wallet = await core_db.systemWallet(currency);
+  let validator = new EntryValidator(wallet.id);
+  for (let entry of entries) {
+    validator.feed_entry_mimic_ruby(entry);
+  }
+
+  return validator.validate_system_state(
+    feed.commission_amount ?? 0,
+    feed.commission_provider_amount ?? 0,
+    feed.agent_commission_amount ?? 0,
+    feed.type,
+    feed.status,
+    feed.source === "trader",
+    feed.amount_in_hold ?? undefined,
   );
 }
 

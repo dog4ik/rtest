@@ -98,6 +98,7 @@ const FeedFields = {
   created_at: z.date(),
   updated_at: z.date(),
   commission_amount: z.float64().nullable(),
+  commission_value: z.float64().nullable(),
   commission_fee: z.float64().nullable(),
   commission_provider_amount: z.float64().nullable(),
   commission_provider_fee: z.float64().nullable(),
@@ -171,6 +172,13 @@ export class CoreDb extends Db {
 
   async profileWallet(mid: number, currency: string) {
     let query = `select ${WalletQuery.select(this.project)} from wallets where wallets.profile_id = '${mid}' and currency = '${currency}'`;
+    return await this.fetch_one(WalletQuery.schema, query);
+  }
+
+  async systemWallet(currency: string) {
+    let query = `select ${WalletQuery.select(this.project)} from wallets
+join profiles on profiles.id = wallets.profile_id
+where profiles.wallet_type = 100 and wallets.currency = '${currency}'`;
     return await this.fetch_one(WalletQuery.schema, query);
   }
 
