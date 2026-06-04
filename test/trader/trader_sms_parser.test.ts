@@ -199,7 +199,7 @@ function test_new_bank_sms<T extends BankSmsTestParams>(
           }
         }
         if (should_fail) {
-          await Promise.race([delay(75_000), notification]);
+          await Promise.race([delay(60_000), notification]);
         } else {
           await notification;
         }

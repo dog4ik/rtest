@@ -6,7 +6,6 @@ import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
 
 export type CreateAgentOptions = {
-  usdt?: boolean;
   merchant_id?: number;
   traders_ids?: number[];
 };
@@ -383,7 +382,12 @@ export class CoreDriver {
     await this.action("/transfers?direction=in", params);
   }
 
-  async cashout(mid: number, currency: string, amount: number) {
+  async cashout(
+    mid: number,
+    currency: string,
+    amount: number,
+    bank_account_id?: number,
+  ) {
     let now = new Date();
     let form = new FormData();
     form.append("utf8", "✓");
@@ -394,6 +398,9 @@ export class CoreDriver {
     form.append("date", DateFormatter.format(now));
     form.append("time", TimeFormatter.format(now));
     form.append("description", "");
+    if (bank_account_id !== undefined) {
+      form.append("from_account_id", bank_account_id);
+    }
 
     // For the empty file attachment
     const emptyBlob = new Blob([], { type: "application/octet-stream" });

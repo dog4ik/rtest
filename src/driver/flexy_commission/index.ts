@@ -5,6 +5,19 @@ import { PROJECT } from "@/config";
 
 export type CreateRuleFormData = typeof INITIALIZED_RULE;
 
+export type CreateRuleJson = {
+  header: {
+    to_profile?: number;
+    currency?: string;
+    source?: string;
+  };
+  body: {
+    self: { rate: string };
+    provider: { rate: string };
+    agent: { rate: string };
+  };
+};
+
 const INITIALIZED_RULE = {
   operation: "",
   comment: "",
@@ -86,21 +99,11 @@ export class FlexyCommission {
     await this.action("/rules", { ...INITIALIZED_RULE, ...data });
   }
 
-  private async add_as_json(data: Partial<CreateRuleFormData>) {
-    let rule = {
-      header: {
-        currency: data.currency,
-        type: data.operation,
-        source: data.source,
-      },
-      body: {
-        self: { rate: data.self_rate },
-        provider: { rate: "0.005" },
-        agent: { rate: "0.002" },
-      },
-    };
-
-    await this.action("/add", {});
+  async add_as_json(data: CreateRuleJson, comment?: string) {
+    await this.action("/add", {
+      rule_json: JSON.stringify(data),
+      comment: comment ?? "Rule comment",
+    });
   }
 
   async remove(hash: string) {

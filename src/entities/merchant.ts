@@ -146,7 +146,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     // TODO: fix this
     try {
       ctx.annotate(`Created payment: ${res.as_ok().token}`);
-    } catch {}
+    } catch { }
 
     return res;
   }
@@ -161,7 +161,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     );
     try {
       ctx.annotate(`Created refund: ${res.as_ok().refund.token}`);
-    } catch {}
+    } catch { }
     return res;
   }
 
@@ -216,7 +216,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     );
     try {
       ctx.annotate(`Created payout: ${res.as_ok().token}`);
-    } catch {}
+    } catch { }
 
     return res;
   }
@@ -321,6 +321,25 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     await ctx.shared_state().core_harness.block_traffick(merchant.id, force);
   }
 
+  async function set_balance(
+    currency: string,
+    balance: {
+      available: number;
+      hold: number;
+    },
+  ) {
+    let db = ctx.shared_state().core_db;
+    ctx.story.add_chapter(`Set ${merchant.id} balance`, balance);
+    let wallet = await db.profileWallet(merchant.id, currency);
+    ctx
+      .shared_state()
+      .core_db.unsafe_set_wallet_balance(
+        wallet.id,
+        balance.available,
+        balance.hold,
+      );
+  }
+
   return {
     ...merchant,
     wallets,
@@ -354,5 +373,6 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     set_commission,
     block_traffic,
     settlements,
+    set_balance,
   };
 }

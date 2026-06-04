@@ -4,6 +4,7 @@ import type {
   CreateSmsParser,
   CreateTraderOptions,
 } from "@/driver/core";
+import type { CreateRuleJson } from "@/driver/flexy_commission";
 import type { FeedStatus, FeedType } from "@/driver/admin";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
@@ -92,6 +93,7 @@ export class Context {
   async create_random_agent(opts?: CreateAgentOptions) {
     let info = await this.state.core_harness.create_random_agent(opts);
     await this.annotate(`Created agent: ${info.email} ${info.temp_password}`);
+    return await this.state.core_db.agentByEmail(info.email);
   }
 
   async create_random_bank() {
@@ -121,6 +123,11 @@ export class Context {
       comment,
       priority ?? 1,
     );
+  }
+
+  async add_flexy_commission_as_json(data: CreateRuleJson, comment?: string) {
+    this.story.add_chapter("Add flexy commission rule", data);
+    await this.shared_state().commission_service.add_as_json(data, comment);
   }
 
   async add_flexy_guard_range(type: string, field: string, value: string) {

@@ -14,6 +14,7 @@ export function extendTrader(ctx: Context, trader: Trader) {
     setup,
     bank_accounts,
     cashin,
+    cashout,
     wallets,
     driver,
     finalizeTransaction,
@@ -195,6 +196,27 @@ async function cashin(
   await this.ctx
     .shared_state()
     .core_harness.cashin(
+      this.id,
+      currency,
+      amount,
+      accounts.find((a) => a.kind == wallet_type)!.id!,
+    );
+}
+
+async function cashout(
+  this: ExtendedTrader,
+  wallet_type: "main" | "income" | "deposit",
+  currency: string,
+  amount: number,
+) {
+  let accounts = await this.bank_accounts();
+  this.ctx.story.add_chapter(
+    `Trader ${this.id} cashout`,
+    `${amount} ${currency} (${wallet_type})`,
+  );
+  await this.ctx
+    .shared_state()
+    .core_harness.cashout(
       this.id,
       currency,
       amount,
