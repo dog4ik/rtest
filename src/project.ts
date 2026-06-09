@@ -8,6 +8,7 @@ const ProjectValues = [
   "paysure",
   "a2",
   "fxmb",
+  "kotulapay",
 ] as const;
 
 export type Project = (typeof ProjectValues)[number];

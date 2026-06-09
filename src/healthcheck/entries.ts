@@ -102,6 +102,16 @@ export class EntryValidator {
         }
         break;
 
+      // Ruby: rollover_between_wallets!(:held, :available)
+      case EntryCodes.TRADER_TRANSFER_CANCELLATION:
+        if (entry.debit_wallet_id === this.wallet_id) {
+          this.current_hold -= entry.amount;
+        }
+        if (entry.credit_wallet_id === this.wallet_id) {
+          this.current_available += entry.amount;
+        }
+        break;
+
       case EntryCodes.REFUND:
         if (entry.debit_wallet_id === this.wallet_id) {
           this.current_hold -= entry.amount;

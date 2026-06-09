@@ -73,7 +73,7 @@ export class Context {
       merchant.id,
       true,
     );
-    if (CONFIG.in_project(["reactivepay"])) {
+    if (CONFIG.in_project(["reactivepay", "kotulapay"])) {
       await this.state.core_db.set_force_password_change(merchant.id, false);
     }
     return merchant;

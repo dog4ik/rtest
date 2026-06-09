@@ -217,7 +217,7 @@ where feeds.reference_token = '${token}'`;
 JOIN wallet_requests ON wallet_requests.feed_id = feeds.id \
 JOIN entries ON entries.wallet_request_id = wallet_requests.id";
 
-    let query = `${entrySelect} where feeds.api_payment_token = '${token}' order by entries.created_at desc`;
+    let query = `${entrySelect} where feeds.api_payment_token = '${token}' order by entries.created_at asc`;
     return await this.fetch_all(EntrySchema, query);
   }
 
@@ -227,7 +227,7 @@ JOIN entries ON entries.wallet_request_id = wallet_requests.id";
 JOIN wallet_requests ON wallet_requests.feed_id = feeds.id \
 JOIN entries ON entries.wallet_request_id = wallet_requests.id";
 
-    let query = `${entrySelect} where feeds.id = '${id}' order by entries.created_at desc`;
+    let query = `${entrySelect} where feeds.id = '${id}' order by entries.created_at asc`;
     return await this.fetch_all(EntrySchema, query);
   }
 

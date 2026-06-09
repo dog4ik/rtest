@@ -22,6 +22,13 @@ export class Match<T> {
   }
 
   eq(): boolean {
+    // Balance amounts are accumulated in float64, so replaying the Ruby
+    // rollover drifts by a few machine epsilons (e.g. a held that should be 0
+    // lands at -2.22e-16). Compare numbers with a tolerance; Ruby itself stays
+    // exact via Rational/NUMERIC arithmetic.
+    if (typeof this.expected === "number" && typeof this.got === "number") {
+      return Math.abs(this.expected - this.got) < 1e-9;
+    }
     return this.expected === this.got;
   }
 }
