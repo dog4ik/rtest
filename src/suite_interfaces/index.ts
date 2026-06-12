@@ -326,7 +326,6 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
           },
           opts?.browser_url_target,
         );
-        console.log({ redirectUrl });
 
         await page.goto(redirectUrl);
         await page.waitForLoadState("networkidle");
@@ -590,7 +589,6 @@ export function routingFinalizationSuite(
             chain_links,
             true,
           );
-          console.log({ merchant, chain_descriptor, type: "before" });
           let declined_notification = merchant.queue_notification((n) => {
             assert.strictEqual(n.status, "declined");
           });
@@ -661,7 +659,6 @@ export function routingFinalizationSuite(
               }),
             );
           assert(browser_url, "merchant response is missing processing url");
-          console.log({ browser_url });
           let page = await browser.newPage();
           await page.setViewportSize({ width: 720, height: 1024 });
 

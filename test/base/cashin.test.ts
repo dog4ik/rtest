@@ -7,7 +7,6 @@ describe.concurrent("cashin", () => {
     let merchant = await ctx.create_random_merchant();
     await merchant.cashin("RUB", 100);
     let wallets = await merchant.wallets();
-    console.log(wallets);
     let wallet = wallets[0];
     assert(wallet.available == 100, "cashin amount is now available");
     assert(wallet.held == 0, "held must be empty");

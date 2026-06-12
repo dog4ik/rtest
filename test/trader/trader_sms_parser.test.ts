@@ -70,8 +70,6 @@ describe
           sim: "com.idamob.tinkoff.android",
         });
 
-        console.log(sms_res);
-
         await approved_notification;
       }),
     );

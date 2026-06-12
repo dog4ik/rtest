@@ -104,11 +104,9 @@ vitest.describe
 
       flintpays.queue(FlintpayOperation.no_balance_response_handler());
       let res = await merchant.create_payout(payoutRequest());
-      console.log(res);
-      let processingUrlRespnose = await res
+      await res
         .followFirstProcessingUrl()
         .then((r) => r.as_raw_json());
-      console.log(processingUrlRespnose);
       let businessPayment = await ctx.get_payment(res.token);
       vitest.assert.strictEqual(
         businessPayment.status,
@@ -129,10 +127,8 @@ vitest.describe
 
       flintpays.queue(common.nginx500);
       let res = await merchant.create_payout(payoutRequest());
-      console.log(res);
       let processingUrlResponse = await res.followFirstProcessingUrl();
-      let json = await processingUrlResponse.as_raw_json();
-      console.log("processing url response: ", json);
+      await processingUrlResponse.as_raw_json();
       let businessPayment = await ctx.get_payment(res.token);
       vitest.assert.strictEqual(
         businessPayment.status,
@@ -148,12 +144,10 @@ vitest.describe
         let { merchant, flintpays, payout } = await setupMerchant(ctx);
 
         flintpays.queue(async (c) => {
-          console.log("waiting for rp to timeout request");
           await delay(60_000);
           return c.json(payout.create_response("created", await c.req.json()));
         });
         let res = await merchant.create_payout(payoutRequest());
-        console.log(res);
         await res.followFirstProcessingUrl();
         let businessPayment = await ctx.get_payment(res.token);
         vitest.assert.strictEqual(

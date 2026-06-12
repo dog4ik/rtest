@@ -78,13 +78,6 @@ export class CoreOfficeDriver {
         body.append(key, String(value));
       }
     }
-    console.log({
-      body,
-      rawBody: body.toString(),
-      cookie: this.cookies,
-      method,
-      url: this.base_url + path,
-    });
     let res = await fetch(this.base_url + path, {
       method: method ?? "POST",
       redirect: "manual",
@@ -122,7 +115,6 @@ export class CoreOfficeDriver {
       credentials,
       "http://localhost:3000/office",
     );
-    console.log({ cookies: this.cookies });
   }
 
   async login(credentials: Credentials) {

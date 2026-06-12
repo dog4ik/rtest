@@ -115,7 +115,7 @@ test.concurrent(
     });
     await delay(2_000);
     await ctx.annotate(JSON.stringify(await merchant.wallets()));
-    let wallet = (await merchant.wallets())[0];
+    let wallet = (await merchant.wallets("RUB"))[0];
     assert.strictEqual(wallet.currency, "RUB");
     assert.strictEqual(
       wallet.available,

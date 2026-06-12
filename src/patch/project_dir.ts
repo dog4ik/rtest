@@ -5,7 +5,6 @@ import path from "node:path";
 export class ProjectDir {
   path: string;
   constructor(config: Config) {
-    console.log(config);
     this.path = resolveProjectDir(config);
   }
 

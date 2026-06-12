@@ -45,10 +45,6 @@ export class SettingsDriver {
   }
 
   async edit(user_id: number, external_id: number, settings: {}) {
-    console.log(
-      `Editing settings for user: ${user_id} (external_id: ${external_id}}`,
-    );
-    console.log(JSON.stringify(settings, null, 2));
     let path = `/user/${user_id}/edit`;
 
     let params = {

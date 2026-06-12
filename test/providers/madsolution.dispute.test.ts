@@ -136,7 +136,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("REJECTED");
           });
 
@@ -174,7 +173,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("APPROVED");
           });
 
@@ -213,7 +211,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("APPROVED");
           });
 
@@ -273,7 +270,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("APPROVED", 654321);
           });
         let notifications = queueDisputeNotifiactions(merchant, true);
@@ -315,7 +311,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("APPROVED", 654321);
           });
         let notifications = queueDisputeNotifiactions(merchant, true);
@@ -363,7 +358,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         .queue(payment.create_dispute_handler())
         .then(async () => {
           await delay(CALLBACK_DELAY);
-          console.log("Sending dispute callback");
           await payment.send_dispute_callback("APPROVED");
         });
 
@@ -400,7 +394,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("APPROVED");
           });
 
@@ -488,7 +481,6 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           .queue(payment.create_dispute_handler())
           .then(async () => {
             await delay(CALLBACK_DELAY);
-            console.log("Sending dispute callback");
             await payment.send_dispute_callback("REJECTED");
             await delay(CALLBACK_DELAY);
             await payment.send_dispute_callback("APPROVED");

@@ -62,7 +62,6 @@ describe
         return request;
       },
       after_create_check() {
-        console.log({ req: this.gw.request_data });
         assert.strictEqual(
           this.gw.request_data?.extra.otp,
           "1111",

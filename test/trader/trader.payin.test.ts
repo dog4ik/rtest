@@ -71,11 +71,7 @@ describe
           0.01,
           "merchant wallet: received net amount after commission",
         );
-        assert.strictEqual(
-          (await rubWallet(merchant)).held,
-          0,
-          "merchant wallet: nothing held",
-        );
+        assert.strictEqual((await rubWallet(merchant)).held, 0, "merchant wallet: nothing held");
 
         let traderWallets = await trader.wallets();
         assert.approximately(
@@ -84,24 +80,15 @@ describe
           0.01,
           "trader main: fully paid out (net + commission)",
         );
-        assert.strictEqual(
-          traderWallets.main.held,
-          0,
-          "trader main: nothing held",
-        );
+        assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
         assert.approximately(
           traderWallets.profit.available,
           PROVIDER_COMMISSION_RUB,
           0.01,
           "trader profit: received provider commission",
         );
-        assert.strictEqual(
-          traderWallets.profit.held,
-          0,
-          "trader profit: nothing held",
-        );
-      }),
-    );
+        assert.strictEqual(traderWallets.profit.held, 0, "trader profit: nothing held");
+      }));
 
     test.concurrent("declined payin with commission", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
@@ -137,11 +124,7 @@ describe
           0.01,
           "trader main: fully returned after decline",
         );
-        assert.strictEqual(
-          traderWallets.main.held,
-          0,
-          "trader main: nothing held",
-        );
+        assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
         assert.deepEqual(
           {
             available: traderWallets.profit.available,
@@ -150,8 +133,7 @@ describe
           { available: 0, held: 0 },
           "trader profit: empty after decline",
         );
-      }),
-    );
+      }));
 
     test.concurrent("approve dispute", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
@@ -161,9 +143,12 @@ describe
           self_rate: "10",
           provider_rate: "5",
         });
-        let decline_cb = merchant.queue_notification((n) => {
-          assert.strictEqual(n.status, "declined");
-        });
+        let decline_cb = merchant.queue_notification(
+          (n) => {
+            assert.strictEqual(n.status, "declined");
+          },
+          { skip_healthcheck: true },
+        );
         let res = await merchant
           .create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
@@ -179,19 +164,19 @@ describe
         let dispute_pending_notification =
           PROJECT === "a2"
             ? merchant.queue_notification(
-                (c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                },
-                { skip_healthcheck: true },
-              )
+              (c) => {
+                assert.strictEqual(c.status, "pending");
+                assert.strictEqual(c.type, "dispute");
+              },
+              { skip_healthcheck: true },
+            )
             : Promise.resolve(undefined);
 
         let dispute_approved_notification = merchant.queue_notification((c) => {
           assert.strictEqual(c.status, "approved");
           assert.strictEqual(c.type, "dispute");
         });
-        await delay(TRADER_DELAY);
+        // await delay(TRADER_DELAY);
         await merchant.create_dispute({
           token: res.token,
           file_path: assets.PngImgPath,
@@ -203,8 +188,7 @@ describe
         let disputes = await ctx.get_disputes(res.token);
         await trader.finalize_dispute(disputes[0].dispute_id, "approved");
         await dispute_approved_notification;
-      }),
-    );
+      }));
 
     test.concurrent("declined dispute", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
@@ -232,12 +216,12 @@ describe
         let dispute_pending_notification =
           PROJECT === "a2"
             ? merchant.queue_notification(
-                (c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                },
-                { skip_healthcheck: true },
-              )
+              (c) => {
+                assert.strictEqual(c.status, "pending");
+                assert.strictEqual(c.type, "dispute");
+              },
+              { skip_healthcheck: true },
+            )
             : Promise.resolve(undefined);
 
         let dispute_declined_notification = merchant.queue_notification((c) => {
@@ -256,8 +240,7 @@ describe
         let disputes = await ctx.get_disputes(res.token);
         await trader.finalize_dispute(disputes[0].dispute_id, "declined");
         await dispute_declined_notification;
-      }),
-    );
+      }));
   });
 
 test
@@ -297,10 +280,6 @@ test
       });
 
       await Promise.all(results);
-      assert.strictEqual(
-        got_requisites,
-        1,
-        "merchant should get only one requisite",
-      );
+      assert.strictEqual(got_requisites, 1, "merchant should get only one requisite");
     }),
   );

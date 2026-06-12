@@ -58,7 +58,6 @@ export class FlexyCommission {
       credentials,
       "http://localhost:7082/login",
     );
-    console.log({ cookies: this.cookies });
   }
 
   async login(credentials: Credentials) {
@@ -68,7 +67,6 @@ export class FlexyCommission {
   }
 
   private async action(path: string, payload: {}) {
-    console.log("Flexy commission payload", payload);
     let body = new URLSearchParams();
 
     // filter out "undefined" literals from constructed urlencoded payload

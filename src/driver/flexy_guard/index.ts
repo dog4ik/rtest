@@ -19,7 +19,6 @@ export class FlexyGuardHarness {
       credentials,
       "http://localhost:7081/login",
     );
-    console.log({ cookies: this.cookies });
   }
 
   async login(credentials: Credentials) {

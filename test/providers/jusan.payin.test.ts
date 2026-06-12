@@ -50,7 +50,6 @@ vitest.describe
           ...common.paymentRequest(CURRENCY),
           card: common.cardObject(),
         });
-        console.log(result);
         vitest.assert(
           typeof result.processingUrl === "string",
           "processing url should be string",
@@ -97,7 +96,6 @@ vitest.describe
             ...common.paymentRequest(CURRENCY),
             card: common.cardObject(),
           });
-          console.log(result);
           vitest.assert(
             typeof result.processingUrl === "string",
             "processing url should be string",
@@ -125,11 +123,10 @@ vitest.describe
             "merchant notification status",
           );
         });
-        let result = await merchant.create_payment({
+        await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           card: common.cardObject(),
         });
-        console.log(result);
 
         await notification;
       });
@@ -147,13 +144,12 @@ vitest.describe
             "merchant notification status",
           );
         });
-        let result = await merchant.create_payment({
+        await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           card: common.cardObject(),
         });
         // FIX(pcidss): 15 minutes status request delay
         jusan.queue(payment.status_handler("declined"));
-        console.log(result);
 
         await notification;
       });

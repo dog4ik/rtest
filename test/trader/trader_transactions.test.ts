@@ -521,7 +521,7 @@ test
       await trader.setup({ card: true, bank: "sberbank" });
       let amount = 100_00;
       let transactions_amount = 6;
-      await trader.cashin("main", "RUB", (amount / 100) * 2);
+      await trader.cashin("main", "RUB", (amount / 100) * 7);
       let settings = traderNoConvertSettings("RUB", [trader.id]);
       let trader_block = settings.gateways["trader"] as Record<string, any>;
       trader_block["random_range"] = [10_00, 200000_00];

@@ -89,7 +89,6 @@ export const TRADER_DELAY = 5_000;
 function createMiddleware(api_key: string): Middleware {
   return {
     async onRequest({ request }) {
-      console.log("Trader client request", request.method, request.url);
       request.headers.set("x-api-key", api_key);
       return request;
     },
@@ -236,7 +235,6 @@ export class TraderDriver {
       .json_data(payload_with_time)
       .build();
     this.ctx.story.add_chapter("Send sms", curl);
-    console.log("Cerate sms body", body);
     let sms_res = await fetch(url, {
       method: "POST",
       headers: {

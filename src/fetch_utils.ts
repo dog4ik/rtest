@@ -16,7 +16,6 @@ export function parse_json<T extends z.ZodType>(
 ): (response: Response) => Promise<z.infer<T>> {
   return async (response) => {
     let json = await response.json();
-    console.log("Fetch response", json);
     return schema.parse(json);
   };
 }

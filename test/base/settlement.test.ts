@@ -77,11 +77,8 @@ describe.concurrent("settlement basics", () => {
     await delay(SETTLEMENT_DELAY);
     await office.create_settlment("RUB", 100);
     await delay(SETTLEMENT_DELAY);
-    let wallets = await merchant.wallets();
     let settlements = await merchant.settlements();
     assert.isEmpty(settlements, "settlements should net be created");
-    console.log(settlements);
-    console.log(wallets);
   });
 });
 

@@ -18,7 +18,8 @@
     "patch": "tsx ./patch/index.ts",
     "init": "tsx ./scripts/init.ts",
     "healthcheck": "tsx ./scripts/healthcheck.ts",
-    "cleanup": "tsx ./scripts/cleanup.ts"
+    "cleanup": "tsx ./scripts/cleanup.ts",
+    "playground": "node --import tsx ./scripts/playground/main.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^10.2.0",

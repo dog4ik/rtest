@@ -38,10 +38,6 @@ export class MockServerState {
   registerProviderServer(alias: string, handler: ProviderHandler) {
     let existingHandler = this.providers_handlers.get(alias);
     if (existingHandler === undefined) {
-      console.log("Adding handler to uninitiated server alias", {
-        alias,
-        port: this.mapping.get(alias),
-      });
 
       let port = this.mapping.get(alias);
       if (port === undefined) {
@@ -51,7 +47,6 @@ export class MockServerState {
       serverHandle.handlers.push(handler);
       this.providers_handlers.set(alias, serverHandle);
     } else {
-      console.log("Adding handler to existing server alias", alias);
       existingHandler.handlers.push(handler);
     }
   }

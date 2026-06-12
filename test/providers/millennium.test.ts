@@ -134,18 +134,17 @@ describe
           });
         millennium.queue(payment.status_handler("approved"));
 
-        let result = await merchant.create_payment({
+        await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),
           redirect_success_url: "https://google.com/success",
           redirect_fail_url: "https://google.com/fail",
           pending_url: "https://google.com/pending",
         });
 
-        console.log(result);
         let page = await browser.newPage();
         // await page.goto(result.firstProcessingUrl());
 
-        let pf = new EightpayRequisitesPage(page);
+        new EightpayRequisitesPage(page);
         await Promise.all([]);
 
         await merchant.queue_notification(async (notification) => {
