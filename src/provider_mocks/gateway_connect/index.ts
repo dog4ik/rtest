@@ -18,18 +18,12 @@ import { PayoutRequestSchema } from "./payout";
 import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
 
-export type GcRequisiteType =
-  | "sbp"
-  | "tpay"
-  | "card"
-  | "link"
-  | "deeplink"
-  | "tpay_qr_data";
+export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink" | "tpay_qr_data";
 
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
 export const GC_MOCK_PORT = MAPPING_START_PORT - 1;
-const SETTINGS_INTERNAL_SECRET_KEY = "_gc_instance_secret";
+export const SETTINGS_INTERNAL_SECRET_KEY = "_gc_instance_secret";
 export function commonSettings(alias: string, secret: string) {
   return {
     class: alias,
@@ -98,11 +92,7 @@ export function commonSettings(alias: string, secret: string) {
             ],
             processing_url: true,
             charge_page_url: true,
-            settings: [
-              SETTINGS_INTERNAL_SECRET_KEY,
-              "wrapped_to_json_response",
-              "method",
-            ],
+            settings: [SETTINGS_INTERNAL_SECRET_KEY, "wrapped_to_json_response", "method"],
           },
         },
         status: {
@@ -173,18 +163,14 @@ export class GatewayConnectTransaction {
 
   settings(secret: string) {
     let resolved_secret = this.resolved_secret_value(secret);
-    return collections.deepMerge(
-      this.gw_settings,
-      commonSettings(this.alias, resolved_secret),
-      { arrays: "merge" },
-    );
+    return collections.deepMerge(this.gw_settings, commonSettings(this.alias, resolved_secret), {
+      arrays: "merge",
+    });
   }
 
   basic_payin_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("pay", status);
 
@@ -253,9 +239,7 @@ export class GatewayConnectTransaction {
     },
   ): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
       let logs = await this.build_interaction_logs("pay", status);
 
       let requisites: Record<string, any> | undefined = undefined;
@@ -272,9 +256,7 @@ export class GatewayConnectTransaction {
           } else if (requisite_type === "link") {
             requisites["link"] = { url: common.redirectPayUrl };
           } else {
-            assert.fail(
-              `Spinpay unimplemented requisite type: ${requisite_type}`,
-            );
+            assert.fail(`Spinpay unimplemented requisite type: ${requisite_type}`);
           }
         }
       } else {
@@ -306,8 +288,7 @@ export class GatewayConnectTransaction {
         }
       }
 
-      let is_wrapped =
-        this.payin_request.settings["wrapped_to_json_response"] ?? false;
+      let is_wrapped = this.payin_request.settings["wrapped_to_json_response"] ?? false;
 
       return c.json({
         status,
@@ -320,11 +301,11 @@ export class GatewayConnectTransaction {
         redirect_request:
           status === "pending"
             ? {
-                url: is_wrapped
-                  ? this.request_data()?.processing_url
-                  : this.request_data()?.charge_page_url,
-                type: is_wrapped ? "get_with_processing" : "post",
-              }
+              url: is_wrapped
+                ? this.request_data()?.processing_url
+                : this.request_data()?.charge_page_url,
+              type: is_wrapped ? "get_with_processing" : "post",
+            }
             : undefined,
         gateway_token: this.gateway_id,
         logs,
@@ -334,9 +315,7 @@ export class GatewayConnectTransaction {
 
   basic_payout_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.payout_request = PayoutRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payout_request = PayoutRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("payout", status);
 
@@ -357,9 +336,7 @@ export class GatewayConnectTransaction {
     redirect_url = common.redirectPayUrl,
   ): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("pay", status);
 
@@ -370,10 +347,7 @@ export class GatewayConnectTransaction {
         details: status === "declined" ? "Test error message" : undefined,
         result: true,
         redirect_request: {
-          url:
-            status === "pending"
-              ? redirect_url
-              : this.request_data()?.processing_url,
+          url: status === "pending" ? redirect_url : this.request_data()?.processing_url,
           type: status === "pending" ? "get_with_processing" : "post",
         },
         gateway_token: this.gateway_id,
@@ -384,9 +358,7 @@ export class GatewayConnectTransaction {
 
   get_redirect_response(redirect_url = common.redirectPayUrl): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("pay", "pending");
 
@@ -408,9 +380,7 @@ export class GatewayConnectTransaction {
 
   redirect_3ds_response_handler(): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("pay", "pending");
 
@@ -430,17 +400,9 @@ export class GatewayConnectTransaction {
     };
   }
 
-  iframes_3ds_redirect_handler({
-    url,
-    cReq,
-  }: {
-    url: string;
-    cReq: string;
-  }): Handler {
+  iframes_3ds_redirect_handler({ url, cReq }: { url: string; cReq: string }): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("pay", "pending");
 
@@ -501,9 +463,7 @@ export class GatewayConnectTransaction {
 
   refund_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.refund_request = RefundRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.refund_request = RefundRequestSchema(z.object({})).parse(await c.req.json());
 
       let logs = await this.build_interaction_logs("refund", status);
 
@@ -520,14 +480,9 @@ export class GatewayConnectTransaction {
 
   status_handler(status: BusinessStatus): Handler {
     return async (c) => {
-      this.status_request = StatusRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.status_request = StatusRequestSchema(z.object({})).parse(await c.req.json());
 
-      let logs = await this.build_interaction_logs(
-        "status",
-        status as PrimeBusinessStatus,
-      );
+      let logs = await this.build_interaction_logs("status", status as PrimeBusinessStatus);
 
       return c.json({
         status,
@@ -573,9 +528,7 @@ export class GatewayConnectTransaction {
 
   error_handler(message?: string): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
+      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
 
       return c.json({
         result: false,
@@ -617,9 +570,7 @@ export function payinSuite(
   };
 }
 
-export function payoutSuite(
-  currency = "RUB",
-): P2PSuite<GatewayConnectTransaction> {
+export function payoutSuite(currency = "RUB"): P2PSuite<GatewayConnectTransaction> {
   let gw = new GatewayConnectTransaction("manypay", {});
   return {
     type: "payout",
