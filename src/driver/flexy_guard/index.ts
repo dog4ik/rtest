@@ -7,7 +7,7 @@ export class FlexyGuardHarness {
   base_url: string;
   cookies: string | null;
   constructor(
-    base_url = "http://127.0.0.1:7081",
+    base_url = CONFIG.urls().flexy_guard,
     private credentials: Credentials,
   ) {
     this.base_url = base_url;
@@ -17,7 +17,7 @@ export class FlexyGuardHarness {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      "http://localhost:7081/login",
+      `${this.base_url}/login`,
     );
   }
 

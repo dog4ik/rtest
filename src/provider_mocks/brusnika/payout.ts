@@ -6,6 +6,7 @@ import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
+import { CONFIG } from "@/config";
 import {
   WEBHOOK_TOKEN,
   type BrusnikaPaymentStatus,
@@ -128,7 +129,7 @@ export class BrusnikaPayout {
 
   async send_callback(status: BrusnikaPaymentStatus) {
     let payload = this.callback(status);
-    let url = "http://127.0.0.1:4000/callback/brusnikapay";
+    let url = `${CONFIG.urls().business}/callback/brusnikapay`;
     let curl = new CurlBuilder(url, "POST")
       .header("content-type", "application/json")
       .header("authorization", `Bearer ${WEBHOOK_TOKEN}`)

@@ -11,6 +11,7 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import { CurlBuilder } from "@/story/curl";
 import type { P2PSuite } from "@/suite_interfaces";
 import { defaultSettings, providers } from "@/settings_builder";
+import { CONFIG } from "@/config";
 
 import crypto from "node:crypto";
 
@@ -31,7 +32,7 @@ export function callbackSignature(
 
 const RUB_USDT_RATE = 1 / 60;
 
-const CALLBACK_URL = "http://127.0.0.1:4000/callback/millenniumpay";
+const CALLBACK_URL = `${CONFIG.urls().business}/callback/millenniumpay`;
 
 export const MillenniumStatusVariants = [
   "NOT_FOUND",

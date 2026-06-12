@@ -10,7 +10,7 @@ describe.concurrent("settlement basics", () => {
   test.concurrent("settlement approved", async ({ ctx }) => {
     let merchant = await ctx.create_random_merchant();
     await merchant.cashin("RUB", 100);
-    let office = new CoreOfficeDriver("http://localhost:3000");
+    let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
@@ -40,7 +40,7 @@ describe.concurrent("settlement basics", () => {
   test.concurrent("settlement declined", async ({ ctx }) => {
     let merchant = await ctx.create_random_merchant();
     await merchant.cashin("RUB", 100);
-    let office = new CoreOfficeDriver("http://localhost:3000");
+    let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
@@ -69,7 +69,7 @@ describe.concurrent("settlement basics", () => {
 
   test.concurrent("settlement not enough money", async ({ ctx }) => {
     let merchant = await ctx.create_random_merchant();
-    let office = new CoreOfficeDriver("http://localhost:3000");
+    let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',
@@ -101,7 +101,7 @@ describe.concurrent("commission healthcheck settlements", () => {
   }
 
   async function loginOffice(merchant: { company_name: string }) {
-    let office = new CoreOfficeDriver("http://localhost:3000");
+    let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
       password: 'c@"6J?Q3:?H@me=',

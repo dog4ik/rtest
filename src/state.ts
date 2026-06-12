@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { projectCredentials, type Config } from "@/config";
+import { projectCredentials, projectUrls, type Config } from "@/config";
 import { connectPool } from "@/db";
 import { BusinessDb } from "@/db/business";
 import { CoreDb } from "@/db/core";
@@ -24,31 +24,32 @@ export type SharedState = Awaited<ReturnType<typeof initState>>;
 export async function initState(config: Config) {
   console.log("Initiating state", config);
   let p = config.project;
-  let business_url = "http://localhost:4000";
+  let urls = projectUrls(config);
+  let business_url = urls.business;
   let project_dir = new ProjectDir(config);
   let core_harness = new CoreDriver(
-    "http://localhost:3000",
+    urls.core,
     project_dir.dockerComposePath(),
   );
 
   let credentials = projectCredentials(config);
 
   let settings_service = new SettingsDriver(
-    "http://127.0.0.1:6001",
+    urls.settings,
     credentials.settings_credentials,
   );
 
   let commission_service = new FlexyCommission(
-    "http://127.0.0.1:7082",
+    urls.flexy_commission,
     credentials.flexy_commission_credentials,
   );
 
   let guard_service = new FlexyGuardHarness(
-    "http://127.0.0.1:7081",
+    urls.flexy_guard,
     credentials.flexy_guard_credentials,
   );
 
-  let admin_service = new AdminDriver("http://localhost:3002");
+  let admin_service = new AdminDriver(urls.admin);
 
   let [core_db, business_db, settings_db, mapping, browser] = await Promise.all(
     [

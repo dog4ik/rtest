@@ -1,7 +1,7 @@
 import { authorize_client, type Credentials } from "..";
 import { randomUUID } from "node:crypto";
 import { err_bad_status } from "@/fetch_utils";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
 
@@ -144,7 +144,7 @@ export class CoreDriver {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      "http://localhost:3000/auth/keycloakopenid_admin",
+      `${CONFIG.urls().core}/auth/keycloakopenid_admin`,
     );
     console.log({ cookies: this.cookies });
   }

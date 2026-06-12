@@ -6,6 +6,7 @@ import { err_bad_status } from "@/fetch_utils";
 import { CurlBuilder } from "@/story/curl";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
+import { CONFIG } from "@/config";
 
 const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP", "QR_PAYMENT"]);
 
@@ -164,7 +165,7 @@ function paymentInstrument(method: MadsolutionMethod) {
   }
 }
 
-const CALLBACK_URL = "http://127.0.0.1:4000/callback/madsolution";
+const CALLBACK_URL = `${CONFIG.urls().business}/callback/madsolution`;
 
 export class MadsolutionPayment {
   gateway_id: string;

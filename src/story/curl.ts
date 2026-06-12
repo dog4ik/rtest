@@ -1,4 +1,5 @@
 import type { OperationType } from "@/db/business";
+import { CONFIG } from "@/config";
 
 export function constructCurlRequest(
   request: Record<string, unknown>,
@@ -14,7 +15,7 @@ export function constructCurlRequest(
 
   const json = JSON.stringify(request, null, 2);
 
-  return `curl 'http://localhost:4000/api/v1/${suffix()}' \\
+  return `curl '${CONFIG.urls().business}/api/v1/${suffix()}' \\
 -X POST \\
 -H 'Content-Type: application/json' \\
 -H 'Authorization: Bearer ${private_key}' \\

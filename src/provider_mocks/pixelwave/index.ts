@@ -203,7 +203,7 @@ export class PixelwavePayment {
 
   async send_callback(status: PixelwavePaymentStatus) {
     let payload = this.callback(status);
-    let url = `http://127.0.0.1:4207/callback`;
+    let url = `${CONFIG.urls().pixelwave}/callback`;
     let curl = new CurlBuilder(url, "POST")
       .header("content-type", "application/json")
       .header("authorization", `Bearer ${WEBHOOK_TOKEN}`)

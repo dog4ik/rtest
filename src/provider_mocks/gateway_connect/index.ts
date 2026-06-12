@@ -512,7 +512,7 @@ export class GatewayConnectTransaction {
     );
 
     let body = JSON.stringify(payload);
-    let url = `http://localhost:4000/callbacks/v2/gateway_callbacks/${req_data.payment.token}`;
+    let url = `${CONFIG.urls().business}/callbacks/v2/gateway_callbacks/${req_data.payment.token}`;
 
     console.log("Sending callback to Gateway Connect", url, body);
 

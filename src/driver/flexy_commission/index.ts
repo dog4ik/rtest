@@ -1,7 +1,7 @@
 import * as encoding from "@std/encoding";
 import { authorize_client, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 export type CreateRuleFormData = typeof INITIALIZED_RULE;
 
@@ -46,7 +46,7 @@ export class FlexyCommission {
   base_url: string;
   cookies: string | null;
   constructor(
-    base_url = "http://127.0.0.1:7082",
+    base_url = CONFIG.urls().flexy_commission,
     private credentials: Credentials,
   ) {
     this.base_url = base_url;
@@ -56,7 +56,7 @@ export class FlexyCommission {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      "http://localhost:7082/login",
+      `${this.base_url}/login`,
     );
   }
 

@@ -1,3 +1,4 @@
+import { CONFIG } from "@/config";
 import type { Project } from "@/project";
 import { Pool } from "pg";
 import { z } from "zod";
@@ -9,11 +10,12 @@ function selectColumns(table: string, schema_keys: string[]) {
 }
 
 export async function connectPool(database: string) {
+  let postgres = CONFIG.urls().postgres;
   let pool = new Pool({
-    host: "127.0.0.1",
-    user: "postgres",
-    port: 5432,
-    password: "postgres",
+    host: postgres.host,
+    user: postgres.user,
+    port: postgres.port,
+    password: postgres.password,
     database,
     connectionTimeoutMillis: 2_000,
   });

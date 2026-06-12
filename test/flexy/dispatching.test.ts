@@ -10,7 +10,7 @@ import type { ExtendedMerchant } from "@/entities/merchant";
 
 // nasty solition to remove flaky tests
 async function reset_dispatching_queue(aliases: string[]): Promise<void> {
-  let client = new MongoClient("mongodb://localhost:27017");
+  let client = new MongoClient(CONFIG.urls().mongo);
   try {
     await client.connect();
     await client

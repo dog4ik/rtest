@@ -7,7 +7,7 @@ import { err_bad_status } from "@/fetch_utils";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
 import { providers } from "@/settings_builder";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 export type IronpayStatus = "Pending" | "Canceled" | "Approved";
 
@@ -32,7 +32,7 @@ export type IronpayMethod =
 
 const RATE = 0.8;
 const COMMISSION = 0.1;
-const CALLBACK_URL = "http://127.0.0.1:4000/callback/ironpay";
+const CALLBACK_URL = `${CONFIG.urls().business}/callback/ironpay`;
 
 function callbackSignature(
   params: Record<string, any>,

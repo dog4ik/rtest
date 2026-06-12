@@ -14,6 +14,7 @@ import type { TestCaseBase } from "@/suite_interfaces";
 import { z } from "zod";
 import { err_bad_status } from "@/fetch_utils";
 import { CurlBuilder } from "@/story/curl";
+import { CONFIG } from "@/config";
 
 const BANKLIST = [
   "sberbank",
@@ -133,7 +134,7 @@ export class TraderDriver {
   client: TraderClient;
   session_token?: string;
   constructor(private ctx: Context) {
-    this.client = createTraderClient("http://127.0.0.1:4080");
+    this.client = createTraderClient(CONFIG.urls().trader);
   }
 
   async login(email: string, password: string) {
@@ -229,7 +230,7 @@ export class TraderDriver {
     };
     let body = JSON.stringify(payload_with_time);
 
-    let url = "http://localhost:5070";
+    let url = CONFIG.urls().trader_sms;
     let curl = new CurlBuilder(url, "POST")
       .header("x-api-key", this.session_token)
       .json_data(payload_with_time)

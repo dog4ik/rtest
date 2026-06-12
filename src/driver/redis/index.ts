@@ -1,7 +1,8 @@
 import { createClient } from "redis";
+import { CONFIG } from "@/config";
 
 function makeClient() {
-  return createClient({ url: "redis://127.0.0.1:6379" });
+  return createClient({ url: CONFIG.urls().redis });
 }
 
 class RedisDriver {

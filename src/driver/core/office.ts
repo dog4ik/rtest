@@ -113,7 +113,7 @@ export class CoreOfficeDriver {
   async keycloak_login(credentials: Credentials) {
     this.cookies = await authorize_client(
       credentials,
-      "http://localhost:3000/office",
+      this.base_url,
     );
   }
 

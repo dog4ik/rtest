@@ -1,7 +1,7 @@
 import * as encoding from "@std/encoding";
 import { authorize_client, type Credentials } from "..";
 import { err_bad_status } from "@/fetch_utils";
-import { PROJECT } from "@/config";
+import { CONFIG, PROJECT } from "@/config";
 
 export class SettingsDriver {
   private base_url: string;
@@ -18,7 +18,7 @@ export class SettingsDriver {
     if (PROJECT === "a2") {
       this.cookies = await authorize_client(
         this.credentials,
-        "http://localhost:6001/settings/managers/auth/keycloakopenid",
+        `${CONFIG.urls().settings}/settings/managers/auth/keycloakopenid`,
       );
     }
   }

@@ -15,6 +15,26 @@ const DEFAULT_ADMIN_CREDENTIALS = {
 
 const DUMMY_KEY_PLACEHOLDER = "replace with the path to the minio assert";
 
+const DEFAULT_URLS = {
+  core: "http://localhost:3000",
+  business: "http://localhost:4000",
+  settings: "http://localhost:6001",
+  flexy_commission: "http://localhost:7082",
+  flexy_guard: "http://localhost:7081",
+  admin: "http://localhost:3002",
+  trader: "http://localhost:4080",
+  trader_sms: "http://localhost:5070",
+  pixelwave: "http://localhost:4207",
+  postgres: {
+    host: "127.0.0.1",
+    port: 5432,
+    user: "postgres",
+    password: "postgres",
+  },
+  redis: "redis://localhost:6379",
+  mongo: "mongodb://localhost:27017",
+} as const;
+
 const DEFAULT_PROJECT_CONFIG = {
   core_credentials: DEFAULT_LOGIN_PASSWORD,
   flexy_commission_credentials: DEFAULT_LOGIN_PASSWORD,
@@ -24,6 +44,7 @@ const DEFAULT_PROJECT_CONFIG = {
   dummy_ssl_path: DUMMY_KEY_PLACEHOLDER,
   dummy_rsa_public_key_path: DUMMY_KEY_PLACEHOLDER,
   dummy_rsa_private_key_path: DUMMY_KEY_PLACEHOLDER,
+  urls: DEFAULT_URLS,
 } as const;
 
 type NonUndefined<T> = T extends undefined ? never : T;
@@ -69,6 +90,30 @@ const ADMIN_CREDENTIALS_SCHEMA = z
   })
   .default(DEFAULT_ADMIN_CREDENTIALS);
 
+const URLS_SCHEMA = z
+  .strictObject({
+    core: z.string().default(DEFAULT_URLS.core),
+    business: z.string().default(DEFAULT_URLS.business),
+    settings: z.string().default(DEFAULT_URLS.settings),
+    flexy_commission: z.string().default(DEFAULT_URLS.flexy_commission),
+    flexy_guard: z.string().default(DEFAULT_URLS.flexy_guard),
+    admin: z.string().default(DEFAULT_URLS.admin),
+    trader: z.string().default(DEFAULT_URLS.trader),
+    trader_sms: z.string().default(DEFAULT_URLS.trader_sms),
+    pixelwave: z.string().default(DEFAULT_URLS.pixelwave),
+    postgres: z
+      .strictObject({
+        host: z.string().default(DEFAULT_URLS.postgres.host),
+        port: z.int().positive().default(DEFAULT_URLS.postgres.port),
+        user: z.string().default(DEFAULT_URLS.postgres.user),
+        password: z.string().default(DEFAULT_URLS.postgres.password),
+      })
+      .default(DEFAULT_URLS.postgres),
+    redis: z.string().default(DEFAULT_URLS.redis),
+    mongo: z.string().default(DEFAULT_URLS.mongo),
+  })
+  .default(DEFAULT_URLS);
+
 const PROJECT_CONFIG = z.strictObject({
   core_credentials: LOGIN_PASSWORD_SCHEMA,
   settings_credentials: LOGIN_PASSWORD_SCHEMA,
@@ -78,6 +123,7 @@ const PROJECT_CONFIG = z.strictObject({
   dummy_ssl_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
   dummy_rsa_public_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
   dummy_rsa_private_key_path: z.string().default(DUMMY_KEY_PLACEHOLDER),
+  urls: URLS_SCHEMA,
 });
 
 const BROWSER_OBJECT = z.strictObject({
@@ -119,6 +165,10 @@ export function projectCredentials(
   );
 }
 
+export function projectUrls(config: Config): z.infer<typeof URLS_SCHEMA> {
+  return projectCredentials(config).urls;
+}
+
 export function open(path: string) {
   try {
     return parseConfig(fs.readFileSync(path).toString());
@@ -142,6 +192,9 @@ export const CONFIG = {
   },
   dummyCert() {
     return this[this.project]!.dummy_ssl_path;
+  },
+  urls() {
+    return this[this.project]!.urls;
   },
   in_project(projects: Project[] | Project) {
     if (Array.isArray(projects)) {
