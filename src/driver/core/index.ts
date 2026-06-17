@@ -5,9 +5,17 @@ import { CONFIG, PROJECT } from "@/config";
 import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
 
+/** Default password used for every randomly created profile. */
+export const CORE_DEFAULT_PASSWORD = 'c@"6J?Q3:?H@me=';
+
 export type CreateAgentOptions = {
   merchant_id?: number;
   traders_ids?: number[];
+  email?: string;
+};
+
+export type CreateMerchantOptions = {
+  email?: string;
 };
 
 export type CreateAgent = {
@@ -30,6 +38,7 @@ export type CreateTraderOptions = {
   usdt?: boolean;
   payout_hold_period?: number;
   currency?: string;
+  email?: string;
 };
 
 export type CreateTrader = {
@@ -200,12 +209,12 @@ export class CoreDriver {
     await this.action("/merchants", form);
   }
 
-  async create_random_merchant() {
+  async create_random_merchant(opts?: CreateMerchantOptions) {
     let uuid = randomUUID();
     let params: CreateMerchant = {
       companyName: uuid,
-      email: `${uuid}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      email: opts?.email ?? `${uuid}@mail.com`,
+      password: CORE_DEFAULT_PASSWORD,
       country: "236",
     };
     await this.create_merchant(params);
@@ -235,8 +244,8 @@ export class CoreDriver {
     let uuid = randomUUID();
     let params: CreateTrader = {
       companyName: uuid,
-      email: `${uuid}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      email: opts?.email ?? `${uuid}@mail.com`,
+      password: CORE_DEFAULT_PASSWORD,
       convert_to_usdt: opts?.usdt ?? true,
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
@@ -266,8 +275,8 @@ export class CoreDriver {
     let uuid = randomUUID();
     let params: CreateAgent = {
       company_name: uuid,
-      email: `${uuid}@mail.com`,
-      temp_password: 'c@"6J?Q3:?H@me=',
+      email: opts?.email ?? `${uuid}@mail.com`,
+      temp_password: CORE_DEFAULT_PASSWORD,
       merchant_id: opts?.merchant_id,
       trader_ids: opts?.traders_ids ?? [],
     };

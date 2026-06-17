@@ -7,11 +7,11 @@ import { argv } from "node:process";
 
 let c = config.open("configuration.toml");
 let core_db = new CoreDb(
-  await connectPool("reactivepay_core_production"),
+  await connectPool(config.postgresConnection(c, "core")),
   c.project,
 );
 let business_db = new BusinessDb(
-  await connectPool("reactivepay_business_production"),
+  await connectPool(config.postgresConnection(c, "business")),
   c.project,
 );
 let token = argv[2];

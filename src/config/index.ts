@@ -15,6 +15,14 @@ const DEFAULT_ADMIN_CREDENTIALS = {
 
 const DUMMY_KEY_PLACEHOLDER = "replace with the path to the minio assert";
 
+// Connection defaults applied per database when a field is omitted.
+const DEFAULT_POSTGRES_CREDS = {
+  host: "127.0.0.1",
+  port: 5432,
+  user: "postgres",
+  password: "postgres",
+} as const;
+
 const DEFAULT_URLS = {
   core: "http://localhost:3000",
   business: "http://localhost:4000",
@@ -26,10 +34,15 @@ const DEFAULT_URLS = {
   trader_sms: "http://localhost:5070",
   pixelwave: "http://localhost:4207",
   postgres: {
-    host: "127.0.0.1",
-    port: 5432,
-    user: "postgres",
-    password: "postgres",
+    core: { ...DEFAULT_POSTGRES_CREDS, database: "reactivepay_core_production" },
+    business: {
+      ...DEFAULT_POSTGRES_CREDS,
+      database: "reactivepay_business_production",
+    },
+    settings: {
+      ...DEFAULT_POSTGRES_CREDS,
+      database: "reactivepay_settings_production",
+    },
   },
   redis: "redis://localhost:6379",
   mongo: "mongodb://localhost:27017",
@@ -90,6 +103,20 @@ const ADMIN_CREDENTIALS_SCHEMA = z
   })
   .default(DEFAULT_ADMIN_CREDENTIALS);
 
+// Per-database connection. Every field has its own default: `database` is the
+// legacy production name, the rest fall back to DEFAULT_POSTGRES_CREDS.
+function postgresDbSchema(database: string) {
+  return z
+    .strictObject({
+      database: z.string().default(database),
+      host: z.string().default(DEFAULT_POSTGRES_CREDS.host),
+      port: z.int().positive().default(DEFAULT_POSTGRES_CREDS.port),
+      user: z.string().default(DEFAULT_POSTGRES_CREDS.user),
+      password: z.string().default(DEFAULT_POSTGRES_CREDS.password),
+    })
+    .default({ ...DEFAULT_POSTGRES_CREDS, database });
+}
+
 const URLS_SCHEMA = z
   .strictObject({
     core: z.string().default(DEFAULT_URLS.core),
@@ -103,10 +130,9 @@ const URLS_SCHEMA = z
     pixelwave: z.string().default(DEFAULT_URLS.pixelwave),
     postgres: z
       .strictObject({
-        host: z.string().default(DEFAULT_URLS.postgres.host),
-        port: z.int().positive().default(DEFAULT_URLS.postgres.port),
-        user: z.string().default(DEFAULT_URLS.postgres.user),
-        password: z.string().default(DEFAULT_URLS.postgres.password),
+        core: postgresDbSchema(DEFAULT_URLS.postgres.core.database),
+        business: postgresDbSchema(DEFAULT_URLS.postgres.business.database),
+        settings: postgresDbSchema(DEFAULT_URLS.postgres.settings.database),
       })
       .default(DEFAULT_URLS.postgres),
     redis: z.string().default(DEFAULT_URLS.redis),
@@ -169,6 +195,13 @@ export function projectUrls(config: Config): z.infer<typeof URLS_SCHEMA> {
   return projectCredentials(config).urls;
 }
 
+export type PostgresDatabase = "core" | "business" | "settings";
+
+/** Resolve connection params for one of a project's postgres databases. */
+export function postgresConnection(config: Config, db: PostgresDatabase) {
+  return projectUrls(config).postgres[db];
+}
+
 export function open(path: string) {
   try {
     return parseConfig(fs.readFileSync(path).toString());
@@ -195,6 +228,10 @@ export const CONFIG = {
   },
   urls() {
     return this[this.project]!.urls;
+  },
+  /** Resolve the connection parameters for one of the project's databases. */
+  postgres(db: PostgresDatabase) {
+    return this.urls().postgres[db];
   },
   in_project(projects: Project[] | Project) {
     if (Array.isArray(projects)) {

@@ -140,9 +140,19 @@ export class CoreDb extends Db {
     return await this.fetch_one(MerchantSchema, query);
   }
 
+  async merchantByEmailOptional(email: string) {
+    let query = `select ${MerchantQuery.select(this.project)} from profiles where profiles.email = '${email}'`;
+    return await this.fetch_optional(MerchantSchema, query);
+  }
+
   async traderByEmail(email: string) {
     let query = `select ${TraderQuery.select(this.project)} from profiles where profiles.email = '${email}'`;
     return await this.fetch_one(TraderSchema, query);
+  }
+
+  async traderByEmailOptional(email: string) {
+    let query = `select ${TraderQuery.select(this.project)} from profiles where profiles.email = '${email}'`;
+    return await this.fetch_optional(TraderSchema, query);
   }
 
   async profileWallets(mid: number, currency?: string) {
@@ -243,6 +253,11 @@ JOIN entries ON entries.wallet_request_id = wallet_requests.id";
   async agentByEmail(email: string) {
     let query = `select id from profiles where profiles.email = '${email}'`;
     return await this.fetch_one(z.object({ id: z.number() }), query);
+  }
+
+  async agentByEmailOptional(email: string) {
+    let query = `select id from profiles where profiles.email = '${email}'`;
+    return await this.fetch_optional(z.object({ id: z.number() }), query);
   }
 
   async bank(system_name: string) {

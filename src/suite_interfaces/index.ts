@@ -6,11 +6,7 @@ import type { PrimeBusinessStatus } from "@/db/business";
 import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
 import type { PaymentRequest, PayoutRequest } from "@/common";
-import {
-  defaultSettings,
-  providers,
-  SettingsBuilder,
-} from "@/settings_builder";
+import { defaultSettings, providers, SettingsBuilder, type SettingsOpts } from "@/settings_builder";
 import type { Context } from "@/test_context/context";
 import type { ProviderInstance } from "@/mock_server/instance";
 import { delay } from "@std/async";
@@ -33,17 +29,11 @@ export interface TestCaseBase<G = unknown> {
   mock_options: (unique_secret: string) => MockProviderParams;
   request: () => PaymentRequest | PayoutRequest;
   settings: (unique_secret: string) => Record<string, any>;
-  create_handler: (
-    status: PrimeBusinessStatus,
-    ctx: TestCaseContext,
-  ) => Handler;
+  create_handler: (status: PrimeBusinessStatus, ctx: TestCaseContext) => Handler;
 }
 
 export interface Callback<G = unknown> extends TestCaseBase<G> {
-  send_callback: (
-    status: PrimeBusinessStatus,
-    unique_secret: string,
-  ) => Promise<unknown>;
+  send_callback: (status: PrimeBusinessStatus, unique_secret: string) => Promise<unknown>;
 }
 
 export interface Status<G = unknown> extends TestCaseBase<G> {
@@ -58,18 +48,13 @@ export interface DataFlow extends TestCaseBase {
 }
 
 export interface PayformDataFlow extends TestCaseBase {
-  browser_context?: (
-    browser: playwright.Browser,
-  ) => Promise<playwright.BrowserContext>;
+  browser_context?: (browser: playwright.Browser) => Promise<playwright.BrowserContext>;
   after_create_check?: () => unknown;
   check_pf_page?: (page: playwright.Page) => unknown;
 }
 
 export interface Routable extends TestCaseBase {
-  no_requisites_handler: (
-    instance: ProviderInstance,
-    secret: string,
-  ) => Handler;
+  no_requisites_handler: (instance: ProviderInstance, secret: string) => Handler;
 }
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
@@ -156,14 +141,14 @@ function callbackFinalizationTest<T>(
       `${alias} callback finalization to ${target_status}${opts?.tag ? ` (${opts.tag})` : ""}`,
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
-          let { create_transaction, merchant, provider, suite_ctx } =
-            await create_suite(ctx, target);
-          provider
-            .queue(target.create_handler("pending", suite_ctx))
-            .then(async () => {
-              await delay(CALLBACK_DELAY);
-              await target.send_callback(target_status, ctx.uuid);
-            });
+          let { create_transaction, merchant, provider, suite_ctx } = await create_suite(
+            ctx,
+            target,
+          );
+          provider.queue(target.create_handler("pending", suite_ctx)).then(async () => {
+            await delay(CALLBACK_DELAY);
+            await target.send_callback(target_status, ctx.uuid);
+          });
 
           let notification = merchant.queue_notification((callback) => {
             assert.strictEqual(
@@ -175,9 +160,7 @@ function callbackFinalizationTest<T>(
           let res = await create_transaction();
           if (
             res.processing_response &&
-            res.processing_response
-              .content_type()
-              ?.startsWith("application/json")
+            res.processing_response.content_type()?.startsWith("application/json")
           ) {
             await res.processing_response.as_raw_json();
           }
@@ -207,8 +190,10 @@ function statusFinalizationTest<T>(
       `${alias} status finalization to ${target_status}${opts?.tag ? ` (${opts.tag})` : ""}`,
       async ({ ctx }) => {
         await ctx.track_bg_rejections(async () => {
-          let { provider, merchant, create_transaction, suite_ctx } =
-            await create_suite(ctx, target);
+          let { provider, merchant, create_transaction, suite_ctx } = await create_suite(
+            ctx,
+            target,
+          );
           provider.queue(target.create_handler("pending", suite_ctx));
           provider.queue(target.status_handler(target_status));
 
@@ -226,43 +211,28 @@ function statusFinalizationTest<T>(
     );
 }
 
-export function statusFinalizationSuite<T>(
-  suite_factory: () => Status<T>,
-  opts?: TestCaseOptions,
-) {
+export function statusFinalizationSuite<T>(suite_factory: () => Status<T>, opts?: TestCaseOptions) {
   for (let target_status of CASES) {
     statusFinalizationTest(suite_factory(), target_status, opts);
   }
 }
 
-export function dataFlowTest<T extends DataFlow>(
-  title: string,
-  target: T,
-  opts?: TestCaseOptions,
-) {
+export function dataFlowTest<T extends DataFlow>(title: string, target: T, opts?: TestCaseOptions) {
   let alias = target.mock_options("").alias;
-  test
-    .skipIf(opts?.skip_if)
-    .concurrent(`${alias} ${title} data flow`, ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { create_transaction, provider, suite_ctx } = await create_suite(
-          ctx,
-          target,
-        );
-        let provider_request = provider
-          .queue(target.create_handler("pending", suite_ctx))
-          .then(() => target.after_create_check?.());
-        let response = await create_transaction();
-        await provider_request;
-        await target.check_merchant_response?.(response);
-      }),
-    );
+  test.skipIf(opts?.skip_if).concurrent(`${alias} ${title} data flow`, ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let { create_transaction, provider, suite_ctx } = await create_suite(ctx, target);
+      let provider_request = provider
+        .queue(target.create_handler("pending", suite_ctx))
+        .then(() => target.after_create_check?.());
+      let response = await create_transaction();
+      await provider_request;
+      await target.check_merchant_response?.(response);
+    }),
+  );
 }
 
-type BrowserUrlTargetLocation =
-  | "processingUrl"
-  | "selectorUrl"
-  | "redirect_request";
+type BrowserUrlTargetLocation = "processingUrl" | "selectorUrl" | "redirect_request";
 
 function browserPageUrl(
   response: {
@@ -280,10 +250,7 @@ function browserPageUrl(
     assert(response.selectorUrl, "selector url is empty");
     return response.selectorUrl;
   } else {
-    assert(
-      response.redirectRequest?.url,
-      "redirect request url is empty url is empty",
-    );
+    assert(response.redirectRequest?.url, "redirect request url is empty url is empty");
     return response.redirectRequest?.url;
   }
 }
@@ -296,47 +263,42 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
   },
 ) {
   let alias = target.mock_options("").alias;
-  test
-    .skipIf(opts?.skip_if)
-    .concurrent(`${alias} ${title} payform data flow`, ({ ctx, chrome }) =>
-      ctx.track_bg_rejections(async () => {
-        let { init_transaction, provider, suite_ctx } = await create_suite(
-          ctx,
-          target,
-        );
-        let provider_request = provider
-          .queue(target.create_handler("pending", suite_ctx))
-          .then(() => target.after_create_check?.());
+  test.skipIf(opts?.skip_if).concurrent(`${alias} ${title} payform data flow`, ({ ctx, chrome }) =>
+    ctx.track_bg_rejections(async () => {
+      let { init_transaction, provider, suite_ctx } = await create_suite(ctx, target);
+      let provider_request = provider
+        .queue(target.create_handler("pending", suite_ctx))
+        .then(() => target.after_create_check?.());
 
-        let response = await init_transaction();
+      let response = await init_transaction();
 
-        let browser_context: playwright.BrowserContext;
-        if (target.browser_context) {
-          browser_context = await target.browser_context(chrome);
-        } else {
-          browser_context = await chrome.newContext();
-        }
-        let page = await browser_context.newPage();
-        await page.setViewportSize({ width: 720, height: 1024 });
-        let redirectUrl = browserPageUrl(
-          {
-            selectorUrl: response.selectorUrl,
-            processingUrl: response.firstProcessingUrl(),
-            redirectRequest: response.redirectRequest,
-          },
-          opts?.browser_url_target,
-        );
+      let browser_context: playwright.BrowserContext;
+      if (target.browser_context) {
+        browser_context = await target.browser_context(chrome);
+      } else {
+        browser_context = await chrome.newContext();
+      }
+      let page = await browser_context.newPage();
+      await page.setViewportSize({ width: 720, height: 1024 });
+      let redirectUrl = browserPageUrl(
+        {
+          selectorUrl: response.selectorUrl,
+          processingUrl: response.firstProcessingUrl(),
+          redirectRequest: response.redirectRequest,
+        },
+        opts?.browser_url_target,
+      );
 
-        await page.goto(redirectUrl);
-        await page.waitForLoadState("networkidle");
-        await ctx.annotate("Payform screenshot", {
-          contentType: "image/png",
-          body: await page.screenshot(),
-        });
-        await target.check_pf_page?.(page);
-        await provider_request;
-      }),
-    );
+      await page.goto(redirectUrl);
+      await page.waitForLoadState("networkidle");
+      await ctx.annotate("Payform screenshot", {
+        contentType: "image/png",
+        body: await page.screenshot(),
+      });
+      await target.check_pf_page?.(page);
+      await provider_request;
+    }),
+  );
 }
 
 type ConcurrentTestStatuses = {
@@ -353,38 +315,33 @@ export function concurrentCallbackTest<T>(
   let alias = target.mock_options("").alias;
   test
     .skipIf(opts?.skip_if)
-    .concurrent(
-      `${alias} concurrent callback(${callback}) & status(${status})`,
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let { create_transaction, provider, suite_ctx, merchant } =
-            await create_suite(ctx, target);
+    .concurrent(`${alias} concurrent callback(${callback}) & status(${status})`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, provider, suite_ctx, merchant } = await create_suite(ctx, target);
 
-          provider.queue(target.create_handler("pending", suite_ctx));
-          let merchant_notification = merchant.queue_notification((n) => {
-            assert.strictEqual(n.status, expected);
-          });
-          let provider_actions = provider
-            .queue(target.status_handler(status))
-            .then(() => target.send_callback(callback, ctx.uuid));
-          let response = await create_transaction();
-          await provider_actions;
-          if (expected === "pending") {
-            await delay(4_000);
-          } else {
-            await merchant_notification;
-            await delay(2_000);
-          }
-          let payment = await ctx.get_payment(response.create_response.token);
-          assert.strictEqual(payment.status, expected);
-          await ctx.healthcheck(response.create_response.token);
-        }),
+        provider.queue(target.create_handler("pending", suite_ctx));
+        let merchant_notification = merchant.queue_notification((n) => {
+          assert.strictEqual(n.status, expected);
+        });
+        let provider_actions = provider
+          .queue(target.status_handler(status))
+          .then(() => target.send_callback(callback, ctx.uuid));
+        let response = await create_transaction();
+        await provider_actions;
+        if (expected === "pending") {
+          await delay(4_000);
+        } else {
+          await merchant_notification;
+          await delay(2_000);
+        }
+        let payment = await ctx.get_payment(response.create_response.token);
+        assert.strictEqual(payment.status, expected);
+        await ctx.healthcheck(response.create_response.token);
+      }),
     );
 }
 
-export function concurrentCallbackSuite<T>(
-  target: () => Callback<T> & Status<T>,
-) {
+export function concurrentCallbackSuite<T>(target: () => Callback<T> & Status<T>) {
   concurrentCallbackTest(target(), {
     expected: "approved",
     callback: "approved",
@@ -450,10 +407,7 @@ async function setupRoutingChain(
   gateways: Routable[],
   miss: boolean,
 ) {
-  assert(
-    gateways.length > 1,
-    "routing chain should contain more than 1 gateway",
-  );
+  assert(gateways.length > 1, "routing chain should contain more than 1 gateway");
 
   let merchant = await ctx.create_random_merchant();
 
@@ -467,9 +421,7 @@ async function setupRoutingChain(
 
   let queue_no_requisites = (routable: Routable) => {
     let mock_server = ctx.mock_server(routable.mock_options(ctx.uuid));
-    return mock_server.queue(
-      routable.no_requisites_handler(mock_server, ctx.uuid),
-    );
+    return mock_server.queue(routable.no_requisites_handler(mock_server, ctx.uuid));
   };
 
   let chain: Promise<unknown>[] = [queue_no_requisites(first_link)];
@@ -481,18 +433,11 @@ async function setupRoutingChain(
     queue_no_requisites(routable);
     rule_builder.addStatusRoute(gateway_key(i + 1));
   }
-  settings_builder.withGateway(
-    last_link.settings(ctx.uuid),
-    gateway_key(gateways.length - 1),
-  );
+  settings_builder.withGateway(last_link.settings(ctx.uuid), gateway_key(gateways.length - 1));
 
   let last_mock_server = ctx.mock_server(last_link.mock_options(ctx.uuid));
   if (miss) {
-    chain.push(
-      last_mock_server.queue(
-        last_link.no_requisites_handler(last_mock_server, ctx.uuid),
-      ),
-    );
+    chain.push(last_mock_server.queue(last_link.no_requisites_handler(last_mock_server, ctx.uuid)));
   } else {
     chain.push(
       last_mock_server.queue(
@@ -516,12 +461,8 @@ export function routingFinalizationSuite(
   links: () => [...Routable[], Routable & Callback],
   request: () => PaymentRequest,
   checks: {
-    check_merchant_requisites?: (
-      response: ProcessingUrlResponse,
-    ) => Promise<unknown>;
-    check_missed_requisites?: (
-      response: ProcessingUrlResponse,
-    ) => Promise<unknown>;
+    check_merchant_requisites?: (response: ProcessingUrlResponse) => Promise<unknown>;
+    check_missed_requisites?: (response: ProcessingUrlResponse) => Promise<unknown>;
     check_merchant_payform?: (page: playwright.Page) => Promise<unknown>;
   },
   opts: { is_masked?: boolean; use_status_handler?: boolean },
@@ -558,9 +499,7 @@ export function routingFinalizationSuite(
           is_masked
             ? p.followFirstProcessingCheckedRedirect(async (r) => {
                 let location = r.headers.get("location");
-                await ctx.annotate(
-                  `Routing h2h redirect location: ${location}`,
-                );
+                await ctx.annotate(`Routing h2h redirect location: ${location}`);
                 if (location) assertLocationNotForbidden(location);
               })
             : p.followFirstProcessingUrl(),
@@ -583,12 +522,7 @@ export function routingFinalizationSuite(
       ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let chain_links = links();
-          let { merchant, chain } = await setupRoutingChain(
-            ctx,
-            currency,
-            chain_links,
-            true,
-          );
+          let { merchant, chain } = await setupRoutingChain(ctx, currency, chain_links, true);
           let declined_notification = merchant.queue_notification((n) => {
             assert.strictEqual(n.status, "declined");
           });
@@ -596,9 +530,7 @@ export function routingFinalizationSuite(
             is_masked
               ? p.followFirstProcessingCheckedRedirect(async (r) => {
                   let location = r.headers.get("location");
-                  await ctx.annotate(
-                    `Routing h2h redirect location: ${location}`,
-                  );
+                  await ctx.annotate(`Routing h2h redirect location: ${location}`);
                   if (location) assertLocationNotForbidden(location);
                 })
               : p.followFirstProcessingUrl(),
@@ -635,29 +567,20 @@ export function routingFinalizationSuite(
                   settings: (secret: string) => ({
                     ...l.settings(secret),
                     wrapped_to_json_response:
-                      l.gw instanceof GatewayConnectTransaction
-                        ? true
-                        : undefined,
+                      l.gw instanceof GatewayConnectTransaction ? true : undefined,
                   }),
                 };
               });
             }
           };
-          let { merchant, chain } = await setupRoutingChain(
-            ctx,
-            currency,
-            override_links(),
-            false,
+          let { merchant, chain } = await setupRoutingChain(ctx, currency, override_links(), false);
+          let browser_url = await merchant.create_payment(request()).then((response) =>
+            browserPageUrl({
+              selectorUrl: response.selectorUrl,
+              processingUrl: response.firstProcessingUrl(),
+              redirectRequest: response.redirectRequest,
+            }),
           );
-          let browser_url = await merchant
-            .create_payment(request())
-            .then((response) =>
-              browserPageUrl({
-                selectorUrl: response.selectorUrl,
-                processingUrl: response.firstProcessingUrl(),
-                redirectRequest: response.redirectRequest,
-              }),
-            );
           assert(browser_url, "merchant response is missing processing url");
           let page = await browser.newPage();
           await page.setViewportSize({ width: 720, height: 1024 });
@@ -667,9 +590,7 @@ export function routingFinalizationSuite(
               let status = response.status();
               if (status >= 300 && status < 400) {
                 let location = response.headers()["location"];
-                await ctx.annotate(
-                  `Routing payform redirect location: ${location}`,
-                );
+                await ctx.annotate(`Routing payform redirect location: ${location}`);
                 if (location) assertLocationNotForbidden(location);
               }
             });
@@ -687,58 +608,47 @@ export function routingFinalizationSuite(
     );
 }
 
-export function payoutPendingSuite<T>(
-  target: Status<T>,
-  opts?: TestCaseOptions,
-) {
+export function payoutPendingSuite<T>(target: Status<T>, opts?: TestCaseOptions) {
   let alias = target.mock_options("").alias;
   test
     .skipIf(opts?.skip_if)
-    .concurrent(
-      `${alias} pending if nginx500${opts?.tag ? ` (${opts.tag})` : ""}`,
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let { create_transaction, merchant, provider } = await create_suite(
-            ctx,
-            target,
-          );
-          provider.queue(common.nginx500);
-          provider.queue(common.nginx500);
-          provider.queue(common.nginx500);
+    .concurrent(`${alias} pending if nginx500${opts?.tag ? ` (${opts.tag})` : ""}`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, merchant, provider } = await create_suite(ctx, target);
+        provider.queue(common.nginx500);
+        provider.queue(common.nginx500);
+        provider.queue(common.nginx500);
 
-          let notification = merchant.queue_notification(() => {
-            assert.fail("merchant should not get notification");
-          });
-          let { create_response } = await create_transaction();
-          await ctx.healthcheck(create_response.token);
-          let feed = await ctx.get_feed(create_response.token);
-          assert.strictEqual(feed.status, 0, "feed should be pending");
-          await Promise.race([notification, delay(5_000)]);
-        }),
+        let notification = merchant.queue_notification(() => {
+          assert.fail("merchant should not get notification");
+        });
+        let { create_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token);
+        let feed = await ctx.get_feed(create_response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await Promise.race([notification, delay(5_000)]);
+      }),
     );
 
   test
     .skipIf(opts?.skip_if)
-    .concurrent(
-      `${alias} pending if timed out${opts?.tag ? ` (${opts.tag})` : ""}`,
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let { create_transaction, merchant, provider, suite_ctx } =
-            await create_suite(ctx, target);
-          let handle = provider.queue(async (c) => {
-            await delay(75_000);
-            return target.create_handler("approved", suite_ctx)(c);
-          });
+    .concurrent(`${alias} pending if timed out${opts?.tag ? ` (${opts.tag})` : ""}`, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, merchant, provider, suite_ctx } = await create_suite(ctx, target);
+        let handle = provider.queue(async (c) => {
+          await delay(75_000);
+          return target.create_handler("approved", suite_ctx)(c);
+        });
 
-          let notification = merchant.queue_notification(() => {
-            assert.fail("merchant should not get notification");
-          });
-          let { create_response } = await create_transaction();
-          await ctx.healthcheck(create_response.token);
-          let feed = await ctx.get_feed(create_response.token);
-          assert.strictEqual(feed.status, 0, "feed should be pending");
-          await Promise.race([notification, handle, delay(5_000)]);
-        }),
+        let notification = merchant.queue_notification(() => {
+          assert.fail("merchant should not get notification");
+        });
+        let { create_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token);
+        let feed = await ctx.get_feed(create_response.token);
+        assert.strictEqual(feed.status, 0, "feed should be pending");
+        await Promise.race([notification, handle, delay(5_000)]);
+      }),
     );
 }
 
@@ -746,34 +656,37 @@ export function payoutPendingSuite<T>(
  * Factory for creating suite that uses full default settings
  * FIX: This is stupid, find a better way to decide what settings type should be used with the suite
  */
-export function defaultSuite<
-  T extends { settings: (secret: string) => Record<string, any> },
->(currency: string, suite: T): T {
+export function defaultSuite<T extends { settings: (secret: string) => Record<string, any> }>(
+  currency: string,
+  suite: T,
+  opts?: SettingsOpts,
+): T {
   return {
     ...suite,
-    settings: (secret: string) =>
-      defaultSettings(currency, suite.settings(secret)),
+    settings: (secret: string) => defaultSettings(currency, suite.settings(secret), opts),
   };
 }
 
 /**
  * Factory for creating suite that uses full providers settings
  */
-export function providersSuite<
-  T extends { settings: (secret: string) => Record<string, any> },
->(currency: string, suite: T): T {
+export function providersSuite<T extends { settings: (secret: string) => Record<string, any> }>(
+  currency: string,
+  suite: T,
+  opts?: SettingsOpts,
+): T {
   return {
     ...suite,
-    settings: (secret: string) => providers(currency, suite.settings(secret)),
+    settings: (secret: string) => providers(currency, suite.settings(secret), opts),
   };
 }
 
 /**
  * Factory for creating suite that has masked_provider setting
  */
-export function maskedSuite<
-  T extends { settings: (secret: string) => Record<string, any> },
->(suite: T): T {
+export function maskedSuite<T extends { settings: (secret: string) => Record<string, any> }>(
+  suite: T,
+): T {
   return {
     ...suite,
     settings: (secret: string) => ({

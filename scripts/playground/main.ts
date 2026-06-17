@@ -2,7 +2,7 @@ import { setupPlayground } from "./setup";
 import { createJob, runJob } from "./jobs";
 import { log, summary } from "./log";
 
-const CONCURRENCY = 40;
+const CONCURRENCY = 10;
 
 let env = await setupPlayground();
 process.removeAllListeners("SIGINT");

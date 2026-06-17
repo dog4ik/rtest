@@ -1,24 +1,27 @@
-import { CONFIG } from "@/config";
 import type { Project } from "@/project";
 import { Pool } from "pg";
 import { z } from "zod";
 
 type Entity = { [k: string]: z.ZodType };
 
+export type PostgresConnection = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+};
+
 function selectColumns(table: string, schema_keys: string[]) {
   return schema_keys.map((key) => `${table}."${key}"`).join(", ");
 }
 
-export async function connectPool(database: string) {
-  let postgres = CONFIG.urls().postgres;
+export async function connectPool(connection: PostgresConnection) {
   let pool = new Pool({
-    host: postgres.host,
-    user: postgres.user,
-    port: postgres.port,
-    password: postgres.password,
-    database,
+    ...connection,
     connectionTimeoutMillis: 2_000,
   });
+  console.log("Connecting postgres pool", connection);
   await pool.connect();
   return pool;
 }

@@ -1,4 +1,5 @@
 import { connectPool } from "@/db";
+import * as config from "../src/config";
 import readline from "node:readline";
 
 function confirm(question: string): Promise<boolean> {
@@ -15,7 +16,8 @@ function confirm(question: string): Promise<boolean> {
 }
 
 async function main() {
-  let pool = await connectPool("reactivepay_core_production");
+  let c = config.open("configuration.toml");
+  let pool = await connectPool(config.postgresConnection(c, "core"));
   let client = await pool.connect();
   try {
     await client.query("BEGIN");

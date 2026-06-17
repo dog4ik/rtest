@@ -21,7 +21,7 @@ export async function authorize_client(
     keycloakUrl = location;
   } else {
     let html = await loginInitRes.text();
-    let hrefMatch = html.match(/href="([^"]*keycloak[^"]*)"/);
+    let hrefMatch = html.match(/href="([^"]*cloak[^"]*)"/);
     if (!hrefMatch) throw new Error("No Keycloak link found in page");
     let href = hrefMatch[1].replace(/&amp;/g, "&");
 

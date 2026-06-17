@@ -1,5 +1,10 @@
 import fs from "node:fs/promises";
-import { projectCredentials, projectUrls, type Config } from "@/config";
+import {
+  postgresConnection,
+  projectCredentials,
+  projectUrls,
+  type Config,
+} from "@/config";
 import { connectPool } from "@/db";
 import { BusinessDb } from "@/db/business";
 import { CoreDb } from "@/db/core";
@@ -53,9 +58,9 @@ export async function initState(config: Config) {
 
   let [core_db, business_db, settings_db, mapping, browser] = await Promise.all(
     [
-      connectPool("reactivepay_core_production"),
-      connectPool("reactivepay_business_production"),
-      connectPool("reactivepay_settings_production"),
+      connectPool(postgresConnection(config, "core")),
+      connectPool(postgresConnection(config, "business")),
+      connectPool(postgresConnection(config, "settings")),
       fs
         .readFile(project_dir.businessProductionRbPath())
         .then((b) => b.toString())
