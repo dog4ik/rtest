@@ -1,6 +1,7 @@
 import { CONFIG } from "@/config";
 import type {
   CreateAgentOptions,
+  CreateMerchantOptions,
   CreateSmsParser,
   CreateTraderOptions,
 } from "@/driver/core";
@@ -62,9 +63,10 @@ export class Context {
   /**
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
-  async create_random_merchant() {
+  async create_random_merchant(opts?: CreateMerchantOptions) {
     let now = new Date();
-    let merchantInfo = await this.state.core_harness.create_random_merchant();
+    let merchantInfo =
+      await this.state.core_harness.create_random_merchant(opts);
     let merchant = await this.state.core_db
       .merchantByEmail(merchantInfo.email)
       .then((m) => extendMerchant(this, m));

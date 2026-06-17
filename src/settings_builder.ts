@@ -17,17 +17,19 @@ export type CommonSettingsParams = {
   payment_method?: string;
 } & Record<string, any>;
 
+export type SettingsOpts = {
+  convert_to?: boolean;
+};
+
 /**
  * Quick way to construct providers settings with single provider
  */
 export function providers<T extends CommonSettingsParams>(
   currency: string,
   gateway: T,
+  opts?: SettingsOpts,
 ): ProvidersSettings {
-  if (
-    CONFIG.project === "8pay" &&
-    gateway.wrapped_to_json_response === undefined
-  ) {
+  if (CONFIG.project === "8pay" && gateway.wrapped_to_json_response === undefined) {
     gateway.wrapped_to_json_response = true;
   }
   return {
@@ -41,6 +43,7 @@ export function providers<T extends CommonSettingsParams>(
         },
       },
     },
+    convert_to: opts?.convert_to ? currency : undefined,
     gateways: {
       gateway,
       allow_host2host: true,
@@ -54,6 +57,7 @@ export function providers<T extends CommonSettingsParams>(
 export function defaultSettings(
   currency: string,
   gateway: AnyRecord,
+  opts?: SettingsOpts,
 ): ProvidersSettings {
   return {
     [currency]: {
@@ -66,6 +70,7 @@ export function defaultSettings(
         },
       },
     },
+    convert_to: opts?.convert_to ? currency : undefined,
     gateways: {
       gateway,
       allow_host2host: true,
@@ -148,10 +153,7 @@ export class SettingsBuilder {
    */
   withGateway(gateway: AnyRecord, alias?: string): this {
     const resolvedAlias = alias ?? `gateway_${this.nextAlias()}`;
-    if (
-      CONFIG.project === "8pay" &&
-      gateway.wrapped_to_json_response === undefined
-    ) {
+    if (CONFIG.project === "8pay" && gateway.wrapped_to_json_response === undefined) {
       gateway.wrapped_to_json_response = true;
     }
     this.settings.gateways[resolvedAlias] = gateway;
