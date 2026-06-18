@@ -12,10 +12,9 @@
     "sourceMap": true,
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
     "types": ["vitest/importMeta"],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
