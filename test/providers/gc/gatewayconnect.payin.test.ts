@@ -577,6 +577,20 @@ dataFlowTest("ecom redirect 3ds", {
   },
 });
 
+dataFlowTest("ecom post redirect 3ds", {
+  ...ecomRedirectPayinSuite(),
+  create_handler() {
+    let gw = this.gw as GatewayConnectTransaction;
+    return gw.post_3ds_redirect_handler({
+      params: { TermUrl: common.redirectPayUrl + "/TermUrl" },
+      url: common.redirectPayUrl,
+    });
+  },
+  check_merchant_response(data) {
+    data.create_response;
+  },
+});
+
 function externalRedirectSuite(): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite();
   return providersSuite("RUB", {

@@ -468,6 +468,37 @@ export class GatewayConnectTransaction {
     };
   }
 
+  post_3ds_redirect_handler({
+    url,
+    params,
+  }: {
+    url: string;
+    params: Record<string, any>;
+  }): Handler {
+    return async (c) => {
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
+
+      let logs = await this.build_interaction_logs("pay", "pending");
+
+      return c.json({
+        status: "pending",
+        amount: common.amount,
+        currency: this.payin_request.payment.gateway_currency,
+        result: true,
+        card_enrolled: true,
+        redirect_request: {
+          url: url,
+          type: "post",
+          params,
+        },
+        gateway_token: this.gateway_id,
+        logs,
+      } as ConnectPayinResponse);
+    };
+  }
+
   refund_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
       this.refund_request = RefundRequestSchema(z.object({})).parse(
