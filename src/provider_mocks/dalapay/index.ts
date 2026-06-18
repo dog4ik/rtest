@@ -6,6 +6,7 @@ import { err_bad_status } from "@/fetch_utils";
 import type { P2PSuite } from "@/suite_interfaces";
 import type { PrimeBusinessStatus } from "@/db/business";
 import * as common from "@/common";
+import { CurlBuilder } from "@/story/curl";
 
 export const OperationStatusMap = {
   UNDEFINED: -1,
@@ -67,6 +68,7 @@ export class DalapayTransaction {
       operation_type: 17,
       customer_id: "2330900000001",
       amount: this.request_data.amount,
+      init_amount: this.request_data.amount,
       currency: this.request_data.currency,
       order_id: this.request_data.order_id,
       transaction_id: this.gateway_id,
@@ -95,7 +97,8 @@ export class DalapayTransaction {
     vitest.assert(this.request_data, "request data should not be null");
     const payload = this.callback(status);
     let callback_url = new URL(this.request_data.callback_url);
-    console.log("callback body", payload);
+    let curl = new CurlBuilder(String(callback_url), "POST").json_data(payload);
+    console.log("dalapay callback", curl.build());
     callback_url.protocol = "http";
     await fetch(callback_url, {
       method: "POST",
