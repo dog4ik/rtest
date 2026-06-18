@@ -890,7 +890,6 @@ describe.concurrent("default post redirect_request", () => {
         let gw = this.gw as GatewayConnectTransaction;
         return gw.redirect_payin_handler("pending", {
           type: "post_iframes",
-          url: "",
           iframes: [{ url: common.redirectPayUrl, data: POST_PARAMS }],
         });
       },
@@ -931,7 +930,6 @@ describe.concurrent("default post redirect_request", () => {
         let gw = this.gw as GatewayConnectTransaction;
         return gw.redirect_payin_handler("pending", {
           type: "post_iframes",
-          url: "",
           iframes: [{ url: common.redirectPayUrl, data: POST_PARAMS }],
         });
       },
@@ -940,6 +938,50 @@ describe.concurrent("default post redirect_request", () => {
         await checkout_page.submit_card_object(common.cardObject());
         await p.waitForLoadState("networkidle");
         await assertPostToGoogle(p, { inIframe: true, params: POST_PARAMS });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  const REDIRECT_HTML = `<h1 data-testid="redirect-html">provider redirect html</h1>`;
+
+  payformDataFlowTest(
+    "redirect_html redirect request (default)",
+    {
+      ...ecomRedirectPayinSuite(true),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "redirect_html",
+          html: REDIRECT_HTML,
+        });
+      },
+      async check_pf_page(p) {
+        let marker = p.locator("[data-testid=redirect-html]");
+        await marker.waitFor();
+        assert.strictEqual(await marker.textContent(), "provider redirect html");
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "redirect_html redirect request (default, no card)",
+    {
+      ...ecomRedirectPayinSuite(false),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "redirect_html",
+          html: REDIRECT_HTML,
+        });
+      },
+      async check_pf_page(p) {
+        let checkout_page = new CheckoutCardForm(p);
+        await checkout_page.submit_card_object(common.cardObject());
+        let marker = p.locator("[data-testid=redirect-html]");
+        await marker.waitFor();
+        assert.strictEqual(await marker.textContent(), "provider redirect html");
       },
     },
     { browser_url_target: "processingUrl" },

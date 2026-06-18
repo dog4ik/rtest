@@ -62,7 +62,7 @@ export const PayinRequestSchema = (settingsSchema: z.ZodObject) => {
 export type ConnectPayinRequest = z.infer<typeof PayinRequestSchema>;
 
 export type RedirectRequest = {
-  url: string;
+  url?: string;
   type: "post" | "get_with_processing" | "redirect_html" | "post_iframes" | "get";
   html?: string;
   params?: Record<string, any>;
