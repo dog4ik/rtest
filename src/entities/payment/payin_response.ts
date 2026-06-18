@@ -54,7 +54,7 @@ export class PayinResponse {
       ...parsed.data,
       firstProcessingUrl() {
         if (!Array.isArray(this.processingUrl)) {
-          return assert.fail("Processing url is not an array");
+          return this.processingUrl;
         } else if (this.processingUrl.length === 0) {
           return assert.fail("Processing url is empty");
         }

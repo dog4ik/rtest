@@ -22,6 +22,35 @@ import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
 import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 import type { Requisite } from "@/driver/trader";
+import { CheckoutCardForm } from "@/pages/checkout_card_form";
+import type * as playwright from "playwright";
+
+async function assertPostToGoogle(
+  page: playwright.Page,
+  { inIframe = false, params }: { inIframe?: boolean; params?: Record<string, string> } = {},
+) {
+  let post = (await page.requests()).find(
+    (req) =>
+      req.isNavigationRequest() &&
+      req.method() === "POST" &&
+      new URL(req.url()).hostname.endsWith("google.com") &&
+      (!inIframe || req.frame().parentFrame() !== null),
+  );
+  assert(
+    post,
+    inIframe
+      ? "expected a POST navigation request to google inside an iframe"
+      : "expected a POST navigation request to google",
+  );
+  if (params) {
+    // Form submits default to application/x-www-form-urlencoded, which
+    // postDataJSON() parses into a key/value object.
+    let body = post.postDataJSON() as Record<string, unknown> | null;
+    for (let [key, value] of Object.entries(params)) {
+      assert.strictEqual(body?.[key], value, `POST form field "${key}" should equal "${value}"`);
+    }
+  }
+}
 
 let MAP: Record<GcRequisiteType, string> = {
   card: "Cards",
@@ -511,12 +540,15 @@ payformDataFlowTest(
   { skip_if: !CONFIG.in_project("8pay") },
 );
 
-function ecomRedirectPayinSuite(): P2PSuite<GatewayConnectTransaction> {
+function ecomRedirectPayinSuite(card_in_request = true): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite();
   return defaultSuite("RUB", {
     ...suite,
     create_handler() {
-      return this.gw.redirect_3ds_response_handler();
+      return this.gw.redirect_payin_handler("pending", {
+        url: common.redirectPayUrl,
+        type: "get_with_processing",
+      });
     },
     settings: (s) => ({
       ...suite.settings(s),
@@ -524,33 +556,12 @@ function ecomRedirectPayinSuite(): P2PSuite<GatewayConnectTransaction> {
     request: () => ({
       ...common.paymentRequest("RUB"),
       customer: {
-        ip: "178.255.251.35",
-        email: "18@gmail.com",
-        phone: "+79992448838",
-        first_name: "Test",
-        last_name: "Test2",
-        country: "AU",
-        state: "Test",
-        postcode: "100013",
-        city: "Transmetropolitan",
-        address: "126 Kichik Beshagach Street",
-        browser: {
-          tz_name: "Europe/Moscow",
-          accept_header: "application/json, text/plain, */*",
-          color_depth: "32",
-          ip: "109.48.0.1",
-          language: "us-US",
-          screen_height: "1080",
-          screen_width: "1920",
-          tz: "-180",
-          user_agent:
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:92.0) Gecko/20100101 Firefox/92.0",
-          java_enabled: "true",
-          window_width: "1240",
-          window_height: "560",
-        },
+        ...common.extraCustomersParams(),
+        ip: common.ip,
+        email: common.email,
+        browser: common.browserObject(),
       },
-      card: common.cardObject(),
+      card: card_in_request ? common.cardObject() : undefined,
       extra_return_param: "test_param",
     }),
   }) as P2PSuite<GatewayConnectTransaction>;
@@ -567,9 +578,10 @@ dataFlowTest("ecom post redirect 3ds", {
   ...ecomRedirectPayinSuite(),
   create_handler() {
     let gw = this.gw as GatewayConnectTransaction;
-    return gw.post_3ds_redirect_handler({
+    return gw.redirect_payin_handler("pending", {
       params: { TermUrl: common.redirectPayUrl + "/TermUrl" },
       url: common.redirectPayUrl,
+      type: "post",
     });
   },
   check_merchant_response(data) {
@@ -582,7 +594,10 @@ function externalRedirectSuite(): P2PSuite<GatewayConnectTransaction> {
   return providersSuite("RUB", {
     ...suite,
     create_handler() {
-      return this.gw.redirect_payin_handler("pending");
+      return this.gw.redirect_payin_handler("pending", {
+        url: common.redirectPayUrl,
+        type: "get_with_processing",
+      });
     },
     settings: (s) => ({
       ...suite.settings(s),
@@ -729,21 +744,207 @@ describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay locale", () => 
   );
 });
 
-payformDataFlowTest(
-  "get redirect request",
-  {
-    ...externalRedirectSuite(),
-    create_handler() {
-      let gw = this.gw as GatewayConnectTransaction;
-      return gw.get_redirect_response();
+describe.concurrent("providers redirect_request", () => {
+  payformDataFlowTest(
+    "get redirect request (providers)",
+    {
+      ...externalRedirectSuite(),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", { type: "get", url: common.redirectPayUrl });
+      },
+      check_pf_page(page) {
+        let url = new URL(page.url());
+        assert.strictEqual(url.hostname, "www.google.com");
+      },
     },
-    check_pf_page(page) {
-      let url = new URL(page.url());
-      assert.strictEqual(url.hostname, "www.google.com");
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "get_with_processing redirect request (providers)",
+    {
+      ...externalRedirectSuite(),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          url: common.redirectPayUrl,
+          type: "get_with_processing",
+        });
+      },
+      check_pf_page(page) {
+        let url = new URL(page.url());
+        assert.strictEqual(url.hostname, "www.google.com");
+      },
     },
-  },
-  { browser_url_target: "processingUrl" },
-);
+    { browser_url_target: "processingUrl" },
+  );
+});
+
+describe.concurrent("default redirect_request", () => {
+  payformDataFlowTest(
+    "get redirect request (default)",
+    {
+      ...ecomRedirectPayinSuite(true),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", { type: "get", url: common.redirectPayUrl });
+      },
+      check_pf_page(p) {
+        let url = new URL(p.url());
+        assert.strictEqual(String(url), "https://www.google.com/", "merchant should get redirect");
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "get_with_processing redirect request (default)",
+    {
+      ...ecomRedirectPayinSuite(true),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          url: common.redirectPayUrl,
+          type: "get_with_processing",
+        });
+      },
+      check_pf_page(p) {
+        let url = new URL(p.url());
+        assert.strictEqual(String(url), "https://www.google.com/", "merchant should get redirect");
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "get redirect request (default, no card)",
+    {
+      ...ecomRedirectPayinSuite(false),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          url: common.redirectPayUrl,
+          type: "get",
+        });
+      },
+      async check_pf_page(p) {
+        let checkout_page = new CheckoutCardForm(p);
+        await checkout_page.submit_card_object(common.cardObject());
+        await p.waitForURL("https://www.google.com/", { timeout: 5_000 });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "get_with_processing redirect request (default, no card)",
+    {
+      ...ecomRedirectPayinSuite(false),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          url: common.redirectPayUrl,
+          type: "get_with_processing",
+        });
+      },
+      async check_pf_page(p) {
+        let checkout_page = new CheckoutCardForm(p);
+        await checkout_page.submit_card_object(common.cardObject());
+        await p.waitForURL("https://www.google.com/", { timeout: 5_000 });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+});
+
+const POST_PARAMS = { test: "success", creq: "test creq" };
+
+describe.concurrent("default post redirect_request", () => {
+  payformDataFlowTest(
+    "post redirect request (default)",
+    {
+      ...ecomRedirectPayinSuite(true),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "post",
+          url: common.redirectPayUrl,
+          params: POST_PARAMS,
+        });
+      },
+      async check_pf_page(p) {
+        let url = new URL(p.url());
+        assert.strictEqual(String(url), "https://google.com/", "merchant should get redirect");
+        await assertPostToGoogle(p, { params: POST_PARAMS });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "post_iframes redirect request (default)",
+    {
+      ...ecomRedirectPayinSuite(true),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "post_iframes",
+          url: "",
+          iframes: [{ url: common.redirectPayUrl, data: POST_PARAMS }],
+        });
+      },
+      async check_pf_page(p) {
+        await assertPostToGoogle(p, { inIframe: true, params: POST_PARAMS });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "post redirect request (default, no card)",
+    {
+      ...ecomRedirectPayinSuite(false),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "post",
+          url: common.redirectPayUrl,
+          params: POST_PARAMS,
+        });
+      },
+      async check_pf_page(p) {
+        let checkout_page = new CheckoutCardForm(p);
+        await checkout_page.submit_card_object(common.cardObject());
+        await p.waitForURL("https://www.google.com/", { timeout: 5_000 });
+        await assertPostToGoogle(p, { params: POST_PARAMS });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+
+  payformDataFlowTest(
+    "post_iframes redirect request (default, no card)",
+    {
+      ...ecomRedirectPayinSuite(false),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.redirect_payin_handler("pending", {
+          type: "post_iframes",
+          url: "",
+          iframes: [{ url: common.redirectPayUrl, data: POST_PARAMS }],
+        });
+      },
+      async check_pf_page(p) {
+        let checkout_page = new CheckoutCardForm(p);
+        await checkout_page.submit_card_object(common.cardObject());
+        await p.waitForLoadState("networkidle");
+        await assertPostToGoogle(p, { inIframe: true, params: POST_PARAMS });
+      },
+    },
+    { browser_url_target: "processingUrl" },
+  );
+});
 
 describe.concurrent("commission healthcheck payins", () => {
   const AMOUNT = 100_000; // 1000 RUB in kopeyki
@@ -988,77 +1189,91 @@ describe.concurrent("gateway connect refund", () => {
 });
 
 function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
-  let suite = payinSuite("EUR");
-  return defaultSuite("EUR", {
-    ...suite,
-    create_handler: (s) => suite.gw.basic_payin_handler(s),
-    settings: (s) => {
-      let settings = suite.settings(s);
-      let { full_link, gateway_key } = settings.gateway_settings;
-      settings.gateway_settings = {
-        bypass_processing_url: true,
-        callback: true,
-        enable: true,
-        full_link,
-        gateway_key,
-        methods: {
-          pay: {
-            enable_status_checker: true,
-            final_waiting_seconds: 10,
-            params_fields: {
-              params: ["pan", "expires", "holder", "cvv"],
-              payment: ["gateway_currency", "gateway_amount"],
-              settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+  let suite = payinSuite("RUB");
+  return defaultSuite(
+    "RUB",
+    {
+      ...suite,
+      create_handler: (s) => suite.gw.basic_payin_handler(s),
+      settings: (s) => {
+        let settings = suite.settings(s);
+        let { full_link, gateway_key } = settings.gateway_settings;
+        settings.gateway_settings = {
+          bypass_processing_url: true,
+          callback: true,
+          enable: true,
+          full_link,
+          gateway_key,
+          methods: {
+            pay: {
+              enable_status_checker: true,
+              final_waiting_seconds: 10,
+              params_fields: {
+                params: ["pan", "expires", "holder", "cvv"],
+                payment: ["gateway_currency", "gateway_amount"],
+                settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+              },
+            },
+            payout: {
+              enable_status_checker: true,
+              final_waiting_seconds: 10,
+              params_fields: {
+                params: ["pan", "expires", "holder", "cvv"],
+                payment: ["gateway_currency", "gateway_amount"],
+                settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+              },
+            },
+            status: {
+              params_fields: {
+                params: [],
+                payment: [],
+                settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+              },
+            },
+            refund: {
+              enable_status_checker: true,
+              params_fields: {
+                params: [],
+                payment: [],
+                settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+              },
             },
           },
-          status: {
-            params_fields: {
-              params: [],
-              payment: [],
-              settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
-            },
+          processing_method: "http_requests",
+          status_checker_time_rates: {
+            "1-3": 30,
+            "4-6": 60,
+            "7-14": 120,
+            "15-": 3600,
           },
-          refund: {
-            enable_status_checker: true,
-            params_fields: {
-              params: [],
-              payment: [],
-              settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
-            },
-          },
-        },
-        processing_method: "http_requests",
-        status_checker_time_rates: {
-          "1-3": 30,
-          "4-6": 60,
-          "7-14": 120,
-          "15-": 3600,
-        },
-      };
-      settings["api_key"] = "0266e225-4225-4ed1-94f7-1b612d15e948";
+        };
+        settings["api_key"] = "0266e225-4225-4ed1-94f7-1b612d15e948";
 
-      return settings;
+        return settings;
+      },
+
+      request: () => ({
+        ...common.paymentRequest("RUB"),
+        card: common.cardObject(),
+      }),
     },
-
-    request: () => ({
-      ...common.paymentRequest("EUR"),
-      card: common.cardObject(),
-    }),
-  }) as P2PSuite<GatewayConnectTransaction>;
+    { convert_to: false },
+  ) as P2PSuite<GatewayConnectTransaction>;
 }
 
-test.skip("test gateway connect", ({ ctx }) =>
+test.skip("test gateway connect payin", ({ ctx }) =>
   ctx.track_bg_rejections(async () => {
     let suite = h2hSuite();
     let merchant = await ctx.create_random_merchant();
     await merchant.set_settings(suite.settings(ctx.uuid));
     let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+    await merchant.set_commission({ self_rate: "10", provider_rate: "5" });
 
     let provider_request = provider.queue(async (c) =>
       c.json({
         status: "approved",
         amount: common.amount,
-        currency: "EUR",
+        currency: "RUB",
         details: undefined,
         result: true,
         gateway_token: suite.gw.gateway_id,
@@ -1070,7 +1285,7 @@ test.skip("test gateway connect", ({ ctx }) =>
       c.json({
         status: "approved",
         amount: common.amount,
-        currency: "EUR",
+        currency: "RUB",
         details: undefined,
         logs: [],
         result: true,
@@ -1090,12 +1305,22 @@ test.skip("test gateway connect", ({ ctx }) =>
 
     await status_request;
     await notification;
+  }));
 
-    let refund_request = provider.queue(async (c) =>
+test.skip("test gateway connect payout", ({ ctx }) =>
+  ctx.track_bg_rejections(async () => {
+    let suite = h2hSuite();
+    let merchant = await ctx.create_random_merchant();
+    await merchant.set_settings(suite.settings(ctx.uuid));
+    let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+    await merchant.cashin("RUB", common.amount / 100);
+    await merchant.set_commission();
+
+    let provider_request = provider.queue(async (c) =>
       c.json({
-        status: "approved",
+        status: "pending",
         amount: common.amount,
-        currency: "EUR",
+        currency: "RUB",
         details: undefined,
         result: true,
         gateway_token: suite.gw.gateway_id,
@@ -1103,28 +1328,31 @@ test.skip("test gateway connect", ({ ctx }) =>
       }),
     );
 
-    let refund_status = provider.queue(async (c) =>
+    let status_request = provider.queue(async (c) =>
       c.json({
         status: "approved",
         amount: common.amount,
-        currency: "EUR",
+        currency: "RUB",
         details: undefined,
-        result: true,
-        gateway_token: suite.gw.gateway_id,
         logs: [],
+        result: true,
       }),
     );
 
-    let refund_success = merchant.queue_notification(
+    let response = await merchant.create_payout({
+      ...common.payoutRequest("RUB"),
+      card: { pan: common.visaCard },
+    });
+
+    await provider_request;
+
+    let notification = merchant.queue_notification(
       (cb) => {
         assert.strictEqual(cb.status, "approved");
       },
       { skip_interaction_log_card_check: true },
     );
 
-
-    await merchant.create_refund({ token: response.token });
-    await refund_request;
-    await refund_status;
-    await refund_success;
+    await status_request;
+    await notification;
   }));

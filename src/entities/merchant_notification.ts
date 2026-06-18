@@ -19,7 +19,7 @@ export const NOTIFICATION_SCHEMA = z.object({
     .object({
       merchant: z.object({ ip: z.string() }).optional(),
       filtered_traders: z.array(z.number()).nullish(),
-      pending_url_request: z.any(),
+      pending_url_request: z.any().optional(),
       decline_reason: z.string().optional(),
     })
     .optional(),

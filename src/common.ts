@@ -29,6 +29,7 @@ export type PaymentRequest = {
   customer: {
     email: string;
     ip?: string;
+    browser?: Record<string, any>;
   };
   order_number?: string;
   extra_return_param?: string;
@@ -86,10 +87,7 @@ export function paymentRequest(currency: string): PaymentRequest {
   };
 }
 
-export function p2pPaymentRequest(
-  currency: string,
-  requisite_type: Requisite | (string & {}),
-) {
+export function p2pPaymentRequest(currency: string, requisite_type: Requisite | (string & {})) {
   if (PROJECT === "8pay") {
     const Mapping: Record<Requisite, string> = {
       sbp: "SBP",
@@ -99,8 +97,7 @@ export function p2pPaymentRequest(
     };
     return {
       ...paymentRequest(currency),
-      extra_return_param:
-        Mapping[requisite_type as Requisite] ?? requisite_type,
+      extra_return_param: Mapping[requisite_type as Requisite] ?? requisite_type,
     };
   } else {
     return {
@@ -112,10 +109,7 @@ export function p2pPaymentRequest(
   }
 }
 
-export function traderPaymentRequest(
-  currency: string,
-  requisite_type: Requisite,
-) {
+export function traderPaymentRequest(currency: string, requisite_type: Requisite) {
   let req = paymentRequest(currency);
   return {
     ...req,
@@ -183,6 +177,20 @@ export function browserObject() {
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
     window_height: "839",
     window_width: "1536",
+  };
+}
+
+export function extraCustomersParams() {
+  return {
+    phone: phoneNumber,
+    first_name: firstName,
+    last_name: lastName,
+    country: "AU",
+    state: "Test",
+    postcode: "100013",
+    city: "Transmetropolitan",
+    address: "126 Kichik Beshagach Street",
+    ip,
   };
 }
 

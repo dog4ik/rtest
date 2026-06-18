@@ -5,7 +5,7 @@ import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { MAPPING_START_PORT } from "@/patch/production_file";
 import * as collections from "@std/collections";
 import * as common from "@/common";
-import { PayinRequestSchema, type ConnectPayinResponse } from "./payin";
+import { PayinRequestSchema, type ConnectPayinResponse, type RedirectRequest } from "./payin";
 import { type GwConnectError } from "./error";
 import { StatusRequestSchema, type ConnectStatusResponse } from "./status";
 import type { P2PSuite } from "@/suite_interfaces";
@@ -301,11 +301,11 @@ export class GatewayConnectTransaction {
         redirect_request:
           status === "pending"
             ? {
-              url: is_wrapped
-                ? this.request_data()?.processing_url
-                : this.request_data()?.charge_page_url,
-              type: is_wrapped ? "get_with_processing" : "post",
-            }
+                url: is_wrapped
+                  ? this.request_data()?.processing_url
+                  : this.request_data()?.charge_page_url,
+                type: is_wrapped ? "get_with_processing" : "post",
+              }
             : undefined,
         gateway_token: this.gateway_id,
         logs,
@@ -333,7 +333,8 @@ export class GatewayConnectTransaction {
 
   redirect_payin_handler(
     status: PrimeBusinessStatus,
-    redirect_url = common.redirectPayUrl,
+    redirect_request: RedirectRequest,
+    card_enrolled?: boolean,
   ): Handler {
     return async (c) => {
       this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
@@ -343,118 +344,11 @@ export class GatewayConnectTransaction {
       return c.json({
         status,
         amount: common.amount,
+        card_enrolled,
         currency: "RUB",
         details: status === "declined" ? "Test error message" : undefined,
         result: true,
-        redirect_request: {
-          url: status === "pending" ? redirect_url : this.request_data()?.processing_url,
-          type: status === "pending" ? "get_with_processing" : "post",
-        },
-        gateway_token: this.gateway_id,
-        logs,
-      } as ConnectPayinResponse);
-    };
-  }
-
-  get_redirect_response(redirect_url = common.redirectPayUrl): Handler {
-    return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
-
-      let logs = await this.build_interaction_logs("pay", "pending");
-
-      return c.json({
-        status: "pending",
-        amount: common.amount,
-        currency: "RUB",
-        result: true,
-        details: undefined,
-        gateway_token: this.gateway_id,
-        redirect_request: {
-          url: redirect_url,
-          type: "get",
-        },
-        logs,
-      } as ConnectPayinResponse);
-    };
-  }
-
-  redirect_3ds_response_handler(): Handler {
-    return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
-
-      let logs = await this.build_interaction_logs("pay", "pending");
-
-      return c.json({
-        status: "pending",
-        amount: common.amount,
-        card_enrolled: true,
-        currency: "RUB",
-        result: true,
-        redirect_request: {
-          url: common.redirectPayUrl,
-          type: "get_with_processing",
-        },
-        gateway_token: this.gateway_id,
-        logs,
-      } as ConnectPayinResponse);
-    };
-  }
-
-  iframes_3ds_redirect_handler({ url, cReq }: { url: string; cReq: string }): Handler {
-    return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
-
-      let logs = await this.build_interaction_logs("pay", "pending");
-
-      return c.json({
-        status: "pending",
-        amount: common.amount,
-        card_enrolled: true,
-        currency: "RUB",
-        result: true,
-        redirect_request: {
-          url: this.payin_request.processing_url,
-          type: "post_iframes",
-          iframes: [
-            {
-              url,
-              data: {
-                creq: cReq,
-              },
-            },
-          ],
-        },
-        gateway_token: this.gateway_id,
-        logs,
-      } as ConnectPayinResponse);
-    };
-  }
-
-  post_3ds_redirect_handler({
-    url,
-    params,
-  }: {
-    url: string;
-    params: Record<string, any>;
-  }): Handler {
-    return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(
-        await c.req.json(),
-      );
-
-      let logs = await this.build_interaction_logs("pay", "pending");
-
-      return c.json({
-        status: "pending",
-        amount: common.amount,
-        currency: this.payin_request.payment.gateway_currency,
-        result: true,
-        card_enrolled: true,
-        redirect_request: {
-          url: url,
-          type: "post",
-          params,
-        },
+        redirect_request,
         gateway_token: this.gateway_id,
         logs,
       } as ConnectPayinResponse);

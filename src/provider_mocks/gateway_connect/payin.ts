@@ -61,6 +61,17 @@ export const PayinRequestSchema = (settingsSchema: z.ZodObject) => {
 
 export type ConnectPayinRequest = z.infer<typeof PayinRequestSchema>;
 
+export type RedirectRequest = {
+  url: string;
+  type: "post" | "get_with_processing" | "redirect_html" | "post_iframes" | "get";
+  html?: string;
+  params?: Record<string, any>;
+  iframes?: {
+    url: string;
+    data: Record<string, any>;
+  }[];
+};
+
 export type ConnectPayinResponse = {
   result: boolean;
   logs: InteractionLog[];
@@ -68,22 +79,7 @@ export type ConnectPayinResponse = {
   details?: string;
   gateway_token?: string;
   card_enrolled?: boolean;
-  redirect_request?: {
-    url: string;
-    type:
-      | "post"
-      | "get_with_processing"
-      | "redirect_html"
-      | "post_iframes"
-      | "get";
-    html?: string;
-    iframes?: {
-      url: string;
-      data: {
-        creq: string;
-      };
-    }[];
-  };
+  redirect_request?: RedirectRequest;
   amount: number;
   currency: string;
 };
