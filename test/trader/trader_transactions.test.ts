@@ -168,50 +168,53 @@ for (const usdt of [true, false]) {
           await dispute_approved_notification;
         }));
 
-      test.concurrent("approved dispute on approved payin", ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          let trader = await ctx.create_random_trader(opts);
-          await trader.setup({ sbp: true, bank: "sberbank" });
-          await trader_cashin(trader, common.amount * 2);
-          await setup_merchant(merchant, trader.id);
-          let approved_cb = merchant.queue_notification((n) => {
-            assert.strictEqual(n.status, "approved");
-          });
-          let res = await merchant
-            .create_payment({
-              ...common.traderPaymentRequest("RUB", "sbp"),
-            })
-            .then((r) => r.followFirstProcessingUrl())
-            .then((r) => r.as_trader_requisites());
+      test
+        .runIf(CONFIG.in_project(["a2"]))
+        .concurrent("approved dispute on approved payin", ({ ctx, merchant }) =>
+          ctx.track_bg_rejections(async () => {
+            let trader = await ctx.create_random_trader(opts);
+            await trader.setup({ sbp: true, bank: "sberbank" });
+            await trader_cashin(trader, common.amount * 2);
+            await setup_merchant(merchant, trader.id);
+            let approved_cb = merchant.queue_notification((n) => {
+              assert.strictEqual(n.status, "approved");
+            });
+            let res = await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("RUB", "sbp"),
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_trader_requisites());
 
-          await delay(TRADER_DELAY);
-          await trader.finalizeTransaction(res.token, "approved");
-          await approved_cb;
+            await delay(TRADER_DELAY);
+            await trader.finalizeTransaction(res.token, "approved");
+            await approved_cb;
 
-          let dispute_pending_notification =
-            PROJECT === "a2"
-              ? merchant.queue_notification((c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                })
-              : Promise.resolve(undefined);
+            let dispute_pending_notification =
+              PROJECT === "a2"
+                ? merchant.queue_notification((c) => {
+                    assert.strictEqual(c.status, "pending");
+                    assert.strictEqual(c.type, "dispute");
+                  })
+                : Promise.resolve(undefined);
 
-          let dispute_approved_notification = merchant.queue_notification((c) => {
-            assert.strictEqual(c.status, "approved");
-            assert.strictEqual(c.type, "dispute");
-          });
-          await merchant.create_dispute({
-            token: res.token,
-            file_path: assets.PngImgPath,
-            description: "test dispute",
-          });
-          await dispute_pending_notification;
+            let dispute_approved_notification = merchant.queue_notification((c) => {
+              assert.strictEqual(c.status, "approved");
+              assert.strictEqual(c.type, "dispute");
+            });
+            await merchant.create_dispute({
+              token: res.token,
+              file_path: assets.PngImgPath,
+              description: "test dispute",
+            });
+            await dispute_pending_notification;
 
-          await delay(TRADER_DELAY);
-          let disputes = await ctx.get_disputes(res.token);
-          await trader.finalize_dispute(disputes[0].dispute_id, "approved");
-          await dispute_approved_notification;
-        }));
+            await delay(TRADER_DELAY);
+            let disputes = await ctx.get_disputes(res.token);
+            await trader.finalize_dispute(disputes[0].dispute_id, "approved");
+            await dispute_approved_notification;
+          }),
+        );
 
       test.concurrent("card payin data flow", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {

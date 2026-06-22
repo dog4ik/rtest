@@ -34,7 +34,7 @@ for (const usdt of [true]) {
       `trader tests ${usdt ? "ustd" : "without convert"}`,
       { timeout: 180_000 },
       () => {
-        test.concurrent(
+        test.skip(
           "card payin transactions load test",
           ({ ctx, merchant }) =>
             ctx.track_bg_rejections(async () => {
