@@ -1,5 +1,5 @@
 import * as common from "@/common";
-import { traderNoConvertSettings } from "@/driver/trader";
+import { TRADER_DELAY, traderNoConvertSettings } from "@/driver/trader";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
@@ -69,6 +69,7 @@ describe
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_payout_response());
 
+        await delay(TRADER_DELAY);
         await trader.finalizeTransaction(payout.token, "declined");
         await notification;
 
@@ -194,6 +195,7 @@ describe
           assert.strictEqual(cb.status, "declined");
         });
 
+        await delay(TRADER_DELAY);
         await trader.finalizeTransaction(token, "declined");
         await notification;
 

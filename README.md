@@ -2,16 +2,9 @@
 
 ### Тестовый фреймворк для ReactivePay, предназначенный для E2E-тестирования и мокинга провайдеров.
 
-## Функционал
-
-- End-to-end тестирование платёжных сценариев
-- Мокинг провайдеров внешних платёжных систем
-- Патчинг проектов для подготовки тестового окружения
-- Автоматизация браузера с использованием Playwright
-
 ## Get started
 
-Необходимые системные зависимости: Node.js >= 24.0.0
+Необходимые системные зависимости: Node.js >= 24.0.0, git
 
 1. Установить зависимости проекта: `npm i` && `npx playwright install`
 2. Выполнить команду `npm run init` - будет создан конфигурационный файл `configuration.toml` с настройками по умолчанию.
@@ -27,8 +20,65 @@
 - `npm run patch` - применение патчей к проекту
 - `npm run init` - инициализация конфигурационного файла
 - `npm run cleanup` - удаление созданных тестовых аккаунтов
+- `npm run playground` - запустить тестовый траффик на трейдеров пока процесс не получит sigint
+
+## configuration.toml
+
+Файл конфигурации содержит основные параметры для запуска тестов.
+
+### Глобальные параметры
+
+- **project** - название проекта, в котором будут работать тесты (например: `reactivepay`, `8pay`, `spinpay`, `a2`, `paygateway`)
+- **projects_dir** - путь к каталогу, где расположены проекты (например: `..` или `/path/to/projects`)
+- **flexy_flexy** - включить/выключить совместимость с новым flexy_guard
+- **patch_volumes** - при патчинге (`npm run patch`) подменяет docker volumes сервисов `postgres`, `mongo` и `minio` на отдельные именованные тома (`postgres-data-test`, `mongo-data-test`, `minio-data-test`, `minio-config-test`), чтобы тестовые данные не смешивались с данными основного проекта. Однако требует повторно настравывать проект на новом volume
+
+Секция `[extra_mapping]` позволяет переопределить порты для провайдеров:
+
+```toml
+[extra_mapping]
+provider_name = 6666
+```
+
+### Конфигурация проектов
+
+Некоторые провайдеры тесты требуют ассеты. Тесты использует общий набор ассетов для всех провайдеров (папка ./assets/).
+
+Для каждого проекта (a2, 8pay, reactivepay, spinpay, paygateway) необходимо настроить:
+
+- **dummy_ssl_path** - minio путь к SSL сертификату из ./assets/cert.pem для мокирования HTTPS запросов
+- **dummy_rsa_public_key_path** - minio путь к публичному RSA ключу
+- **dummy_rsa_private_key_path** - minio путь к приватному RSA ключу
+
+```toml
+[reactivepay]
+dummy_ssl_path = "a9bvYvWDgfoBu1nFdze5TVBb"
+dummy_rsa_public_key_path = "bJXK9oBAcAUmGkNUFUEvJiSH"
+dummy_rsa_private_key_path = "BYJHRMhwGbfyhk9ye41qXURv"
+```
+
+### Учетные данные
+
+Для каждого проекта указываются учетные данные для доступа к различным сервисам:
+
+- `[PROJECT.settings_credentials]` - учетные данные для сервиса Settings
+- `[PROJECT.flexy_guard_credentials]` - учетные данные для Flexy Guard
+- `[PROJECT.flexy_commission_credentials]` - учетные данные для Flexy Commission
+- `[PROJECT.core_credentials]` - учетные данные для Core сервиса
+
+Каждая секция содержит поля `login` и `password`.
+По умолчанию логин и пароль - `admin@admin.admin`
+
+### Конфигурация браузера
+
+Секция `[browser]` содержит параметры для Playwright:
+
+- **headless** - запуск браузера в режиме headless (без UI). Установите в `false` для визуального отладки тестов
+- **ws_url** - URL для подключения удаленного браузера (пустое для локального браузера)
 
 ## Патчинг проекта
+
+Чтобы тесты могли интерактировать с проектом без припядствий необходимы некотороые изменения в проекте.
 
 Перед применением патчей лучше работать с чистой веткой.
 
@@ -36,57 +86,18 @@
 npm run patch
 ```
 
-### Команда применяет следующие изменения:
+Команда применяет следующие изменения:
 
 - добавляет healthcheck для сервисов в Docker Compose и пробрасывает контейнеры в host-сеть
-- патчит URL провайдеров в production.rb
-- применяет git-патчи для отключения CSRF
+- патчит URL провайдеров в production.rb так чтобы запросы провайдеров уходили в тесты.
+  Сделано так, потому что не все параметры в production.rb можно перепесать через env
+- git-патчи для отключения CSRF (чтобы ускорить и упростить фронтовые запросы в core/manage)
 
 ## Development / Writing tests
 
 - Все тесты должны быть помечены как concurrent. В противном случае тестовый раннер будет выполнять их последовательно.
 
-- Все настройки 8pay по умолчанию имеют параметр `wrapped_to_json_response: true`, если не указано иначе.
-
 - Важно, чтобы все ошибки и ассерты были наблюдаемы в контексте vitest-теста. В противном случае ошибки и ассерты будут проигнорированы.
-
-Пример (Плохо):
-
-```typescript
-test("test test", async ({ ctx }) => {
-  // assertion is ignored
-  delay(200).then(() => assert.fail("something failed"));
-  await delay(1000);
-});
-```
-
-```typescript
-test("test test", async ({ ctx }) => {
-  // assertion will be caught only after the test is finished
-  provider.queue(() => assert.fail("something failed"));
-  await delay(1000);
-});
-```
-
-Пример (Хорошо):
-
-```typescript
-test("test test", async ({ ctx }) => {
-  // assert.fail throw is visible to the test
-  await Promise.all(
-    delay(200).then(() => assert.fail("something failed")),
-    delay(1000),
-  );
-});
-```
-
-```typescript
-test("test test", async ({ ctx }) => {
-  // assertion will stop the test with failure
-  await provider.queue(() => assert.fail("something failed"));
-  await delay(1000);
-});
-```
 
 ### Gateway connect integration tests
 

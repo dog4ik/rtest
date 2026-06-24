@@ -648,7 +648,7 @@ const PAYOUT_AMOUNT_RUB = PAYOUT_AMOUNT / 100; // 100 RUB
 // Over-fund the merchant: the healthcheck validates per-transaction entries, not
 // absolute wallet balances, so extra balance is harmless and avoids
 // insufficient-funds errors on payout creation.
-const MERCHANT_CASHIN = PAYOUT_AMOUNT_RUB * 3;
+const MERCHANT_CASHIN = PAYOUT_AMOUNT_RUB + 10;
 
 function payoutRequest() {
   return {
@@ -1370,5 +1370,83 @@ describe
         await core.change_status(feed.id, "declined");
         await declined;
         await ctx.healthcheck(token, { expect: { status: 2, amount_in_hold: 0 } });
+      }));
+
+    test.concurrent("approved -> declined after worker (usdt)", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          payout_hold_period: 1,
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.cashin("USDT", MERCHANT_CASHIN);
+        await merchant.set_commission({
+          operation: "PayoutRequest",
+          currency: "RUB",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_settings(traderSetttings([trader.id]));
+
+        let core = ctx.shared_state().core_harness;
+
+        let payout = await merchant
+          .create_payout(payoutRequest())
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_payout_response());
+        let token = payout.token;
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        let approved = merchant.queue_notification((n) => {
+          assert.strictEqual(n.type, "payout");
+          assert.strictEqual(n.status, "approved");
+        });
+        let feed = await trader.finalizeTransaction(token, "approved");
+        // receipt uploaded, transaction is on verification (treat as status 0)
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        core.approve_payout(feed.id);
+        await approved;
+        // approved with an active hold period: payout funds are held
+        await ctx.healthcheck(token, { expect: { status: 1 } });
+      }));
+
+    test.concurrent("approved -> declined after worker (rub)", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+          payout_hold_period: 1,
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.cashin("RUB", MERCHANT_CASHIN);
+        await merchant.set_commission({
+          operation: "PayoutRequest",
+          currency: "RUB",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+        let core = ctx.shared_state().core_harness;
+
+        let payout = await merchant
+          .create_payout(payoutRequest())
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_payout_response());
+        let token = payout.token;
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        let approved = merchant.queue_notification((n) => {
+          assert.strictEqual(n.type, "payout");
+          assert.strictEqual(n.status, "approved");
+        });
+        let feed = await trader.finalizeTransaction(token, "approved");
+        // receipt uploaded, transaction is on verification (treat as status 0)
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        core.approve_payout(feed.id);
+        await approved;
+        // approved with an active hold period: payout funds are held
+        await ctx.healthcheck(token, { expect: { status: 1 } });
       }));
   });
