@@ -164,12 +164,12 @@ describe
         let dispute_pending_notification =
           PROJECT === "a2"
             ? merchant.queue_notification(
-              (c) => {
-                assert.strictEqual(c.status, "pending");
-                assert.strictEqual(c.type, "dispute");
-              },
-              { skip_healthcheck: true },
-            )
+                (c) => {
+                  assert.strictEqual(c.status, "pending");
+                  assert.strictEqual(c.type, "dispute");
+                },
+                { skip_healthcheck: true },
+              )
             : Promise.resolve(undefined);
 
         let dispute_approved_notification = merchant.queue_notification((c) => {
@@ -216,12 +216,12 @@ describe
         let dispute_pending_notification =
           PROJECT === "a2"
             ? merchant.queue_notification(
-              (c) => {
-                assert.strictEqual(c.status, "pending");
-                assert.strictEqual(c.type, "dispute");
-              },
-              { skip_healthcheck: true },
-            )
+                (c) => {
+                  assert.strictEqual(c.status, "pending");
+                  assert.strictEqual(c.type, "dispute");
+                },
+                { skip_healthcheck: true },
+              )
             : Promise.resolve(undefined);
 
         let dispute_declined_notification = merchant.queue_notification((c) => {
@@ -283,3 +283,54 @@ test
       assert.strictEqual(got_requisites, 1, "merchant should get only one requisite");
     }),
   );
+
+describe
+  .runIf(CONFIG.in_project(["a2", "reactivepay"]))
+  .concurrent("requisite available regardless of any trader state", () => {
+    test.concurrent("trader insufficient balance", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader1 = await ctx.create_random_trader({
+          usdt: false,
+        });
+        let trader2 = await ctx.create_random_trader({
+          usdt: false,
+        });
+        await trader1.setup({ card: true, bank: "sberbank" });
+        await trader2.setup({ card: true, bank: "tbank" });
+        await trader2.cashin("main", "RUB", common.amount);
+        await trader1.cashin("main", "RUB", 10);
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader1.id, trader2.id]));
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert.strictEqual(res.card?.bank, "tbank", "tbank trader requisite");
+      }));
+
+    test.concurrent("trader missing profile", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader1 = await ctx.create_random_trader({
+          usdt: false,
+        });
+        let trader2 = await ctx.create_random_trader({
+          usdt: false,
+        });
+        await trader1.setup({ bank: "sberbank" });
+        await trader2.setup({ card: true, bank: "tbank" });
+        await trader1.cashin("main", "RUB", common.amount);
+        await trader2.cashin("main", "RUB", common.amount);
+        await trader1.enable_trader_method("card_enabled");
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader1.id, trader2.id]));
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert.strictEqual(res.card?.bank, "tbank", "tbank trader requisite");
+      }));
+  });

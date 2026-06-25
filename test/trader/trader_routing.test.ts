@@ -9,7 +9,7 @@ const TRADER_DELAY = 5_000;
 
 // Routing trader -> trader does not work
 describe.runIf(CONFIG.in_project(["reactivepay"])).skip("trader routing tests", () => {
-  test.concurrent("trader routing approved payin", ({ ctx, merchant }) =>
+  test.concurrent("trader -> trader routing approved payin", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
       let trader_with_balance = await ctx.create_random_trader({
         usdt: true,
@@ -85,7 +85,85 @@ describe.runIf(CONFIG.in_project(["reactivepay"])).skip("trader routing tests", 
       await approve_cb;
     }));
 
-  test.concurrent("trader routing approved payin", ({ ctx, merchant }) =>
+  test.concurrent("trader -> trader routing by amount", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader1 = await ctx.create_random_trader({
+        usdt: true,
+      });
+      let trader2 = await ctx.create_random_trader({
+        usdt: true,
+      });
+      await trader1.setup({ card: true, bank: "sberbank" });
+      await trader2.setup({ card: true, bank: "tbank" });
+      await trader1.cashin("main", "USDT", common.amount);
+      await trader2.cashin("main", "USDT", common.amount);
+      await ctx.add_flexy_guard_rule({
+        header: {
+          mid: merchant.id,
+          acq_alias: "trader1",
+        },
+        body: {
+          amount: {
+            value: [0, 50000],
+          },
+        },
+        routing: {
+          "amount:value": {
+            acq_alias: "trader2",
+          },
+        },
+        action: null,
+        dispatching: null,
+      });
+      await merchant.set_settings({
+        USDT: {
+          gateways: {
+            pay: {
+              providers: [
+                {
+                  trader: "trader1",
+                },
+              ],
+            },
+          },
+        },
+        convert_to: "USDT",
+        gateways: {
+          allow_host2host: true,
+          trader1: {
+            list: [trader1.id],
+            class: "trader",
+            pay_expired_minutes: 15,
+            private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
+            wrapped_to_json_response: true,
+          },
+          trader2: {
+            list: [trader2.id],
+            class: "trader",
+            pay_expired_minutes: 15,
+            private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
+            wrapped_to_json_response: true,
+          },
+        },
+      });
+      let approve_cb = merchant.queue_notification((n) => {
+        assert.strictEqual(n.type, "pay");
+        assert.strictEqual(n.status, "approved");
+      });
+      let res = await merchant
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: 50005,
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+
+      await delay(TRADER_DELAY);
+      await trader2.finalizeTransaction(res.token, "approved");
+      await approve_cb;
+    }));
+
+  test.concurrent("brusnika -> trader routing approved payin", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
       let trader_with_balance = await ctx.create_random_trader({
         usdt: true,

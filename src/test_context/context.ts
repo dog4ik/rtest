@@ -89,7 +89,7 @@ export class Context {
       .then(this.with_context(extendTrader));
     await this.state.core_harness.add_supported_banks(trader.id, ["31", "46"]);
     await trader.driver.login(info.email, info.password);
-    return trader;
+    return { ...trader, is_usdt: opts?.usdt === true };
   }
 
   async create_random_agent(opts?: CreateAgentOptions) {

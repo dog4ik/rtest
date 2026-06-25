@@ -39,6 +39,7 @@ export type CreateTraderOptions = {
   payout_hold_period?: number;
   currency?: string;
   email?: string;
+  min_deposit?: number;
 };
 
 export type CreateTrader = {
@@ -49,6 +50,7 @@ export type CreateTrader = {
   email: string;
   convert_to_usdt: boolean;
   payout_hold_priod: number;
+  min_deposit: number;
 };
 
 export type TraderMethodToggle = {
@@ -230,6 +232,7 @@ export class CoreDriver {
       "trader[web_site]": params.telegram,
       "trader[temp_password]": params.password,
       "trader[payout_hold_period]": params.payout_hold_priod,
+      "trader[required_deposit]": params.min_deposit,
       white_list: "",
       min_limit: "",
       max_limit: "",
@@ -250,6 +253,7 @@ export class CoreDriver {
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: opts?.currency ?? "RUB",
+      min_deposit: opts?.min_deposit ?? 0,
     };
     await this.create_trader(params);
     return params;

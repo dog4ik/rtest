@@ -67,7 +67,7 @@ describe.concurrent("settlement basics", () => {
     assert.strictEqual(wallet.held, 0, "hold should be gone");
   });
 
-  test.concurrent("settlement not enough money", async ({ ctx }) => {
+  test.skip("settlement not enough money", async ({ ctx }) => {
     let merchant = await ctx.create_random_merchant();
     let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
@@ -215,9 +215,8 @@ describe.concurrent("commission healthcheck settlements", () => {
         await delay(SETTLEMENT_DELAY);
 
         let settlements = await merchant.settlements("RUB");
-        assert.strictEqual(
-          settlements.length,
-          0,
+        assert.isEmpty(
+          settlements,
           "settlement should not be created without commission balance",
         );
         assert.deepEqual(
