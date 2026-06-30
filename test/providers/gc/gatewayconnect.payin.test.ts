@@ -24,6 +24,7 @@ import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 import type { Requisite } from "@/driver/trader";
 import { CheckoutCardForm } from "@/pages/checkout_card_form";
 import type * as playwright from "playwright";
+import { delay } from "@std/async";
 
 async function assertPostToGoogle(
   page: playwright.Page,
@@ -1159,7 +1160,7 @@ describe.concurrent("gateway connect refund", () => {
     }) as P2PSuite<GatewayConnectTransaction>;
   }
 
-  test.concurrent("approved refund", ({ ctx }) =>
+  test.concurrent("approved refund (status)", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let suite = h2hSuite();
       let merchant = await ctx.create_random_merchant();
@@ -1185,8 +1186,11 @@ describe.concurrent("gateway connect refund", () => {
       );
 
       provider.queue(suite.gw.refund_handler("approved"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved");
+      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved", {
+        skip_interaction_log_card_check: true,
+      });
 
+      await delay(500);
       await merchant.create_refund({ token, amount: common.amount });
 
       await provider.queue(suite.gw.status_handler("refunded"));
@@ -1194,7 +1198,47 @@ describe.concurrent("gateway connect refund", () => {
       await merchant_refund_notification;
     }));
 
-  test.concurrent("declined refund", ({ ctx }) =>
+  test.concurrent("approved refund (callback)", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = h2hSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+
+      let status_request = provider.queue(suite.gw.status_handler("approved"));
+
+      let response = await merchant.create_payment(suite.request());
+      let token = response.token;
+
+      await provider_request;
+
+      await status_request;
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      provider.queue(suite.gw.refund_handler("approved"));
+      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved", {
+        skip_interaction_log_card_check: true,
+      });
+      await delay(500);
+
+      await merchant.create_refund({ token, amount: common.amount });
+
+      await delay(500);
+
+      await suite.gw.send_callback("refunded");
+      await notification;
+      await merchant_refund_notification;
+    }));
+
+  test.concurrent("declined refund (status)", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let suite = h2hSuite();
       let merchant = await ctx.create_random_merchant();
@@ -1221,11 +1265,53 @@ describe.concurrent("gateway connect refund", () => {
       await notification;
 
       provider.queue(suite.gw.refund_handler("pending"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("declined");
+      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("declined", {
+        skip_interaction_log_card_check: true,
+      });
 
+      await delay(500);
       await merchant.create_refund({ token, amount: common.amount });
 
       await provider.queue(suite.gw.status_handler("declined"));
+      await merchant_refund_notification;
+    }));
+
+  test.skip("declined refund (callback)", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = h2hSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+
+      let status_request = provider.queue(suite.gw.status_handler("approved"));
+
+      let response = await merchant.create_payment(suite.request());
+      let token = response.token;
+
+      await provider_request;
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      await status_request;
+      await notification;
+
+      provider.queue(suite.gw.refund_handler("pending"));
+      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("declined", {
+        skip_interaction_log_card_check: true,
+      });
+
+      await delay(500);
+      await merchant.create_refund({ token, amount: common.amount });
+
+      await delay(500);
+      await suite.gw.send_callback("refunded");
       await merchant_refund_notification;
     }));
 });

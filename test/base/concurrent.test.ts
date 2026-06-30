@@ -17,7 +17,7 @@ test
       ctx.track_bg_rejections(async () => {
         let payment = new GatewayConnectTransaction("manypay", {});
         let settings = {
-          USDT: {
+          [CURRENCY]: {
             gateways: {
               pay: {
                 providers: [
@@ -35,7 +35,6 @@ test
               },
             },
           },
-          convert_to: "USDT",
           gateways: {
             allow_host2host: true,
             gateway: {

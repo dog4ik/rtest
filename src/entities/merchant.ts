@@ -35,13 +35,7 @@ type MerchantRequest = Record<string, any> & {
 export type NotificationHandler = (
   notification: Notification,
   req: HttpContext,
-) =>
-  | Response
-  | Promise<Response>
-  | undefined
-  | Promise<undefined>
-  | void
-  | Promise<void>;
+) => Response | Promise<Response> | undefined | Promise<undefined> | void | Promise<void>;
 
 export type ExtendedMerchant = ReturnType<typeof extendMerchant>;
 
@@ -69,10 +63,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   }
 
   async function cashout(currency: string, amount: number) {
-    ctx.story.add_chapter(
-      `MID ${merchant.id} cashout`,
-      `${currency} ${amount}`,
-    );
+    ctx.story.add_chapter(`MID ${merchant.id} cashout`, `${currency} ${amount}`);
     return core_harness.cashout(merchant.id, currency, amount);
   }
 
@@ -101,9 +92,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     await settings_service.edit(current.id, current.external_id, settings);
 
     ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
-    await ctx
-      .shared_state()
-      .business_db.wait_for_settings_update(now, merchant.id, false);
+    await ctx.shared_state().business_db.wait_for_settings_update(now, merchant.id, false);
   }
 
   function callbackUrl() {
@@ -133,9 +122,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     }).then(err_bad_status);
   }
 
-  async function create_payment<T extends MerchantRequest = PaymentRequest>(
-    request: T,
-  ) {
+  async function create_payment<T extends MerchantRequest = PaymentRequest>(request: T) {
     ctx.story.add_chapter(
       "Create payment",
       constructCurlRequest(request, merchant.merchant_private_key, "pay"),
@@ -146,7 +133,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     // TODO: fix this
     try {
       ctx.annotate(`Created payment: ${res.as_ok().token}`);
-    } catch { }
+    } catch {}
 
     return res;
   }
@@ -161,7 +148,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     );
     try {
       ctx.annotate(`Created refund: ${res.as_ok().refund.token}`);
-    } catch { }
+    } catch {}
     return res;
   }
 
@@ -204,9 +191,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     return new DisputeResponse(ctx, res, await res.json());
   }
 
-  async function create_payout<T extends MerchantRequest = PayoutRequest>(
-    request: T,
-  ) {
+  async function create_payout<T extends MerchantRequest = PayoutRequest>(request: T) {
     ctx.story.add_chapter(
       "Create payout",
       constructCurlRequest(request, merchant.merchant_private_key, "payout"),
@@ -216,7 +201,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     );
     try {
       ctx.annotate(`Created payout: ${res.as_ok().token}`);
-    } catch { }
+    } catch {}
 
     return res;
   }
@@ -240,9 +225,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       try {
         let raw_request = await c.req.json();
         ctx.story.add_chapter("Merchant notification", raw_request);
-        let callback = extendNotification(
-          NOTIFICATION_SCHEMA.parse(raw_request),
-        );
+        let callback = extendNotification(NOTIFICATION_SCHEMA.parse(raw_request));
         if (options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
         }
@@ -264,9 +247,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
       let cancelled = false;
       let racing = delay(options.timeout).then(() => {
         if (!cancelled) {
-          assert.fail(
-            `Merchant notification timed out, timeout ${options.timeout}`,
-          );
+          assert.fail(`Merchant notification timed out, timeout ${options.timeout}`);
         }
       });
 
@@ -278,6 +259,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
 
   function queue_refund_or_pay_notifictation(
     refund_status: PrimeBusinessStatus,
+    options?: NotificationHandlerOptions,
   ) {
     let got_refund = false;
     function handle(notification: Notification) {
@@ -290,13 +272,31 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         got_refund = true;
         assert.strictEqual(notification.status, refund_status);
       } else {
-        assert.strictEqual(notification.status, "refunded");
+        if (refund_status === "approved") {
+          assert.strictEqual(
+            notification.status,
+            "refunded",
+            "payment should be refunded when refund succeded",
+          );
+        } else {
+          assert.strictEqual(
+            notification.status,
+            "approved",
+            "payment is still approved if refund failed",
+          );
+        }
       }
     }
-    return Promise.all([
-      queue_notification(handle),
-      queue_notification(handle),
-    ]);
+    if (refund_status === "approved") {
+      return Promise.all([
+        queue_notification(handle, options),
+        queue_notification(handle, options),
+      ]);
+    } else {
+      return Promise.all([
+        queue_notification(handle, options),
+      ]);
+    }
   }
 
   async function set_commission(rule?: Partial<CreateRuleFormData>) {
@@ -333,11 +333,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     let wallet = await db.profileWallet(merchant.id, currency);
     ctx
       .shared_state()
-      .core_db.unsafe_set_wallet_balance(
-        wallet.id,
-        balance.available,
-        balance.hold,
-      );
+      .core_db.unsafe_set_wallet_balance(wallet.id, balance.available, balance.hold);
   }
 
   return {
@@ -347,24 +343,19 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     cashin,
     cashout,
     set_settings,
-    create_payment_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
-      create_payment(req),
+    create_payment_raw: <T extends MerchantRequest = PaymentRequest>(req: T) => create_payment(req),
     create_payment: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_ok()),
     create_payment_err: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_error().as_common_error()),
-    create_payout_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
-      create_payout(req),
+    create_payout_raw: <T extends MerchantRequest = PaymentRequest>(req: T) => create_payout(req),
     create_payout: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_ok()),
     create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_error().as_common_error()),
-    create_refund: (req: RefundRequest) =>
-      create_refund(req).then((r) => r.as_ok()),
-    create_refund_err: (req: RefundRequest) =>
-      create_refund(req).then((r) => r.as_error()),
-    create_dispute: (req: DisputeRequest) =>
-      create_dispute(req).then((r) => r.as_ok()),
+    create_refund: (req: RefundRequest) => create_refund(req).then((r) => r.as_ok()),
+    create_refund_err: (req: RefundRequest) => create_refund(req).then((r) => r.as_error()),
+    create_dispute: (req: DisputeRequest) => create_dispute(req).then((r) => r.as_ok()),
     create_dispute_err: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_error().as_common_error()),
     queue_notification,

@@ -17,6 +17,7 @@ import type { GCSettingsType } from "./settings";
 import { PayoutRequestSchema } from "./payout";
 import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
+import { CurlBuilder } from "@/story/curl";
 
 export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink" | "tpay_qr_data";
 
@@ -389,7 +390,7 @@ export class GatewayConnectTransaction {
     };
   }
 
-  async send_callback(status: PrimeBusinessStatus, amount?: number) {
+  async send_callback(status: BusinessStatus, amount?: number) {
     let req_data = this.request_data();
     assert(req_data, "request data should be defined");
     let payload = {
@@ -407,14 +408,18 @@ export class GatewayConnectTransaction {
 
     let body = JSON.stringify(payload);
     let url = `${CONFIG.urls().business}/callbacks/v2/gateway_callbacks/${req_data.payment.token}`;
+    let authorization = `Bearer ${jwt}`;
 
-    console.log("Sending callback to Gateway Connect", url, body);
+    let curl = new CurlBuilder(url, "POST")
+      .header("authorization", authorization)
+      .json_data(payload);
+    console.log("Sending callback to Gateway Connect", curl.build());
 
     await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${jwt}`,
+        authorization,
       },
       body,
     }).then(err_bad_status);
