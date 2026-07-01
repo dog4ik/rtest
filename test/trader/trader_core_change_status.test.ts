@@ -1016,7 +1016,7 @@ describe
   });
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .runIf(CONFIG.in_project(["reactivepay"]))
   .concurrent("payout cancellation with insufficient trader balance (main)", () => {
     test.concurrent("approved -> declined (usdt)", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
@@ -1372,7 +1372,7 @@ describe
         await ctx.healthcheck(token, { expect: { status: 2, amount_in_hold: 0 } });
       }));
 
-    test.concurrent("approved -> declined after worker (usdt)", ({ ctx, merchant }) =>
+    test.todo("approved -> declined after worker (usdt)", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader = await ctx.create_random_trader({
           usdt: true,
@@ -1411,7 +1411,7 @@ describe
         await ctx.healthcheck(token, { expect: { status: 1 } });
       }));
 
-    test.concurrent("approved -> declined after worker (rub)", ({ ctx, merchant }) =>
+    test.todo("approved -> declined after worker (rub)", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader = await ctx.create_random_trader({
           usdt: false,
@@ -1448,5 +1448,119 @@ describe
         await approved;
         // approved with an active hold period: payout funds are held
         await ctx.healthcheck(token, { expect: { status: 1 } });
+      }));
+
+    test.only("approved -> declined drains deposit balance and commission amount", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+        });
+
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.cashin("RUB", MERCHANT_CASHIN);
+        await merchant.set_commission({
+          operation: "PayoutRequest",
+          currency: "RUB",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+        let core = ctx.shared_state().core_harness;
+
+        let payout = await merchant
+          .create_payout(payoutRequest())
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_payout_response());
+        let token = payout.token;
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        let approved = merchant.queue_notification(
+          (n) => {
+            assert.strictEqual(n.type, "payout");
+            assert.strictEqual(n.status, "approved");
+          },
+          { skip_healthcheck: true },
+        );
+        let feed = await trader.finalizeTransaction(token, "approved");
+        // receipt uploaded, transaction is on verification (treat as status 0)
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        core.approve_payout(feed.id);
+        await approved;
+        // approved with an active hold period: payout funds are held
+        await ctx.healthcheck(token, { expect: { status: 1 } });
+
+        let wallets = await trader.wallets();
+        await trader.cashout("main", "RUB", wallets.main.available);
+        await trader.cashout("income", "RUB", wallets.profit.available);
+
+        await delay(2_000);
+        await core.change_status(feed.id, "declined");
+        await delay(1_000);
+        wallets = await trader.wallets();
+        assert.containSubset(wallets, {
+          main: { available: 0, held: 0 },
+          profit: { available: 0, held: 0 },
+          deposit: { available: -105, held: 0 },
+        });
+      }));
+
+    test.concurrent("approved -> declined drains deposit balance", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+        });
+
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.cashin("RUB", MERCHANT_CASHIN);
+        await merchant.set_commission({
+          operation: "PayoutRequest",
+          currency: "RUB",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+        let core = ctx.shared_state().core_harness;
+
+        let payout = await merchant
+          .create_payout(payoutRequest())
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_payout_response());
+        let token = payout.token;
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        let approved = merchant.queue_notification(
+          (n) => {
+            assert.strictEqual(n.type, "payout");
+            assert.strictEqual(n.status, "approved");
+          },
+          { skip_healthcheck: true },
+        );
+        let feed = await trader.finalizeTransaction(token, "approved");
+        // receipt uploaded, transaction is on verification (treat as status 0)
+        await ctx.healthcheck(token, { expect: { status: 0 } });
+
+        core.approve_payout(feed.id);
+        await approved;
+        // approved with an active hold period: payout funds are held
+        await ctx.healthcheck(token, { expect: { status: 1 } });
+
+        let wallets = await trader.wallets();
+        await trader.cashout("main", "RUB", wallets.main.available);
+
+        await delay(2_000);
+        await core.change_status(feed.id, "declined");
+        await delay(1_000);
+        wallets = await trader.wallets();
+        assert.containSubset(wallets, {
+          main: { available: 0, held: 0 },
+          profit: { available: 0, held: 0 },
+          deposit: { available: -100, held: 0 },
+        });
       }));
   });

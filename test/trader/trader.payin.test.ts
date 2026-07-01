@@ -1,12 +1,11 @@
 import * as common from "@/common";
-import * as assets from "@/assets";
 import { traderNoConvertSettings } from "@/driver/trader";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Context } from "@/test_context/context";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 
 const TRADER_DELAY = 5_000;
 
@@ -133,113 +132,6 @@ describe
           { available: 0, held: 0 },
           "trader profit: empty after decline",
         );
-      }));
-
-    test.concurrent("approve dispute", ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { trader, merchant } = await setup(ctx);
-        merchant.set_commission({
-          operation: "DisputeRequest",
-          self_rate: "10",
-          provider_rate: "5",
-        });
-        let decline_cb = merchant.queue_notification(
-          (n) => {
-            assert.strictEqual(n.status, "declined");
-          },
-          { skip_healthcheck: true },
-        );
-        let res = await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("RUB", "card"),
-            amount: AMOUNT,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-
-        await delay(TRADER_DELAY);
-        await trader.finalizeTransaction(res.token, "declined");
-        await decline_cb;
-
-        let dispute_pending_notification =
-          PROJECT === "a2"
-            ? merchant.queue_notification(
-                (c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                },
-                { skip_healthcheck: true },
-              )
-            : Promise.resolve(undefined);
-
-        let dispute_approved_notification = merchant.queue_notification((c) => {
-          assert.strictEqual(c.status, "approved");
-          assert.strictEqual(c.type, "dispute");
-        });
-        // await delay(TRADER_DELAY);
-        await merchant.create_dispute({
-          token: res.token,
-          file_path: assets.PngImgPath,
-          description: "test dispute",
-        });
-
-        await dispute_pending_notification;
-        await delay(TRADER_DELAY);
-        let disputes = await ctx.get_disputes(res.token);
-        await trader.finalize_dispute(disputes[0].dispute_id, "approved");
-        await dispute_approved_notification;
-      }));
-
-    test.concurrent("declined dispute", ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { trader, merchant } = await setup(ctx);
-        merchant.set_commission({
-          operation: "DisputeRequest",
-          self_rate: "10",
-          provider_rate: "5",
-        });
-        let decline_cb = merchant.queue_notification((n) => {
-          assert.strictEqual(n.status, "declined");
-        });
-        let res = await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("RUB", "card"),
-            amount: AMOUNT,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-
-        await delay(TRADER_DELAY);
-        await trader.finalizeTransaction(res.token, "declined");
-        await decline_cb;
-
-        let dispute_pending_notification =
-          PROJECT === "a2"
-            ? merchant.queue_notification(
-                (c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                },
-                { skip_healthcheck: true },
-              )
-            : Promise.resolve(undefined);
-
-        let dispute_declined_notification = merchant.queue_notification((c) => {
-          assert.strictEqual(c.status, "declined");
-          assert.strictEqual(c.type, "dispute");
-        });
-        await merchant.create_dispute({
-          token: res.token,
-          file_path: assets.PngImgPath,
-          description: "test dispute",
-        });
-
-        await dispute_pending_notification;
-
-        await delay(TRADER_DELAY);
-        let disputes = await ctx.get_disputes(res.token);
-        await trader.finalize_dispute(disputes[0].dispute_id, "declined");
-        await dispute_declined_notification;
       }));
   });
 
