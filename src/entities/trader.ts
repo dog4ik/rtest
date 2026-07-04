@@ -159,10 +159,10 @@ async function wallets(this: ExtendedTrader) {
   let core_db = this.ctx.shared_state().core_db;
   let wallets = await core_db.profileWallets(this.id);
   wallets.sort((a, b) => a.id - b.id);
-  let [main, deposit, profit] = wallets;
+  let [main, deposit, income] = wallets;
   return {
     main,
-    profit,
+    income,
     deposit,
     assertEmpty() {
       let assertWallet = (type: BankAccountWalletType) => {
@@ -175,12 +175,12 @@ async function wallets(this: ExtendedTrader) {
       };
       assertWallet("main");
       assertWallet("deposit");
-      assertWallet("profit");
+      assertWallet("income");
     },
   };
 }
 
-type BankAccountWalletType = "deposit" | "main" | "profit";
+type BankAccountWalletType = "deposit" | "main" | "income";
 
 async function cashin(
   this: ExtendedTrader,

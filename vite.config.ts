@@ -10,6 +10,7 @@ export default defineConfig({
     maxWorkers: 1,
     includeSource: ["src/**/*.ts"],
     environment: "node",
+    slowTestThreshold: 60_000,
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
     testTimeout: 90_000,

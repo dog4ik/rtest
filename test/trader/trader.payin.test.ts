@@ -81,12 +81,12 @@ describe
         );
         assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
         assert.approximately(
-          traderWallets.profit.available,
+          traderWallets.income.available,
           PROVIDER_COMMISSION_RUB,
           0.01,
           "trader profit: received provider commission",
         );
-        assert.strictEqual(traderWallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(traderWallets.income.held, 0, "trader profit: nothing held");
       }));
 
     test.concurrent("declined payin with commission", ({ ctx }) =>
@@ -126,8 +126,8 @@ describe
         assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
         assert.deepEqual(
           {
-            available: traderWallets.profit.available,
-            held: traderWallets.profit.held,
+            available: traderWallets.income.available,
+            held: traderWallets.income.held,
           },
           { available: 0, held: 0 },
           "trader profit: empty after decline",

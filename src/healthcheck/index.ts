@@ -4,7 +4,12 @@ import { businessOfCoreStatus } from "@/db/business";
 import { CoreDb, type CoreStatus, type Feed } from "@/db/core";
 import type { Entry } from "@/db/core/entry";
 import type { SharedState } from "@/state";
-import { EntryValidator, BalanceValidation } from "./entries";
+import {
+  EntryValidator,
+  BalanceValidation,
+  TraderBalanceValidation,
+  expected_trader_state,
+} from "./entries";
 import { delay } from "@std/async";
 
 export class Match<T> {
@@ -46,8 +51,7 @@ class HealthcheckResult {
       state.mid.valid() &&
       state.system.valid() &&
       (state.agent == undefined || state.agent.valid()) &&
-      (state.trader == undefined ||
-        (state.trader.main.valid() && state.trader.income.valid()))
+      (state.trader == undefined || state.trader.valid())
     );
   }
 
@@ -87,10 +91,7 @@ class HealthcheckResult {
     if (this.wallet_state.trader === undefined) {
       lines.push(`Failed to validate trader entries: missing trader_id`);
     } else {
-      lines.push("Trader balance main entries:");
-      lines.push(this.wallet_state.trader.main.toString());
-      lines.push("Trader balance income entries:");
-      lines.push(this.wallet_state.trader.income.toString());
+      lines.push(this.wallet_state.trader.toString());
 
       if ((this.disputes?.length ?? 0) > 1) {
         lines.push(`Dispute entries:\n`);
@@ -99,11 +100,8 @@ class HealthcheckResult {
         lines.push(`Dispute mid entries:`);
         lines.push(dispute.mid.toString());
 
-        lines.push(`Dispute trader main entries:`);
-        lines.push(dispute.trader!.main.toString());
-
-        lines.push(`Dispute trader income entries:`);
-        lines.push(dispute.trader!.income.toString());
+        lines.push(`Dispute trader entries:`);
+        lines.push(dispute.trader!.toString());
       }
     }
 
@@ -245,10 +243,7 @@ export async function basic_healthcheck(
 
 type WalletState = {
   mid: BalanceValidation;
-  trader?: {
-    main: BalanceValidation;
-    income: BalanceValidation;
-  };
+  trader?: TraderBalanceValidation;
   agent?: BalanceValidation;
   system: BalanceValidation;
 };
@@ -298,7 +293,7 @@ async function validate_mid_wallets(
     validator.feed_entry_mimic_ruby(entry);
   }
 
-  return validator.validate_mid_state(
+  return validator.expected_mid_state(
     feed.target_amount ?? feed.amount,
     feed.commission_amount ?? 0,
     feed.type,
@@ -330,7 +325,7 @@ async function validate_agent_wallets(
     validator.feed_entry_mimic_ruby(entry);
   }
 
-  return validator.validate_agent_state(
+  return validator.expected_agent_state(
     feed.agent_commission_amount ?? 0,
     feed.status,
   );
@@ -350,7 +345,7 @@ async function validate_system_wallets(
     validator.feed_entry_mimic_ruby(entry);
   }
 
-  return validator.validate_system_state(
+  return validator.expected_system_state(
     feed.commission_amount ?? 0,
     feed.commission_provider_amount ?? 0,
     feed.agent_commission_amount ?? 0,
@@ -373,35 +368,29 @@ async function validate_trader_wallets(
   let wallets = await client.profileWallets(trader_id);
   assert.lengthOf(wallets, 3, "trader should have 3 wallets");
 
-  let main_wallet = wallets.reduce((min, item) =>
-    item.id < min.id ? item : min,
-  );
-  let profit_wallet = wallets.reduce((max, item) =>
-    item.id > max.id ? item : max,
-  );
+  wallets.sort((a, b) => a.id - b.id);
+  let [main_wallet, deposit_wallet, income_wallet] = wallets;
 
-  if (!main_wallet || !profit_wallet) {
+  if (!main_wallet || !deposit_wallet || !income_wallet) {
     throw Error("failed to find wallet trader wallets");
   }
 
   let main_validator = new EntryValidator(main_wallet.id);
-  let profit_validator = new EntryValidator(profit_wallet.id);
+  let deposit_validator = new EntryValidator(deposit_wallet.id);
+  let income_validator = new EntryValidator(income_wallet.id);
   for (let entry of entries) {
     main_validator.feed_entry_mimic_ruby(entry);
-    profit_validator.feed_entry_mimic_ruby(entry);
+    deposit_validator.feed_entry_mimic_ruby(entry);
+    income_validator.feed_entry_mimic_ruby(entry);
   }
-  let main = main_validator.validate_trader_main_state(
+  return expected_trader_state(
+    main_validator,
+    income_validator,
+    deposit_validator,
     feed.target_amount || feed.amount,
-    feed.type,
-    feed.status,
-    feed.amount_in_hold ?? undefined,
-  );
-
-  let income = profit_validator.validate_trader_profit_state(
     feed.commission_provider_amount ?? 0,
     feed.type,
     feed.status,
     feed.amount_in_hold ?? undefined,
   );
-  return { main, income };
 }

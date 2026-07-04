@@ -186,33 +186,24 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         await delay(TRADER_DELAY);
         await trader.finalizeTransaction(res.token, "approved");
         await approved_notification;
-        await trader.wallets().then(({ main, profit, deposit }) => {
+        await trader.wallets().then(({ main, income, deposit }) => {
           assert.containSubset(main, { available: 0, held: 0 }, "main should be empty");
           assert.containSubset(deposit, { available: 50, held: 0 }, "deposit is untouched");
-          assert.containSubset(profit, { available: 5, held: 0 }, "commission should be applied");
+          assert.containSubset(income, { available: 5, held: 0 }, "commission should be applied");
         });
 
         let dispute_pending_notification =
           PROJECT === "a2"
-            ? merchant.queue_notification(
-                (c) => {
-                  assert.strictEqual(c.status, "pending");
-                  assert.strictEqual(c.type, "dispute");
-                },
-                { skip_healthcheck: true },
-              )
+            ? merchant.queue_notification((c) => {
+                assert.strictEqual(c.status, "pending");
+                assert.strictEqual(c.type, "dispute");
+              })
             : Promise.resolve(undefined);
 
-        // Deposit wallet goes negative, so the entry-replay healthcheck (which
-        // does not model the deposit draw-down) is skipped; balances are
-        // asserted directly instead.
-        let dispute_approved_notification = merchant.queue_notification(
-          (c) => {
-            assert.strictEqual(c.status, "approved");
-            assert.strictEqual(c.type, "dispute");
-          },
-          { skip_healthcheck: true },
-        );
+        let dispute_approved_notification = merchant.queue_notification((c) => {
+          assert.strictEqual(c.status, "approved");
+          assert.strictEqual(c.type, "dispute");
+        });
 
         await merchant.create_dispute({
           token: res.token,
@@ -224,10 +215,10 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         await dispute_pending_notification;
         await delay(TRADER_DELAY);
 
-        await trader.wallets().then(({ main, profit, deposit }) => {
+        await trader.wallets().then(({ main, income, deposit }) => {
           assert.containSubset(main, { available: 0, held: 0 }, "main should be empty");
           assert.containSubset(deposit, { available: -50, held: 100 }, "deposit should be used");
-          assert.containSubset(profit, { available: 5, held: 0 }, "commission should be applied");
+          assert.containSubset(income, { available: 5, held: 0 }, "commission should be applied");
         });
 
         let disputes = await ctx.get_disputes(res.token);
@@ -240,7 +231,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
             {
               main: { available: 0, held: 0 },
               deposit: { available: -50, held: 0 },
-              profit: { available: 10, held: 0 },
+              income: { available: 10, held: 0 },
             },
             "trader: dispute shortfall drawn from deposit wallet (negative)",
           );
@@ -293,22 +284,16 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
 
       let dispute_pending_notification =
         PROJECT === "a2"
-          ? merchant.queue_notification(
-              (c) => {
-                assert.strictEqual(c.status, "pending");
-                assert.strictEqual(c.type, "dispute");
-              },
-              { skip_healthcheck: true },
-            )
+          ? merchant.queue_notification((c) => {
+              assert.strictEqual(c.status, "pending");
+              assert.strictEqual(c.type, "dispute");
+            })
           : Promise.resolve(undefined);
 
-      let dispute_approved_notification = merchant.queue_notification(
-        (c) => {
-          assert.strictEqual(c.status, "approved");
-          assert.strictEqual(c.type, "dispute");
-        },
-        { skip_healthcheck: true },
-      );
+      let dispute_approved_notification = merchant.queue_notification((c) => {
+        assert.strictEqual(c.status, "approved");
+        assert.strictEqual(c.type, "dispute");
+      });
 
       await merchant.create_dispute({
         token: res.token,
@@ -320,10 +305,10 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
       await dispute_pending_notification;
       await delay(TRADER_DELAY);
 
-      await trader.wallets().then(({ main, profit, deposit }) => {
+      await trader.wallets().then(({ main, income, deposit }) => {
         assert.containSubset(main, { available: 0, held: 10 }, "main should be drained");
         assert.containSubset(deposit, { available: 5, held: 90 }, "deposit should be used");
-        assert.containSubset(profit, { available: 0, held: 0 }, "commission should be empty");
+        assert.containSubset(income, { available: 0, held: 0 }, "commission should be empty");
       });
 
       let disputes = await ctx.get_disputes(res.token);
@@ -336,7 +321,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
           {
             main: { available: 0, held: 0 },
             deposit: { available: 5, held: 0 },
-            profit: { available: 5, held: 0 },
+            income: { available: 5, held: 0 },
           },
           "trader: dispute shortfall drawn from deposit wallet (stays positive)",
         );
@@ -349,10 +334,6 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
       );
     }));
 
-  // Headline requirement: a merchant can create (and win) a dispute even when
-  // the trader's deposit wallet is empty - the deposit wallet is allowed to go
-  // negative. Funding: main 10 RUB, deposit 0. A 100 RUB dispute draws 10 RUB
-  // from main and pushes the deposit wallet to -90 RUB.
   test.concurrent("dispute creation with empty deposit drives deposit wallet negative", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let trader = await ctx.create_random_trader({
@@ -391,22 +372,16 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
 
       let dispute_pending_notification =
         PROJECT === "a2"
-          ? merchant.queue_notification(
-              (c) => {
-                assert.strictEqual(c.status, "pending");
-                assert.strictEqual(c.type, "dispute");
-              },
-              { skip_healthcheck: true },
-            )
+          ? merchant.queue_notification((c) => {
+              assert.strictEqual(c.status, "pending");
+              assert.strictEqual(c.type, "dispute");
+            })
           : Promise.resolve(undefined);
 
-      let dispute_approved_notification = merchant.queue_notification(
-        (c) => {
-          assert.strictEqual(c.status, "approved");
-          assert.strictEqual(c.type, "dispute");
-        },
-        { skip_healthcheck: true },
-      );
+      let dispute_approved_notification = merchant.queue_notification((c) => {
+        assert.strictEqual(c.status, "approved");
+        assert.strictEqual(c.type, "dispute");
+      });
 
       await merchant.create_dispute({
         token: res.token,
@@ -426,7 +401,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         wallets,
         {
           main: { available: 0, held: 0 },
-          profit: { available: 5, held: 0 },
+          income: { available: 5, held: 0 },
           // 10 RUB from main + 90 RUB from deposit = 100 RUB dispute,
           // deposit funded with 0 -> -90.
           deposit: { available: -90, held: 0 },
@@ -437,6 +412,326 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         await merchantWallet(merchant),
         { available: 90, held: 0 },
         "merchant: credited net dispute amount",
+      );
+    }));
+
+  test.concurrent("dispute creation does not affect income wallet", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+      });
+
+      await trader.setup({ card: true, bank: "sberbank" });
+      let merchant = await ctx.create_random_merchant();
+
+      await merchant.set_commission({
+        operation: "DisputeRequest",
+        self_rate: "10",
+        provider_rate: "5",
+      });
+
+      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+      await trader.cashin("main", "RUB", 10);
+      await trader.cashin("income", "RUB", 50);
+
+      let declined_notification = merchant.queue_notification((cb) => {
+        assert.strictEqual(cb.type, "pay");
+        assert.strictEqual(cb.status, "declined");
+      });
+
+      let res = await merchant
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: 10_00,
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+
+      await delay(TRADER_DELAY);
+      await trader.finalizeTransaction(res.token, "declined");
+      await declined_notification;
+
+      // Drain the main wallet so the dispute cannot draw anything from it and
+      // is forced entirely onto the deposit wallet.
+      await trader.cashout("main", "RUB", 10);
+      await trader.wallets().then(({ main, income, deposit }) => {
+        assert.containSubset(main, { available: 0, held: 0 }, "main should be drained");
+        assert.containSubset(deposit, { available: 0, held: 0 }, "deposit is empty");
+        assert.containSubset(income, { available: 50, held: 0 }, "income wallet seeded");
+      });
+
+      let dispute_pending_notification =
+        PROJECT === "a2"
+          ? merchant.queue_notification((c) => {
+              assert.strictEqual(c.status, "pending");
+              assert.strictEqual(c.type, "dispute");
+            })
+          : Promise.resolve(undefined);
+
+      let dispute_approved_notification = merchant.queue_notification((c) => {
+        assert.strictEqual(c.status, "approved");
+        assert.strictEqual(c.type, "dispute");
+      });
+
+      await merchant.create_dispute({
+        token: res.token,
+        amount: 100_00,
+        file_path: assets.PngImgPath,
+        description: "test dispute",
+      });
+
+      await dispute_pending_notification;
+      await delay(TRADER_DELAY);
+
+      // The pending dispute holds the full 100 RUB from the deposit wallet,
+      // pushing it negative. The income wallet is left completely untouched.
+      await trader.wallets().then(({ main, income, deposit }) => {
+        assert.containSubset(main, { available: 0, held: 0 }, "main stays empty");
+        assert.containSubset(
+          deposit,
+          { available: -100, held: 100 },
+          "deposit absorbs the whole dispute",
+        );
+        assert.containSubset(income, { available: 50, held: 0 }, "income wallet untouched");
+      });
+
+      let disputes = await ctx.get_disputes(res.token);
+      await trader.finalize_dispute(disputes[0].dispute_id, "approved");
+      await dispute_approved_notification;
+
+      let wallets = await trader.wallets();
+      assert.containSubset(
+        wallets,
+        {
+          main: { available: 0, held: 0 },
+          // 50 RUB seeded + 5 RUB dispute commission; the shortfall never
+          // touched it.
+          income: { available: 55, held: 0 },
+          // Entire 100 RUB dispute drawn from deposit -> -100.
+          deposit: { available: -100, held: 0 },
+        },
+        "trader: dispute shortfall drawn from deposit, income wallet preserved",
+      );
+      // 100 RUB dispute net of 10% self commission.
+      assert.deepEqual(
+        await merchantWallet(merchant),
+        { available: 90, held: 0 },
+        "merchant: credited net dispute amount",
+      );
+    }));
+
+  test.concurrent("second dispute can be created after deposit went negative", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+      });
+
+      await trader.setup({ card: true, bank: "sberbank" });
+      let merchant = await ctx.create_random_merchant();
+
+      await merchant.set_commission({
+        operation: "DisputeRequest",
+        self_rate: "10",
+        provider_rate: "5",
+      });
+
+      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+      await trader.cashin("main", "RUB", 10);
+
+      // Create a payin and decline it, returning its token so a dispute can be
+      // raised against it later.
+      async function declined_payin() {
+        let declined_notification = merchant.queue_notification((cb) => {
+          assert.strictEqual(cb.type, "pay");
+          assert.strictEqual(cb.status, "declined");
+        });
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 10_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await delay(TRADER_DELAY);
+        await trader.finalizeTransaction(res.token, "declined");
+        await declined_notification;
+        return res.token;
+      }
+
+      // Raise a 100 RUB dispute against the given payin and approve it.
+      async function approve_dispute(token: string) {
+        let dispute_pending_notification =
+          PROJECT === "a2"
+            ? merchant.queue_notification((c) => {
+                assert.strictEqual(c.status, "pending");
+                assert.strictEqual(c.type, "dispute");
+              })
+            : Promise.resolve(undefined);
+        let dispute_approved_notification = merchant.queue_notification((c) => {
+          assert.strictEqual(c.status, "approved");
+          assert.strictEqual(c.type, "dispute");
+        });
+        await merchant.create_dispute({
+          token,
+          amount: 100_00,
+          file_path: assets.PngImgPath,
+          description: "test dispute",
+        });
+        await dispute_pending_notification;
+        await delay(TRADER_DELAY);
+        let disputes = await ctx.get_disputes(token);
+        await trader.finalize_dispute(disputes[0].dispute_id, "approved");
+        await dispute_approved_notification;
+      }
+
+      let first_token = await declined_payin();
+      let second_token = await declined_payin();
+
+      await trader.cashout("main", "RUB", 10);
+      await trader.wallets().then(({ main, deposit }) => {
+        assert.containSubset(main, { available: 0, held: 0 }, "main should be drained");
+        assert.containSubset(deposit, { available: 0, held: 0 }, "deposit starts empty");
+      });
+
+      // First dispute pushes the deposit wallet negative.
+      await approve_dispute(first_token);
+      await trader.wallets().then(({ main, income, deposit }) => {
+        assert.containSubset(main, { available: 0, held: 0 }, "main stays empty");
+        assert.containSubset(deposit, { available: -100, held: 0 }, "deposit driven negative");
+        assert.containSubset(income, { available: 5, held: 0 }, "commission applied");
+      });
+
+      // Second dispute is accepted even though the deposit wallet is already
+      // negative, driving it further down.
+      await approve_dispute(second_token);
+      let wallets = await trader.wallets();
+      assert.containSubset(
+        wallets,
+        {
+          main: { available: 0, held: 0 },
+          income: { available: 10, held: 0 },
+          // Both 100 RUB disputes drawn from deposit -> -200.
+          deposit: { available: -200, held: 0 },
+        },
+        "trader: second dispute drew from an already-negative deposit wallet",
+      );
+      // Two 100 RUB disputes, each net of 10% self commission.
+      assert.deepEqual(
+        await merchantWallet(merchant),
+        { available: 180, held: 0 },
+        "merchant: credited net amount of both disputes",
+      );
+    }));
+
+  test.only("concurrent disputes racing for main balance both succeed", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+      });
+
+      await trader.setup({ card: true, bank: "sberbank" });
+      let merchant = await ctx.create_random_merchant();
+
+      await merchant.set_commission({
+        operation: "DisputeRequest",
+        self_rate: "10",
+        provider_rate: "5",
+      });
+
+      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+      // Enough main balance to cover exactly one of the two disputes, so the
+      // two dispute holds contend for it.
+      await trader.cashin("main", "RUB", 100);
+
+      async function declined_payin() {
+        let declined_notification = merchant.queue_notification((cb) => {
+          assert.strictEqual(cb.type, "pay");
+          assert.strictEqual(cb.status, "declined");
+        });
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 10_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await delay(TRADER_DELAY);
+        await trader.finalizeTransaction(res.token, "declined");
+        await declined_notification;
+        return res.token;
+      }
+
+      let tokens = [await declined_payin(), await declined_payin()];
+
+      let pending_notifications =
+        PROJECT === "a2"
+          ? Promise.all(
+              tokens.map(() =>
+                merchant.queue_notification(
+                  (c) => {
+                    assert.strictEqual(c.status, "pending");
+                    assert.strictEqual(c.type, "dispute");
+                  },
+                  { skip_healthcheck: true, timeout: 20_000 },
+                ),
+              ),
+            )
+          : Promise.resolve(undefined);
+
+      let approved_notifications = Promise.all(
+        tokens.map(() =>
+          merchant.queue_notification(
+            (c) => {
+              assert.strictEqual(c.status, "approved");
+              assert.strictEqual(c.type, "dispute");
+            },
+            { skip_healthcheck: true, timeout: 20_000 },
+          ),
+        ),
+      );
+
+      // Fire both disputes at once so their holds race. With the unlocked-read
+      // bug one of these rejects (main `available >= 0` violation); both must
+      // succeed.
+      await Promise.all(
+        tokens.map((token) =>
+          merchant.create_dispute({
+            token,
+            amount: 100_00,
+            file_path: assets.PngImgPath,
+            description: "test dispute",
+          }),
+        ),
+      );
+
+      await pending_notifications;
+      await delay(TRADER_DELAY);
+
+      for (let token of tokens) {
+        let disputes = await ctx.get_disputes(token);
+        await trader.finalize_dispute(disputes[0].dispute_id, "approved");
+      }
+      await approved_notifications;
+
+      let wallets = await trader.wallets();
+      assert.containSubset(
+        wallets,
+        {
+          main: { available: 0, held: 0 },
+          income: { available: 10, held: 0 },
+          // One dispute drew 100 from main, the other pushed deposit to -100.
+          deposit: { available: -100, held: 0 },
+        },
+        "trader: concurrent disputes split across main and deposit without loss",
+      );
+      // Two 100 RUB disputes, each net of 10% self commission.
+      assert.deepEqual(
+        await merchantWallet(merchant),
+        { available: 180, held: 0 },
+        "merchant: credited net amount of both disputes",
       );
     }));
 
@@ -487,10 +782,6 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
             )
           : Promise.resolve(undefined);
 
-      // On the current branch the decline never completes (rejection_process
-      // raises NoBalance and rolls back), so this notification never arrives.
-      // Bound the wait so the regression fails fast instead of hitting the
-      // 90s global test timeout.
       let dispute_declined_notification = merchant.queue_notification(
         (c) => {
           assert.strictEqual(c.status, "declined");
@@ -517,7 +808,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         wallets,
         {
           main: { available: 10, held: 0 },
-          profit: { available: 0, held: 0 },
+          income: { available: 0, held: 0 },
           deposit: { available: 0, held: 0 },
         },
         "trader: declined dispute releases both holds and restores balances",

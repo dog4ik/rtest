@@ -2,7 +2,7 @@ import { CONFIG } from "@/config";
 import { initState, type SharedState } from "@/state";
 import { Context } from "@/test_context/context";
 import { traderSetttings } from "@/driver/trader";
-import { CORE_DEFAULT_PASSWORD } from "@/driver/core";
+import * as common from "@/common";
 import { extendTrader, type ExtendedTrader } from "@/entities/trader";
 import { extendMerchant, type ExtendedMerchant } from "@/entities/merchant";
 import { log } from "./log";
@@ -41,7 +41,7 @@ export async function setupPlayground(): Promise<PlaygroundEnv> {
     if (existing) {
       // Account already provisioned on a previous run: reuse it as-is.
       trader = extendTrader(ctx, existing);
-      await trader.driver.login(email, CORE_DEFAULT_PASSWORD);
+      await trader.driver.login(email, common.password);
       log("setup", `trader ${i} exists id=${trader.id}, reusing`);
     } else {
       trader = await ctx.create_random_trader({

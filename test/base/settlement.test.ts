@@ -1,4 +1,5 @@
 import { CoreOfficeDriver } from "@/driver/core/office";
+import * as common from "@/common";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
@@ -13,7 +14,7 @@ describe.concurrent("settlement basics", () => {
     let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
     await office.create_settlment("RUB", 100);
@@ -22,11 +23,7 @@ describe.concurrent("settlement basics", () => {
     let settlements = await merchant.settlements();
     let wallet = wallets[0];
     assert.strictEqual(wallet.available, 0, "settlement should hold the funds");
-    assert.strictEqual(
-      wallet.held,
-      100,
-      "hold should have the settelment amount",
-    );
+    assert.strictEqual(wallet.held, 100, "hold should have the settelment amount");
     assert(wallets.length == 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
     await core.confirm_settlement(settlements[0].id, "approved");
@@ -43,7 +40,7 @@ describe.concurrent("settlement basics", () => {
     let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
     await office.create_settlment("RUB", 100);
@@ -52,11 +49,7 @@ describe.concurrent("settlement basics", () => {
     let settlements = await merchant.settlements();
     let wallet = wallets[0];
     assert.strictEqual(wallet.available, 0, "settlement should hold the funds");
-    assert.strictEqual(
-      wallet.held,
-      100,
-      "hold should have the settelment amount",
-    );
+    assert.strictEqual(wallet.held, 100, "hold should have the settelment amount");
     assert(wallets.length == 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
     await core.confirm_settlement(settlements[0].id, "declined");
@@ -72,7 +65,7 @@ describe.concurrent("settlement basics", () => {
     let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
     await office.create_settlment("RUB", 100);
@@ -91,9 +84,7 @@ describe.concurrent("commission healthcheck settlements", () => {
   async function rubWallet(merchant: {
     wallets(
       c: string,
-    ): Promise<
-      Array<{ available: number; held: number; currency: string | null }>
-    >;
+    ): Promise<Array<{ available: number; held: number; currency: string | null }>>;
   }) {
     let ws = await merchant.wallets("RUB");
     let w = ws.find((w) => w.currency === "RUB");
@@ -104,7 +95,7 @@ describe.concurrent("commission healthcheck settlements", () => {
     let office = new CoreOfficeDriver(CONFIG.urls().core);
     await office.login({
       login: `${merchant.company_name}@mail.com`,
-      password: 'c@"6J?Q3:?H@me=',
+      password: common.password,
     });
     return office;
   }
@@ -114,11 +105,7 @@ describe.concurrent("commission healthcheck settlements", () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "CashoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(
-        await rubWallet(merchant),
-        { available: 1100, held: 0 },
-        "after cashin",
-      );
+      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
       await office.create_settlment("RUB", AMOUNT_RUB);
@@ -150,19 +137,14 @@ describe.concurrent("commission healthcheck settlements", () => {
         { available: 0, held: 0 },
         "approved: settlement sent, commission charged",
       );
-    }),
-  );
+    }));
 
   test.concurrent("settlement declined with commission", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "CashoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(
-        await rubWallet(merchant),
-        { available: 1100, held: 0 },
-        "after cashin",
-      );
+      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
       await office.create_settlment("RUB", AMOUNT_RUB);
@@ -194,36 +176,29 @@ describe.concurrent("commission healthcheck settlements", () => {
         { available: AMOUNT_RUB + COMMISSION_RUB, held: 0 },
         "declined: full amount returned",
       );
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "settlement not created when no balance for commission",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_commission({ operation: "CashoutRequest" });
-        await merchant.cashin("RUB", AMOUNT_RUB); // only base amount, no commission
-        assert.deepEqual(
-          await rubWallet(merchant),
-          { available: AMOUNT_RUB, held: 0 },
-          "after cashin",
-        );
-        let office = await loginOffice(merchant);
-        await delay(SETTLEMENT_DELAY);
-        await office.create_settlment("RUB", AMOUNT_RUB);
-        await delay(SETTLEMENT_DELAY);
+  test.concurrent("settlement not created when no balance for commission", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_commission({ operation: "CashoutRequest" });
+      await merchant.cashin("RUB", AMOUNT_RUB); // only base amount, no commission
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: AMOUNT_RUB, held: 0 },
+        "after cashin",
+      );
+      let office = await loginOffice(merchant);
+      await delay(SETTLEMENT_DELAY);
+      await office.create_settlment("RUB", AMOUNT_RUB);
+      await delay(SETTLEMENT_DELAY);
 
-        let settlements = await merchant.settlements("RUB");
-        assert.isEmpty(
-          settlements,
-          "settlement should not be created without commission balance",
-        );
-        assert.deepEqual(
-          await rubWallet(merchant),
-          { available: AMOUNT_RUB, held: 0 },
-          "funds unchanged when settlement not created",
-        );
-      }),
-  );
+      let settlements = await merchant.settlements("RUB");
+      assert.isEmpty(settlements, "settlement should not be created without commission balance");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: AMOUNT_RUB, held: 0 },
+        "funds unchanged when settlement not created",
+      );
+    }));
 });

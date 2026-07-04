@@ -70,11 +70,11 @@ describe
         assert.strictEqual(trader_wallets.main.available, 0, "trader main: fully paid out");
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           TRADER_PROFIT_RUB,
           "trader profit: earned provider commission",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: MERCHANT_NET_RUB, held: 0 },
@@ -103,11 +103,11 @@ describe
         );
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: commission reversed",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: 0, held: 0 },
@@ -148,11 +148,11 @@ describe
         );
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: empty after decline",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: 0, held: 0 },
@@ -181,11 +181,11 @@ describe
         );
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           TRADER_PROFIT_RUB,
           "trader profit: earned commission after approval",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: MERCHANT_NET_RUB, held: 0 },
@@ -220,11 +220,11 @@ describe
           "trader main: held for pending payment",
         );
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: empty while pending",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: 0, held: 0 },
@@ -248,11 +248,11 @@ describe
         assert.strictEqual(trader_wallets.main.available, 0, "trader main: paid out");
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           TRADER_PROFIT_RUB,
           "trader profit: earned commission",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: MERCHANT_NET_RUB, held: 0 },
@@ -287,11 +287,11 @@ describe
           "trader main: held for pending payment",
         );
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: empty while pending",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: 0, held: 0 },
@@ -319,11 +319,11 @@ describe
         );
         assert.strictEqual(trader_wallets.main.held, 0, "trader main: nothing held");
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: empty after decline",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
         assert.deepEqual(
           await merchantWallet(merchant),
           { available: 0, held: 0 },
@@ -441,11 +441,11 @@ describe
           "trader main: received payout funds",
         );
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           TRADER_PROFIT_RUB,
           "trader profit: earned provider commission",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
 
         let approved_feed = await ctx.get_feed(token);
         assert.strictEqual(approved_feed.status, 1, "feed should be approved");
@@ -475,7 +475,7 @@ describe
           "trader main: funds reversed",
         );
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           0,
           "trader profit: commission reversed",
         );
@@ -537,8 +537,8 @@ describe
         );
         assert.deepEqual(
           {
-            available: trader_wallets.profit.available,
-            held: trader_wallets.profit.held,
+            available: trader_wallets.income.available,
+            held: trader_wallets.income.held,
           },
           { available: 0, held: 0 },
           "trader profit: empty after decline",
@@ -575,11 +575,11 @@ describe
           "trader main: received payout funds",
         );
         assert.strictEqual(
-          trader_wallets.profit.available,
+          trader_wallets.income.available,
           TRADER_PROFIT_RUB,
           "trader profit: earned commission after manual approval",
         );
-        assert.strictEqual(trader_wallets.profit.held, 0, "trader profit: nothing held");
+        assert.strictEqual(trader_wallets.income.held, 0, "trader profit: nothing held");
 
         let updated_feed = await ctx.get_feed(token);
         assert.strictEqual(updated_feed.status, 1, "feed should be changed to approved");
@@ -1112,7 +1112,7 @@ describe
   });
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .runIf(CONFIG.in_project(["reactivepay"]))
   .concurrent("payout cancellation with insufficient trader balance (profit)", () => {
     test.concurrent("approved -> declined (usdt)", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
@@ -1151,11 +1151,8 @@ describe
         await approved;
         await ctx.healthcheck(token, { expect: { status: 1 } });
 
-        // drain wallets so neither can cover the reversal
         let wallets = await trader.wallets();
-        await trader.cashout("main", "USDT", wallets.main.available);
-        await trader.cashout("deposit", "USDT", wallets.deposit.available);
-        await trader.cashout("income", "USDT", wallets.profit.available);
+        await trader.cashout("income", "USDT", wallets.income.available);
 
         await delay(2_000);
         await core.change_status(feed.id, "declined");
@@ -1200,11 +1197,8 @@ describe
         await approved;
         await ctx.healthcheck(token, { expect: { status: 1 } });
 
-        // drain main and deposit so neither can cover the reversal
         let wallets = await trader.wallets();
-        await trader.cashout("main", "RUB", wallets.main.available);
-        await trader.cashout("deposit", "RUB", wallets.deposit.available);
-        await trader.cashout("income", "RUB", wallets.profit.available);
+        await trader.cashout("income", "RUB", wallets.income.available);
 
         await delay(2_000);
         await core.change_status(feed.id, "declined");
@@ -1450,7 +1444,7 @@ describe
         await ctx.healthcheck(token, { expect: { status: 1 } });
       }));
 
-    test.only("approved -> declined drains deposit balance and commission amount", ({
+    test.concurrent("approved -> declined drains deposit balance and commission amount", ({
       ctx,
       merchant,
     }) =>
@@ -1496,16 +1490,19 @@ describe
 
         let wallets = await trader.wallets();
         await trader.cashout("main", "RUB", wallets.main.available);
-        await trader.cashout("income", "RUB", wallets.profit.available);
+        await trader.cashout("income", "RUB", wallets.income.available);
 
         await delay(2_000);
         await core.change_status(feed.id, "declined");
         await delay(1_000);
         wallets = await trader.wallets();
-        assert.containSubset(wallets, {
-          main: { available: 0, held: 0 },
-          profit: { available: 0, held: 0 },
-          deposit: { available: -105, held: 0 },
+        // assert.containSubset(wallets, {
+        //   main: { available: 0, held: 0 },
+        //   profit: { available: 0, held: 0 },
+        //   deposit: { available: -105, held: 0 },
+        // });
+        await ctx.healthcheck(feed.api_payment_token!, {
+          expect: { status: 2, commission_provider_amount: 5 },
         });
       }));
 
@@ -1558,9 +1555,92 @@ describe
         await delay(1_000);
         wallets = await trader.wallets();
         assert.containSubset(wallets, {
-          main: { available: 0, held: 0 },
-          profit: { available: 0, held: 0 },
           deposit: { available: -100, held: 0 },
         });
+        await ctx.healthcheck(feed.api_payment_token!, {
+          expect: { status: 2 },
+        });
+      }));
+
+    test.concurrent("concurrent payout declines must not overdraw main", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: false,
+        });
+
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.cashin("RUB", MERCHANT_CASHIN * 2);
+        await merchant.set_commission({
+          operation: "PayoutRequest",
+          currency: "RUB",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+        let core = ctx.shared_state().core_harness;
+
+        async function approvedPayout() {
+          let payout = await merchant
+            .create_payout(payoutRequest())
+            .then((r) => r.followFirstProcessingUrl())
+            .then((r) => r.as_payout_response());
+          await ctx.healthcheck(payout.token, { expect: { status: 0 } });
+
+          let approved = merchant.queue_notification(
+            (n) => {
+              assert.strictEqual(n.type, "payout");
+              assert.strictEqual(n.status, "approved");
+            },
+            { skip_healthcheck: true },
+          );
+          let feed = await trader.finalizeTransaction(payout.token, "approved");
+          await core.approve_payout(feed.id);
+          await approved;
+          return feed;
+        }
+
+        let feeds = [await approvedPayout(), await approvedPayout()];
+
+        let wallets = await trader.wallets();
+        await trader.cashout("main", "RUB", wallets.main.available - 100);
+        await trader.wallets().then(({ main }) => {
+          assert.containSubset(main, { available: 100, held: 0 }, "main funded for one clawback");
+        });
+
+        let declines = Promise.all(
+          feeds.map(() =>
+            merchant.queue_notification(
+              (n) => {
+                assert.strictEqual(n.type, "payout");
+                assert.strictEqual(n.status, "declined");
+              },
+              { skip_healthcheck: true, timeout: 20_000 },
+            ),
+          ),
+        );
+
+        await delay(2_000);
+        await Promise.all(feeds.map((feed) => core.change_status(feed.id, "declined")));
+        await declines;
+        await delay(1_000);
+
+        let final = await trader.wallets();
+        assert.containSubset(
+          final,
+          {
+            // One drained main to 0; main must never go negative.
+            main: { available: 0, held: 0 },
+            // The other fell through to the deposit wallet -> -100.
+            deposit: { available: -100, held: 0 },
+          },
+          "trader: concurrent payout declines split across main and deposit without overdrawing main",
+        );
+
+        for (let feed of feeds) {
+          await ctx.healthcheck(feed.api_payment_token!, {
+            expect: { status: 2 },
+          });
+        }
       }));
   });

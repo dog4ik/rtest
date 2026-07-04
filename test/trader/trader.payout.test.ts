@@ -89,8 +89,8 @@ describe
         );
         assert.deepEqual(
           {
-            available: traderWallets.profit.available,
-            held: traderWallets.profit.held,
+            available: traderWallets.income.available,
+            held: traderWallets.income.held,
           },
           { available: 0, held: 0 },
           "after declined: trader profit empty",
@@ -151,13 +151,13 @@ describe
           "approved: trader gets payout funds",
         );
         assert.approximately(
-          traderWalletsApproved.profit.available,
+          traderWalletsApproved.income.available,
           PROVIDER_COMMISSION_RUB,
           0.01,
           "approved: trader profit received provider commission",
         );
         assert.strictEqual(
-          traderWalletsApproved.profit.held,
+          traderWalletsApproved.income.held,
           0,
           "approved: trader profit held is zero",
         );
@@ -215,8 +215,8 @@ describe
         );
         assert.deepEqual(
           {
-            available: traderWalletsDeclined.profit.available,
-            held: traderWalletsDeclined.profit.held,
+            available: traderWalletsDeclined.income.available,
+            held: traderWalletsDeclined.income.held,
           },
           { available: 0, held: 0 },
           "declined: trader profit empty",

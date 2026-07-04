@@ -1,12 +1,10 @@
 import { authorize_client, type Credentials } from "..";
+import * as common from "@/common";
 import { randomUUID } from "node:crypto";
 import { err_bad_status } from "@/fetch_utils";
 import { CONFIG, PROJECT } from "@/config";
 import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
-
-/** Default password used for every randomly created profile. */
-export const CORE_DEFAULT_PASSWORD = 'c@"6J?Q3:?H@me=';
 
 export type CreateAgentOptions = {
   merchant_id?: number;
@@ -96,11 +94,7 @@ export class CoreDriver {
     this.docker_compose_path = docker_compose_path ?? "";
   }
 
-  private async action(
-    path: string,
-    payload: {} | URLSearchParams,
-    method?: string,
-  ) {
+  private async action(path: string, payload: {} | URLSearchParams, method?: string) {
     let body: URLSearchParams;
     if (payload instanceof URLSearchParams) {
       body = payload;
@@ -126,8 +120,7 @@ export class CoreDriver {
       body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         cookie: this.cookies ?? "",
       },
     }).then(err_bad_status);
@@ -190,20 +183,13 @@ export class CoreDriver {
       "api_v1_profile[contact_person_name]": "",
       "api_v1_profile[contact_person_position]": "",
       "api_v1_profile[web_site]": undefined,
-      "api_v1_profile[merchant_settlement_info_attributes][account_number]":
-        "stheseh",
-      "api_v1_profile[merchant_settlement_info_attributes][account_name]":
-        "shshesh",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
-        "nhsensh",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
-        "ntshesnhesnth",
-      "api_v1_profile[merchant_settlement_info_attributes][swift_code]":
-        "sthesnthesnh",
-      "api_v1_profile[merchant_settlement_info_attributes][bank_name]":
-        "tnshesh",
-      "api_v1_profile[merchant_settlement_info_attributes][bank_address]":
-        "hesthesh",
+      "api_v1_profile[merchant_settlement_info_attributes][account_number]": "stheseh",
+      "api_v1_profile[merchant_settlement_info_attributes][account_name]": "shshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]": "nhsensh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]": "ntshesnhesnth",
+      "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "sthesnthesnh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "tnshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "hesthesh",
       "api_v1_profile[merchant_settlement_info_attributes][country]": "shesnth",
       "api_v1_profile[merchant_settlement_info_attributes][iban]": "shesth",
     };
@@ -216,7 +202,7 @@ export class CoreDriver {
     let params: CreateMerchant = {
       companyName: uuid,
       email: opts?.email ?? `${uuid}@mail.com`,
-      password: CORE_DEFAULT_PASSWORD,
+      password: common.password,
       country: "236",
     };
     await this.create_merchant(params);
@@ -248,7 +234,7 @@ export class CoreDriver {
     let params: CreateTrader = {
       companyName: uuid,
       email: opts?.email ?? `${uuid}@mail.com`,
-      password: CORE_DEFAULT_PASSWORD,
+      password: common.password,
       convert_to_usdt: opts?.usdt ?? true,
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
@@ -280,7 +266,7 @@ export class CoreDriver {
     let params: CreateAgent = {
       company_name: uuid,
       email: opts?.email ?? `${uuid}@mail.com`,
-      temp_password: CORE_DEFAULT_PASSWORD,
+      temp_password: common.password,
       merchant_id: opts?.merchant_id,
       trader_ids: opts?.traders_ids ?? [],
     };
@@ -288,24 +274,13 @@ export class CoreDriver {
     return params;
   }
 
-  async enable_trader_methods(
-    trader_id: number,
-    toggle: Partial<TraderMethodToggle>,
-  ) {
+  async enable_trader_methods(trader_id: number, toggle: Partial<TraderMethodToggle>) {
     for (let [key, value] of Object.entries(toggle)) {
-      await this.enable_trader_method(
-        trader_id,
-        key as keyof TraderMethodToggle,
-        value,
-      );
+      await this.enable_trader_method(trader_id, key as keyof TraderMethodToggle, value);
     }
   }
 
-  async enable_trader_method(
-    trader_id: number,
-    key: keyof TraderMethodToggle,
-    force: boolean,
-  ) {
+  async enable_trader_method(trader_id: number, key: keyof TraderMethodToggle, force: boolean) {
     await this.action(`/traders/${trader_id}`, { [key]: force }, "PUT");
   }
 
@@ -322,15 +297,7 @@ export class CoreDriver {
     await this.action(`/traders/${trader_id}`, data);
   }
 
-  async add_bank({
-    system_name,
-    ru,
-    en,
-  }: {
-    system_name: string;
-    ru: string;
-    en: string;
-  }) {
+  async add_bank({ system_name, ru, en }: { system_name: string; ru: string; en: string }) {
     let data = {
       utf8: "✓",
       "bank[names][en]": en,
@@ -372,12 +339,7 @@ export class CoreDriver {
     await this.action("/sms_parsers", data);
   }
 
-  async cashin(
-    mid: number,
-    currency: string,
-    amount: number,
-    to_account_id?: number,
-  ) {
+  async cashin(mid: number, currency: string, amount: number, to_account_id?: number) {
     let now = new Date();
     let params = {
       utf8: "",
@@ -395,12 +357,7 @@ export class CoreDriver {
     await this.action("/transfers?direction=in", params);
   }
 
-  async cashout(
-    mid: number,
-    currency: string,
-    amount: number,
-    bank_account_id?: number,
-  ) {
+  async cashout(mid: number, currency: string, amount: number, bank_account_id?: number) {
     let now = new Date();
     let form = new FormData();
     form.append("utf8", "✓");
@@ -477,10 +434,8 @@ export class CoreDriver {
       commit: "Save",
       "api_v1_profile[merchant_settlement_info_attributes][account_number]": "",
       "api_v1_profile[merchant_settlement_info_attributes][account_name]": "",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
-        "",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
-        "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]": "",
       "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "",
       "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "",
       "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "",

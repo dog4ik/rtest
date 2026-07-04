@@ -56,6 +56,7 @@ export type HandlerResponse = {
   set_header(name: string, value: string): void;
 };
 
+export const password = 'c@"6J?Q3:?H@me=';
 export const visaCard = "4242424242424242";
 export const mastercardCard = "5555555555554444";
 export const phoneNumber = "79995553535";
