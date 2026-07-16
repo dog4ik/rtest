@@ -19,6 +19,10 @@ export class DisputeResponse {
     ctx.story.add_chapter("Merchant dispute response", json);
     console.log("Dispute response", json);
   }
+  is_ok() {
+    return this.res.status === 200;
+  }
+
   as_ok() {
     assert.strictEqual(
       this.res.status,

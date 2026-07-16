@@ -4,6 +4,7 @@ import { ErrorResponse } from "./error_response";
 import type { Context } from "@/test_context/context";
 import { CONFIG } from "@/config";
 
+// Legacy 8pay format schema
 // export const EightpayRequesiteSchema = z.object({
 //   id: z.string().nonempty(),
 //   pan: z.string().nonempty(),
@@ -21,9 +22,9 @@ export const EightpayRequesiteSchema = z.object({
   support_banks: z.array(z.string()).min(1),
   support_bank_native: z.record(z.string(), z.string()).optional(),
   payment: z.object({
-    amount: z.coerce.number().min(1),
+    amount: z.number().min(1),
     currency: z.string().length(3),
-    gateway_amount: z.coerce.number().min(1),
+    gateway_amount: z.number().min(1),
     gateway_currency: z.string().length(3),
     status: z.literal("pending"),
   }),
@@ -31,7 +32,7 @@ export const EightpayRequesiteSchema = z.object({
   order_number: z.string().optional(),
   token: z.string().length(32),
   gateway_token: z.string().min(1),
-  success: z.coerce.boolean(),
+  success: z.boolean(),
 });
 
 export const PayoutResponseSchema = z.object({
@@ -100,7 +101,6 @@ export class ProcessingUrlResponse {
 
   private async consume_json_body() {
     let contentType = this.response.headers.get("content-type");
-    console.log("Content type", contentType);
     if (contentType?.startsWith("text/html")) {
       let page = await this.ctx.shared_state().browser.newPage();
       await page.setContent(await this.response.text());

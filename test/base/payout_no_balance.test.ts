@@ -32,7 +32,7 @@ function makeEnv(opts: {
         let error = await res.followFirstProcessingUrl().then((r) => r.as_error());
         return { error, token: res.token };
       }
-      if (CONFIG.in_project(["spinpay"])) {
+      if (CONFIG.in_project(["spinpay", "reactivepay"])) {
         let payout_res = await merchant.create_payout(opts.request);
         return { payout_res, token: payout_res.token };
       } else {

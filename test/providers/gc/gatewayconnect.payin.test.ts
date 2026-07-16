@@ -105,6 +105,63 @@ let methodH2HSuite = (
 callbackFinalizationSuite(providersP2PSuite);
 statusFinalizationSuite(providersP2PSuite);
 
+test
+  .runIf(CONFIG.in_project(["8pay"]))
+  .concurrent("callback with enable_change_final_status", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let enableChangeStatusSuite = () => {
+        let suite = payinSuite();
+        return providersSuite("RUB", {
+          ...suite,
+          settings: (secret) => ({
+            ...suite.settings(secret),
+            enable_change_final_status: true,
+            enable_update_amount: true,
+          }),
+        });
+      };
+      let suite = enableChangeStatusSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_commission({ operation: "PayinRequest" });
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      // Default handler absorbs extra status-check requests the engine sends after an H2H approval
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "declined");
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      provider.queue(suite.gw.requisites_payin_handler("pending", "card"));
+
+      await merchant
+        .create_payment(common.p2pPaymentRequest("RUB", "card"))
+        .then((res) => res.followFirstProcessingUrl());
+      await delay(3_000);
+      await ctx.annotate("Sending declined callback");
+      await suite.gw.send_callback("declined");
+      await notification;
+      await delay(2_000);
+
+      let new_amount = 54321;
+      let approved_notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+        },
+        {
+          skip_interaction_log_card_check: true,
+          expect: { status: 1, target_amount: new_amount / 100, commission_amount: 54.321 },
+        },
+      );
+
+      await ctx.annotate("Sending approved callback");
+      await suite.gw.send_callback("approved", new_amount);
+      await approved_notification;
+    }),
+  );
+
 let requisitesP2PSuite = (requisite: GcRequisiteType) => {
   let suite = payinSuite();
   return providersSuite("RUB", {

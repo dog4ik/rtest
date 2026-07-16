@@ -23,10 +23,10 @@ describe
       return { available: w?.available ?? 0, held: w?.held ?? 0 };
     }
 
-    function payoutRequest() {
+    function payoutRequest(amount?: number) {
       return {
         ...common.payoutRequest("RUB"),
-        amount: AMOUNT,
+        amount: amount ?? AMOUNT,
         bank_account: { requisite_type: "card" as const },
         customer: {
           email: common.email,
@@ -252,5 +252,25 @@ describe
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_error());
         error.assert_message("amount_not_enough_money");
+      }));
+
+    test.todo("concurrent payout requests don't overdraft merchant balance", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { trader, merchant } = await setup(ctx);
+        await merchant.cashin("RUB", common.amount / 100 + (common.amount / 100) * 0.1);
+        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+
+        let [init1, init2] = await Promise.all([
+          merchant.create_payout(payoutRequest(common.amount)),
+          merchant.create_payout(payoutRequest(common.amount)),
+        ]);
+
+        let [res1, res2] = await Promise.all([
+          init1.followFirstProcessingUrl(),
+          init2.followFirstProcessingUrl(),
+        ]);
+
+        await res1.as_raw_json();
+        await res2.as_raw_json();
       }));
   });

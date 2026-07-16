@@ -1,5 +1,7 @@
 import createClient from "openapi-fetch";
-import type { paths } from "./api_schema.d.ts";
+import type { paths, components } from "./api_schema.d.ts";
+
+export type TraderSchemas = components["schemas"];
 
 export function createTraderClient(baseUrl: string) {
   return createClient<paths>({

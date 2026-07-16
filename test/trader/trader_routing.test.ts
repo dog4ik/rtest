@@ -8,7 +8,7 @@ import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 const TRADER_DELAY = 5_000;
 
 // Routing trader -> trader does not work
-describe.runIf(CONFIG.in_project(["reactivepay"])).skip("trader routing tests", () => {
+describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader routing tests", () => {
   test.concurrent("trader -> trader routing approved payin", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
       let trader_with_balance = await ctx.create_random_trader({

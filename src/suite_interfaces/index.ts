@@ -59,9 +59,7 @@ export interface Routable extends TestCaseBase {
 
 // FIX(8pay): Callback delay is high because routing lock mutex is held for 10 seconds.
 // FIX(pcidss): Brusnika does not allow sending callback 5s after creation.
-export const CALLBACK_DELAY = CONFIG.in_project(["8pay", "reactivepay"])
-  ? 4_000
-  : 500;
+export const CALLBACK_DELAY = CONFIG.in_project(["8pay", "reactivepay"]) ? 4_000 : 500;
 
 /**
  * List of strings that should not be found inside redirect url during masked_provider routing
@@ -489,9 +487,7 @@ export function routingFinalizationSuite(
         let approved_notification = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "approved");
         });
-        let last_link = chain_links[chain_links.length - 1] as Routable &
-          Callback &
-          Status;
+        let last_link = chain_links[chain_links.length - 1] as Routable & Callback & Status;
         if (use_status_handler) {
           last_mock_server.queue(last_link.status_handler("approved"));
         }
@@ -622,10 +618,11 @@ export function payoutPendingSuite<T>(target: Status<T>, opts?: TestCaseOptions)
         let notification = merchant.queue_notification(() => {
           assert.fail("merchant should not get notification");
         });
-        let { create_response } = await create_transaction();
-        await ctx.healthcheck(create_response.token);
-        let feed = await ctx.get_feed(create_response.token);
-        assert.strictEqual(feed.status, 0, "feed should be pending");
+        let { create_response, processing_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token, { expect: { status: 0 } });
+        if (processing_response) {
+          await processing_response.as_raw_json();
+        }
         await Promise.race([notification, delay(5_000)]);
       }),
     );
@@ -643,10 +640,11 @@ export function payoutPendingSuite<T>(target: Status<T>, opts?: TestCaseOptions)
         let notification = merchant.queue_notification(() => {
           assert.fail("merchant should not get notification");
         });
-        let { create_response } = await create_transaction();
-        await ctx.healthcheck(create_response.token);
-        let feed = await ctx.get_feed(create_response.token);
-        assert.strictEqual(feed.status, 0, "feed should be pending");
+        let { create_response, processing_response } = await create_transaction();
+        await ctx.healthcheck(create_response.token, { expect: { status: 0 } });
+        if (processing_response) {
+          await processing_response.as_raw_json();
+        }
         await Promise.race([notification, handle, delay(5_000)]);
       }),
     );

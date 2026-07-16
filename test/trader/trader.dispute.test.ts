@@ -625,7 +625,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
       );
     }));
 
-  test.only("concurrent disputes racing for main balance both succeed", ({ ctx }) =>
+  test.concurrent("concurrent disputes racing for main balance both succeed", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
       let trader = await ctx.create_random_trader({
         usdt: false,
@@ -817,6 +817,86 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader disp
         await merchantWallet(merchant),
         { available: 0, held: 0 },
         "merchant: nothing credited for a declined dispute",
+      );
+    }));
+
+  test.concurrent("concurrent duplicate disputes on the same declined payin create only one dispute", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { trader, merchant } = await setup(ctx);
+      await merchant.set_commission({
+        operation: "DisputeRequest",
+        self_rate: "10",
+        provider_rate: "5",
+      });
+
+      let decline_cb = merchant.queue_notification(
+        (n) => {
+          assert.strictEqual(n.status, "declined");
+        },
+        { skip_healthcheck: true },
+      );
+
+      let res = await merchant
+        .create_payment({
+          ...common.traderPaymentRequest("RUB", "card"),
+          amount: AMOUNT,
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+
+      await delay(TRADER_DELAY);
+      await trader.finalizeTransaction(res.token, "declined");
+      await decline_cb;
+
+      // Only the winning dispute may reach the trader, so a single pending
+      // notification is expected.
+      let dispute_pending_notification =
+        PROJECT === "a2"
+          ? merchant.queue_notification(
+              (c) => {
+                assert.strictEqual(c.status, "pending");
+                assert.strictEqual(c.type, "dispute");
+              },
+              { skip_healthcheck: true, timeout: 20_000 },
+            )
+          : Promise.resolve(undefined);
+
+      let dispute_request = {
+        token: res.token,
+        file_path: assets.PngImgPath,
+        description: "test dispute",
+      };
+      let responses = await Promise.all([
+        merchant.create_dispute_raw(dispute_request),
+        merchant.create_dispute_raw(dispute_request),
+      ]);
+
+      let winners = responses.filter((r) => r.is_ok());
+      let losers = responses.filter((r) => !r.is_ok());
+      assert.strictEqual(winners.length, 1, "exactly one dispute request must succeed");
+      assert.strictEqual(
+        losers.length,
+        1,
+        "the duplicate concurrent dispute request must be rejected",
+      );
+      winners[0].as_ok();
+      losers[0]
+        .as_error()
+        .as_common_error()
+        .assert_error([{ code: "payment_already_has_pending_dispute", kind: "" }]);
+
+      await dispute_pending_notification;
+      await delay(TRADER_DELAY);
+
+      // The definitive check: the unlocked-read race would leave two dispute
+      // rows for the payin; only a single dispute may ever exist.
+      let disputes = await ctx.get_disputes(res.token);
+      assert.strictEqual(
+        disputes.length,
+        1,
+        "only a single dispute row must exist for the declined payin",
       );
     }));
 });

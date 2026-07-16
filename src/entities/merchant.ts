@@ -356,6 +356,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     create_refund: (req: RefundRequest) => create_refund(req).then((r) => r.as_ok()),
     create_refund_err: (req: RefundRequest) => create_refund(req).then((r) => r.as_error()),
     create_dispute: (req: DisputeRequest) => create_dispute(req).then((r) => r.as_ok()),
+    create_dispute_raw: (req: DisputeRequest) => create_dispute(req),
     create_dispute_err: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_error().as_common_error()),
     queue_notification,

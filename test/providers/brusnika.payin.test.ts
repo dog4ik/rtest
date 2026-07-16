@@ -77,6 +77,24 @@ describe.runIf(PROJECT === "8pay").concurrent("brusnika 8pay", () => {
     },
   });
 
+  dataFlowTest("extra_return_param sbp (masked_provider)", {
+    ...maskedBrusnikaSuite(),
+    request() {
+      return { ...common.paymentRequest(CURRENCY), extra_return_param: "SBP" };
+    },
+    async check_merchant_response({ processing_response, create_response }) {
+      assert.strictEqual(this.gw.request_data?.paymentMethod, "sbp");
+      assert.strictEqual(this.gw.request_data?.amount, common.amount / 100);
+      assert.strictEqual(
+        this.gw.request_data?.idTransactionMerchant,
+        create_response.token,
+      );
+      let res = await processing_response?.as_8pay_requisite();
+      assert.strictEqual(res?.name_seller, common.fullName);
+      assert.strictEqual(res?.pan, `+${common.phoneNumber}`);
+    },
+  });
+
   dataFlowTest("extra_return_param cards", {
     ...brusnikaSuite(),
     request() {
