@@ -63,6 +63,7 @@ export function commonSettings(alias: string, secret: string) {
             callback_url: true,
             params: [
               "customer",
+              "bank_account",
               "extra_return_param",
               "pan",
               "expires",
@@ -99,7 +100,7 @@ export function commonSettings(alias: string, secret: string) {
         status: {
           params_fields: {
             params: ["gateway_token", "token", "merchant_private_key"],
-            payment: ["gateway_token", "token"],
+            payment: ["gateway_token", "token", "extra_return_param"],
             refund: ["amount", "gateway_amount", "token"],
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
@@ -244,8 +245,8 @@ export class GatewayConnectTransaction {
       let logs = await this.build_interaction_logs("pay", status);
 
       let requisites: Record<string, any> | undefined = undefined;
-      if (CONFIG.in_project(["spinpay", "reactivepay"])) {
-        if (status === "pending") {
+      if (status === "pending") {
+        if (CONFIG.in_project(["spinpay", "reactivepay"])) {
           requisites = {
             holder: requisite_data?.holder ?? common.fullName,
             bank_name: requisite_data?.bank ?? common.bankName,
@@ -259,9 +260,7 @@ export class GatewayConnectTransaction {
           } else {
             assert.fail(`Spinpay unimplemented requisite type: ${requisite_type}`);
           }
-        }
-      } else {
-        if (status === "pending") {
+        } else {
           requisites = {
             holder: requisite_data?.holder ?? common.fullName,
             bank_name: requisite_data?.bank ?? common.bankName,

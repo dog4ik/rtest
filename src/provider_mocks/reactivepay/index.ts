@@ -455,7 +455,6 @@ export function payoutSuite(
         address: "18 Bunyip St",
         city: "Burleigh Heads",
         country: "AU",
-        region: "QLD",
         state: "QLD",
         postcode: "4220",
         browser: {
