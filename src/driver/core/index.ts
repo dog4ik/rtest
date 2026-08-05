@@ -38,6 +38,8 @@ export type CreateTraderOptions = {
   currency?: string;
   email?: string;
   min_deposit?: number;
+  min_limit?: number;
+  max_limit?: number;
 };
 
 export type CreateTrader = {
@@ -48,7 +50,9 @@ export type CreateTrader = {
   email: string;
   convert_to_usdt: boolean;
   payout_hold_priod: number;
-  min_deposit: number;
+  min_deposit?: number;
+  min_limit: number;
+  max_limit: number;
 };
 
 export type TraderMethodToggle = {
@@ -67,6 +71,8 @@ export type CreateSmsParser = {
   change_from_data_to?: string;
   currency: string;
   pattern: string;
+  from_pattern?: string;
+  text_pattern?: string;
   payer_pattern?: string;
   card_mask?: string;
   bank_id: string;
@@ -220,8 +226,8 @@ export class CoreDriver {
       "trader[payout_hold_period]": params.payout_hold_priod,
       "trader[required_deposit]": params.min_deposit,
       white_list: "",
-      min_limit: "",
-      max_limit: "",
+      min_limit: params.min_limit,
+      max_limit: params.max_limit,
       convert_to_usdt: params.convert_to_usdt ? "1" : undefined,
       commit: "Add+new+trader",
     };
@@ -239,7 +245,9 @@ export class CoreDriver {
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: opts?.currency ?? "RUB",
-      min_deposit: opts?.min_deposit ?? 0,
+      min_deposit: CONFIG.in_project(["reactivepay"]) ? undefined : (opts?.min_deposit ?? 0),
+      min_limit: opts?.min_limit ?? undefined,
+      max_limit: opts?.max_limit ?? undefined,
     };
     await this.create_trader(params);
     return params;
@@ -320,6 +328,8 @@ export class CoreDriver {
     currency,
     pattern,
     payer_pattern,
+    from_pattern,
+    text_pattern,
     card_mask,
     bank_id,
   }: CreateSmsParser) {
@@ -331,6 +341,8 @@ export class CoreDriver {
       "sms_parser[change_from_data_to]": change_from_data_to ?? "",
       "sms_parser[currency]": currency,
       "sms_parser[pattern]": pattern,
+      "sms_parser[text_pattern]": text_pattern,
+      "sms_parser[from_pattern]": from_pattern,
       "sms_parser[payer_pattern]": payer_pattern ?? "",
       "sms_parser[card_mask]": card_mask ?? "",
       "sms_parser[bank_id]": bank_id,

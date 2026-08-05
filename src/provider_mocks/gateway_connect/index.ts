@@ -19,7 +19,14 @@ import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
 import { CurlBuilder } from "@/story/curl";
 
-export type GcRequisiteType = "sbp" | "tpay" | "card" | "link" | "deeplink" | "tpay_qr_data";
+export type GcRequisiteType =
+  | "sbp"
+  | "tpay"
+  | "card"
+  | "account"
+  | "link"
+  | "deeplink"
+  | "tpay_qr_data";
 
 export const ANY_GATEWAY_CONNECT_SIGN_KEY = "9bda346ae93db3a3297ad5a209d81b22";
 export const GC_MAPPING_KEY = "_gc";
@@ -238,6 +245,9 @@ export class GatewayConnectTransaction {
       bank?: string;
       holder?: string;
       payment_form_url?: string;
+      qr_data?: string;
+      deeplink?: boolean;
+      amount?: number;
     },
   ): Handler {
     return async (c) => {
@@ -250,6 +260,8 @@ export class GatewayConnectTransaction {
           requisites = {
             holder: requisite_data?.holder ?? common.fullName,
             bank_name: requisite_data?.bank ?? common.bankName,
+            qr_data: requisite_data?.qr_data,
+            deeplink: requisite_data?.deeplink,
           };
           if (requisite_type === "card") {
             requisites["card"] = common.visaCard;
@@ -257,8 +269,10 @@ export class GatewayConnectTransaction {
             requisites["pan"] = common.phoneNumber;
           } else if (requisite_type === "link") {
             requisites["link"] = { url: common.redirectPayUrl };
+          } else if (requisite_type === "account") {
+            requisites["number"] = common.accountNumber;
           } else {
-            assert.fail(`Spinpay unimplemented requisite type: ${requisite_type}`);
+            assert.fail(`Spinpay/RP unimplemented requisite type: ${requisite_type}`);
           }
         } else {
           requisites = {
@@ -293,10 +307,11 @@ export class GatewayConnectTransaction {
       return c.json({
         status,
         result: true,
-        amount: common.amount,
+        amount: requisite_data?.amount ?? common.amount,
         requisites,
-        currency: "RUB",
+        currency: this.payin_request.payment.gateway_currency,
         payment_form_url: requisite_data?.payment_form_url,
+        qr_data: common.redirectPayUrl,
         details: status === "declined" ? "Test error message" : undefined,
         redirect_request:
           status === "pending"
@@ -372,16 +387,18 @@ export class GatewayConnectTransaction {
     };
   }
 
-  status_handler(status: BusinessStatus): Handler {
+  status_handler(status: BusinessStatus, amount?: number): Handler {
     return async (c) => {
       this.status_request = StatusRequestSchema(z.object({})).parse(await c.req.json());
+      let request_data = this.request_data();
+      assert(request_data, "request data should be defined when status handler is fired");
 
       let logs = await this.build_interaction_logs("status", status as PrimeBusinessStatus);
 
       return c.json({
         status,
-        amount: common.amount,
-        currency: "RUB",
+        amount: amount ?? common.amount,
+        currency: request_data.payment.gateway_currency,
         details: status === "declined" ? "Test error message " : undefined,
         logs,
         result: true,

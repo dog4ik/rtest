@@ -1,5 +1,5 @@
 import * as common from "@/common";
-import { traderNoConvertSettings } from "@/driver/trader";
+import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
 import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
@@ -226,3 +226,41 @@ describe
         assert.strictEqual(res.card?.bank, "tbank", "tbank trader requisite");
       }));
   });
+
+describe.runIf(CONFIG.in_project(["reactivepay"])).concurrent("test inr payform", () => {
+  test.skip("trader insufficient balance", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader1 = await ctx.create_random_trader({
+        usdt: false,
+        currency: "INR",
+      });
+      await trader1.setup({ account: true, bank: "sberbank" });
+      await trader1.cashin("main", "INR", 9999999999999);
+      let settings = traderNoConvertSettings("INR", [trader1.id]) as Record<
+        string,
+        any
+      >;
+      let trader_settings = settings.gateways.trader;
+      trader_settings["random_range"] = [100, 200];
+      trader_settings["random_retries"] = 1;
+      trader_settings["random_step"] = 100;
+      trader_settings["custom_payform"] = "upi";
+      settings.gateways["skip_processing_url"] = true;
+      await merchant.set_settings(settings);
+      await merchant.create_payment({
+        ...common.traderPaymentRequest("INR", "account"),
+        redirect_success_url: "https://google.com/success",
+        redirect_fail_url: "https://google.com/fail",
+      });
+
+      await merchant.create_payment({
+        ...common.traderPaymentRequest("INR", "account"),
+        redirect_success_url: "https://google.com/success",
+        redirect_fail_url: "https://google.com/fail",
+      });
+
+      // await delay(15_000)
+      // await trader1.finalizeTransaction(create.token, "approved");
+
+    }));
+});

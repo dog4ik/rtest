@@ -54,7 +54,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader rout
         gateways: {
           allow_host2host: true,
           trader1: {
-            list: [trader_with_balance.id],
+            list: [trader_without_balance.id],
             class: "trader",
             pay_expired_minutes: 15,
             private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
@@ -85,7 +85,7 @@ describe.runIf(CONFIG.in_project(["reactivepay", "a2"])).concurrent("trader rout
       await approve_cb;
     }));
 
-  test.only("trader -> trader routing by amount", ({ ctx, merchant }) =>
+  test.concurrent("trader -> trader routing by amount", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
       let trader1 = await ctx.create_random_trader({
         usdt: true,

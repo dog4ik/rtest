@@ -16,6 +16,7 @@ import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 export type TestCaseOptions = {
   skip_if?: boolean;
   tag?: string;
+  only?: boolean;
 };
 
 export type TestCaseContext = {
@@ -217,17 +218,19 @@ export function statusFinalizationSuite<T>(suite_factory: () => Status<T>, opts?
 
 export function dataFlowTest<T extends DataFlow>(title: string, target: T, opts?: TestCaseOptions) {
   let alias = target.mock_options("").alias;
-  test.skipIf(opts?.skip_if).concurrent(`${alias} ${title} data flow`, ({ ctx }) =>
-    ctx.track_bg_rejections(async () => {
-      let { create_transaction, provider, suite_ctx } = await create_suite(ctx, target);
-      let provider_request = provider
-        .queue(target.create_handler("pending", suite_ctx))
-        .then(() => target.after_create_check?.());
-      let response = await create_transaction();
-      await provider_request;
-      await target.check_merchant_response?.(response);
-    }),
-  );
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} ${title} data flow`, { only: opts?.only }, ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let { create_transaction, provider, suite_ctx } = await create_suite(ctx, target);
+        let provider_request = provider
+          .queue(target.create_handler("pending", suite_ctx))
+          .then(() => target.after_create_check?.());
+        let response = await create_transaction();
+        await provider_request;
+        await target.check_merchant_response?.(response);
+      }),
+    );
 }
 
 type BrowserUrlTargetLocation = "processingUrl" | "selectorUrl" | "redirect_request";
@@ -261,42 +264,44 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
   },
 ) {
   let alias = target.mock_options("").alias;
-  test.skipIf(opts?.skip_if).concurrent(`${alias} ${title} payform data flow`, ({ ctx, chrome }) =>
-    ctx.track_bg_rejections(async () => {
-      let { init_transaction, provider, suite_ctx } = await create_suite(ctx, target);
-      let provider_request = provider
-        .queue(target.create_handler("pending", suite_ctx))
-        .then(() => target.after_create_check?.());
+  test
+    .skipIf(opts?.skip_if)
+    .concurrent(`${alias} ${title} payform data flow`, { only: opts?.only }, ({ ctx, chrome }) =>
+      ctx.track_bg_rejections(async () => {
+        let { init_transaction, provider, suite_ctx } = await create_suite(ctx, target);
+        let provider_request = provider
+          .queue(target.create_handler("pending", suite_ctx))
+          .then(() => target.after_create_check?.());
 
-      let response = await init_transaction();
+        let response = await init_transaction();
 
-      let browser_context: playwright.BrowserContext;
-      if (target.browser_context) {
-        browser_context = await target.browser_context(chrome);
-      } else {
-        browser_context = await chrome.newContext();
-      }
-      let page = await browser_context.newPage();
-      await page.setViewportSize({ width: 720, height: 1024 });
-      let redirectUrl = browserPageUrl(
-        {
-          selectorUrl: response.selectorUrl,
-          processingUrl: response.firstProcessingUrl(),
-          redirectRequest: response.redirectRequest,
-        },
-        opts?.browser_url_target,
-      );
+        let browser_context: playwright.BrowserContext;
+        if (target.browser_context) {
+          browser_context = await target.browser_context(chrome);
+        } else {
+          browser_context = await chrome.newContext();
+        }
+        let page = await browser_context.newPage();
+        await page.setViewportSize({ width: 1920, height: 1820 });
+        let redirectUrl = browserPageUrl(
+          {
+            selectorUrl: response.selectorUrl,
+            processingUrl: response.firstProcessingUrl(),
+            redirectRequest: response.redirectRequest,
+          },
+          opts?.browser_url_target,
+        );
 
-      await page.goto(redirectUrl);
-      await page.waitForLoadState("networkidle");
-      await ctx.annotate("Payform screenshot", {
-        contentType: "image/png",
-        body: await page.screenshot(),
-      });
-      await target.check_pf_page?.(page);
-      await provider_request;
-    }),
-  );
+        await page.goto(redirectUrl);
+        await page.waitForLoadState("networkidle");
+        await ctx.annotate("Payform screenshot", {
+          contentType: "image/png",
+          body: await page.screenshot(),
+        });
+        await target.check_pf_page?.(page);
+        await provider_request;
+      }),
+    );
 }
 
 type ConcurrentTestStatuses = {
@@ -313,29 +318,35 @@ export function concurrentCallbackTest<T>(
   let alias = target.mock_options("").alias;
   test
     .skipIf(opts?.skip_if)
-    .concurrent(`${alias} concurrent callback(${callback}) & status(${status})`, ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { create_transaction, provider, suite_ctx, merchant } = await create_suite(ctx, target);
+    .concurrent(
+      `${alias} concurrent callback(${callback}) & status(${status})`,
+      { only: opts?.only },
+      ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let { create_transaction, provider, suite_ctx, merchant } = await create_suite(
+            ctx,
+            target,
+          );
 
-        provider.queue(target.create_handler("pending", suite_ctx));
-        let merchant_notification = merchant.queue_notification((n) => {
-          assert.strictEqual(n.status, expected);
-        });
-        let provider_actions = provider
-          .queue(target.status_handler(status))
-          .then(() => target.send_callback(callback, ctx.uuid));
-        let response = await create_transaction();
-        await provider_actions;
-        if (expected === "pending") {
-          await delay(4_000);
-        } else {
-          await merchant_notification;
-          await delay(2_000);
-        }
-        let payment = await ctx.get_payment(response.create_response.token);
-        assert.strictEqual(payment.status, expected);
-        await ctx.healthcheck(response.create_response.token);
-      }),
+          provider.queue(target.create_handler("pending", suite_ctx));
+          let merchant_notification = merchant.queue_notification((n) => {
+            assert.strictEqual(n.status, expected);
+          });
+          let provider_actions = provider
+            .queue(target.status_handler(status))
+            .then(() => target.send_callback(callback, ctx.uuid));
+          let response = await create_transaction();
+          await provider_actions;
+          if (expected === "pending") {
+            await delay(4_000);
+          } else {
+            await merchant_notification;
+            await delay(2_000);
+          }
+          let payment = await ctx.get_payment(response.create_response.token);
+          assert.strictEqual(payment.status, expected);
+          await ctx.healthcheck(response.create_response.token);
+        }),
     );
 }
 

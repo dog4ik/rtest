@@ -4,7 +4,7 @@ import type { HttpContext } from "./mock_server/api";
 
 type BankAccount = {
   requisite_type?: "card" | "sbp" | "link" | "account";
-  bank_name?: Bank;
+  bank_name?: Bank | {};
   account_holder?: string;
   account_number?: string;
 };

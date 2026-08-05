@@ -17,6 +17,7 @@ import type { Project } from "@/project";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
 import * as vitest from "vitest";
+import type { PrimeBusinessStatus } from "@/db/business";
 
 export class Context {
   uuid: string;
@@ -129,6 +130,15 @@ export class Context {
   async create_sms_parser(parser: CreateSmsParser) {
     this.story.add_chapter("Add sms parser", parser);
     await this.state.core_harness.add_sms_parser(parser);
+  }
+
+  /**
+   * Change status fo the payin/payout via core manage
+   */
+  async core_change_status(token: string, status: PrimeBusinessStatus) {
+    let feed = await this.get_feed(token);
+    this.story.add_chapter("Change status via core manage", `${token} ${status}`);
+    await this.state.core_harness.change_status(feed.id, status);
   }
 
   /**

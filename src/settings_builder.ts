@@ -19,6 +19,7 @@ export type CommonSettingsParams = {
 
 export type SettingsOpts = {
   convert_to?: boolean;
+  skip_processing_url?: boolean;
 };
 
 /**
@@ -47,6 +48,7 @@ export function providers<T extends CommonSettingsParams>(
     gateways: {
       gateway,
       allow_host2host: true,
+      skip_processing_url: opts?.skip_processing_url,
     },
   };
 }
@@ -74,6 +76,7 @@ export function defaultSettings(
     gateways: {
       gateway,
       allow_host2host: true,
+      skip_processing_url: opts?.skip_processing_url,
     },
   };
 }

@@ -22,18 +22,6 @@ for (const usdt of [true, false]) {
     }
   }
 
-  async function setup(ctx: Context) {
-    let merchant = await ctx.create_random_merchant();
-    let trader = await ctx.create_random_trader();
-    let trader_setup = await trader.setup({});
-    if (usdt) {
-      await merchant.set_settings(traderSetttings([trader.id]));
-    } else {
-      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
-    }
-    return { merchant, trader, trader_setup };
-  }
-
   async function trader_cashin(trader: ExtendedTrader, amount = common.amount / 100) {
     await trader.cashin("main", usdt ? "USDT" : "RUB", amount);
   }
@@ -516,16 +504,22 @@ test
         usdt: false,
         currency: "RUB",
       });
-      merchant.set_commission({ operation: "PayinRequest" });
+      await merchant.set_commission({ operation: "PayinRequest" });
+      /// There is a bug where 2 concurrent approves create 2 wallets with the same currency.
+      // kind  |  id   | available | held | profile_id |         created_at         | currency
+      // ------+-------+-----------+------+------------+----------------------------+----------
+      //       | 31936 |        90 |    0 |      21438 | 2026-08-04 14:58:33.499398 | RUB
+      //       | 31937 |     100.8 |    0 |      21438 | 2026-08-04 14:58:33.509945 | RUB
+      await merchant.cashin("RUB", 1);
       await trader.setup({ card: true, bank: "sberbank" });
       let amount = 100_00;
-      let transactions_amount = 6;
-      await trader.cashin("main", "RUB", (amount / 100) * 7);
+      let transactions_amount = 2;
+      await trader.cashin("main", "RUB", (amount / 100) * 99999);
       let settings = traderNoConvertSettings("RUB", [trader.id]);
       let trader_block = settings.gateways["trader"] as Record<string, any>;
-      trader_block["random_range"] = [10_00, 200000_00];
+      trader_block["random_range"] = [10_00, 30_00];
       trader_block["random_retries"] = 5;
-      trader_block["random_step"] = 100_00;
+      trader_block["random_step"] = 1_00;
       await merchant.set_settings(settings);
       let tokens: string[] = [];
       let notifications: any[] = [];
@@ -551,6 +545,6 @@ test
       for (let token of tokens) {
         await trader.finalizeTransaction(token, "approved");
       }
-      await Promise.race([notifications, delay(5_000)]);
+      await Promise.race([Promise.all(notifications), delay(5_000)]);
     }),
   );

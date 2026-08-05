@@ -21,7 +21,7 @@ import { test } from "@/test_context";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
 import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
-import type { Requisite } from "@/driver/trader";
+import type { Bank, Requisite } from "@/driver/trader";
 import { CheckoutCardForm } from "@/pages/checkout_card_form";
 import type * as playwright from "playwright";
 import { delay } from "@std/async";
@@ -60,6 +60,7 @@ let MAP: Record<GcRequisiteType, string> = {
   deeplink: "sbp_aquiring",
   tpay: "tpay",
   tpay_qr_data: "tpay",
+  account: "account",
 };
 
 let providersP2PSuite = () => providersSuite("RUB", payinSuite());
@@ -383,7 +384,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
 });
 
 describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
-  let formRequisitesP2PSuite = (requisite: GcRequisiteType) => {
+  let formRequisitesP2PSuite = (requisite: GcRequisiteType, custom_payform?: string) => {
     const MAP: Record<GcRequisiteType, Requisite> = {
       card: "card",
       deeplink: "link",
@@ -391,6 +392,7 @@ describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
       sbp: "sbp",
       tpay: "link",
       tpay_qr_data: "link",
+      account: "account",
     };
     let suite = payinSuite();
     return providersSuite("RUB", {
@@ -410,6 +412,7 @@ describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
       settings: (s) => ({
         ...suite.settings(s),
         wrapped_to_json_response: true,
+        custom_payform,
       }),
     }) as P2PSuite<GatewayConnectTransaction>;
   };
@@ -678,6 +681,82 @@ payformDataFlowTest(
   },
   { browser_url_target: "processingUrl" },
 );
+
+describe.runIf(CONFIG.in_project(["reactivepay"])).skip("rp 1xbet", () => {
+  type SuiteConfig = {
+    gw_bank: string;
+    gw_requisite: GcRequisiteType;
+    request_requisite: Requisite;
+    request_bank: Bank | {};
+    locale?: string;
+  };
+  function customPayformSuite(config: SuiteConfig): P2PSuite<GatewayConnectTransaction> {
+    let suite = payinSuite();
+    return providersSuite("RUB", {
+      ...suite,
+      create_handler(s) {
+        return this.gw.requisites_payin_handler(s, config.gw_requisite, {
+          bank: config.gw_bank,
+          qr_data: common.redirectPayUrl,
+        });
+        // return this.gw.error_handler("Requisite was not found");
+      },
+      request: () => ({
+        ...suite.request(),
+        bank_account: { requisite_type: config.request_requisite, bank_name: config.request_bank },
+        ...(config.locale ? { locale: config.locale } : {}),
+      }),
+      settings: (s) => ({
+        ...suite.settings(s),
+        wrapped_to_json_response: true,
+        custom_payform: "1xbet",
+      }),
+    }) as P2PSuite<GatewayConnectTransaction>;
+  }
+  // for (let requisite of ["card", "sbp"] as const) {
+  //   for (let gw_bank of [
+  //     "sber",
+  //     "vtb",
+  //     "alfa",
+  //     "tbank",
+  //     "ozon",
+  //     "gazprom",
+  //     "raif",
+  //     "otkritie",
+  //     "rosbank",
+  //     "rshb",
+  //     "uralsib",
+  //     "akbars",
+  //     "ubrir",
+  //     "mts",
+  //     "sinara",
+  //     "solidarnost",
+  //     "orenburg",
+  //     "default",
+  //   ]) {
+  //     payformDataFlowTest(`1xbet payform test ${requisite}, ${gw_bank}`, {
+  //       ...customPayformSuite({
+  //         gw_requisite: requisite,
+  //         request_requisite: requisite,
+  //         gw_bank: "hoopla_bank",
+  //         request_bank: gw_bank,
+  //         locale: "ru",
+  //       }),
+  //       check_pf_page(page) {},
+  //     });
+  //   }
+  // }
+  payformDataFlowTest(`1xbet payform test (only) `, {
+    ...customPayformSuite({
+      gw_requisite: "card",
+      request_requisite: "card",
+      gw_bank: "sber",
+      request_bank: "sber",
+      locale: "ru",
+    }),
+    check_pf_page(page) {},
+  });
+});
 
 describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay locale", () => {
   function localeCardSuite(locale?: string): P2PSuite<GatewayConnectTransaction> {
@@ -1446,6 +1525,45 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
   ) as P2PSuite<GatewayConnectTransaction>;
 }
 
+test.skip("test gateway connect payin2", ({ ctx }) =>
+  ctx.track_bg_rejections(async () => {
+    let gw_suite = payinSuite("INR");
+    let new_amount = 2000000;
+    let suite = providersSuite("INR", {
+      ...gw_suite,
+      settings: (s) => ({
+        ...gw_suite.settings(s),
+        enable_change_final_status: true,
+        enable_update_amount: true,
+      }),
+    });
+    let merchant = await ctx.create_random_merchant();
+    await merchant.set_commission();
+    await merchant.set_settings(suite.settings(ctx.uuid));
+    let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+    let provider_request = provider.queue(
+      suite.gw.requisites_payin_handler("pending", "account", { amount: new_amount }),
+    );
+
+    let status_request = provider.queue(suite.gw.status_handler("approved", new_amount));
+
+    let response = await merchant
+      .create_payment(common.p2pPaymentRequest("INR", "account"))
+      .then((r) => r.followFirstProcessingUrl())
+      .then((r) => r.as_trader_requisites());
+
+    await provider_request;
+
+    let notification = merchant.queue_notification(
+      (cb) => {
+        assert.strictEqual(cb.status, "approved");
+      },
+      { skip_interaction_log_card_check: true },
+    );
+
+    await status_request;
+    await notification;
+  }));
 test.skip("test gateway connect payin", ({ ctx }) =>
   ctx.track_bg_rejections(async () => {
     let suite = h2hSuite();
