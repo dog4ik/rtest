@@ -57,7 +57,7 @@ async function setupSuccessfulTransaction(ctx: Context) {
   return await setupTransaction(ctx, true);
 }
 
-function queueDisputeNotifiactions(
+function queueDisputeNotifications(
   merchant: ExtendedMerchant,
   success: boolean,
 ) {
@@ -87,7 +87,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         madsolution.queue(payment.create_dispute_handler());
         madsolution.queue(payment.dispute_status_handler("APPROVED"));
 
-        let notifications = queueDisputeNotifiactions(merchant, true);
+        let notifications = queueDisputeNotifications(merchant, true);
 
         await merchant.create_dispute({
           token: init_response.token,
@@ -113,7 +113,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         madsolution.queue(payment.create_dispute_handler());
         madsolution.queue(payment.dispute_status_handler("REJECTED"));
 
-        let notifications = queueDisputeNotifiactions(merchant, false);
+        let notifications = queueDisputeNotifications(merchant, false);
 
         await merchant.create_dispute({
           token: init_response.token,
@@ -139,7 +139,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("REJECTED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, false);
+      let notifications = queueDisputeNotifications(merchant, false);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -171,7 +171,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("APPROVED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -204,7 +204,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("APPROVED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -256,7 +256,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await delay(CALLBACK_DELAY);
           await payment.send_dispute_callback("APPROVED", 654321);
         });
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -292,7 +292,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await delay(CALLBACK_DELAY);
           await payment.send_dispute_callback("APPROVED", 654321);
         });
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -335,7 +335,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("APPROVED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       let res = await merchant.create_dispute({
         token: init_response.token,
@@ -370,7 +370,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("APPROVED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, true);
+      let notifications = queueDisputeNotifications(merchant, true);
 
       await merchant.create_dispute({
         token: init_response.token,
@@ -411,9 +411,9 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         payment.create_dispute_handler(),
       );
 
-      merchant.queue_notification((notifiaction) => {
-        assert.strictEqual(notifiaction.type, "dispute");
-        assert.strictEqual(notifiaction.status, "pending");
+      merchant.queue_notification((notification) => {
+        assert.strictEqual(notification.type, "dispute");
+        assert.strictEqual(notification.status, "pending");
       });
       await merchant.create_dispute({
         token: init_response.token,
@@ -424,7 +424,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         assert.strictEqual(
           notification.type,
           "dispute",
-          "merhant should get dispute notification, not updated transaction status",
+          "merchant should get dispute notification, not updated transaction status",
         );
         assert.strictEqual(notification.status, "approved");
       });
@@ -457,7 +457,7 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
           await payment.send_dispute_callback("APPROVED");
         });
 
-      let notifications = queueDisputeNotifiactions(merchant, false);
+      let notifications = queueDisputeNotifications(merchant, false);
       await merchant.create_dispute({
         token: init_response.token,
         file_path: assets.PngImgPath,

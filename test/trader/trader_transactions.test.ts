@@ -4,7 +4,7 @@ import * as assets from "@/assets";
 import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
 import type { CreateTraderOptions } from "@/driver/core";
-import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
+import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
 import { test } from "@/test_context";
@@ -15,7 +15,7 @@ for (const usdt of [true, false]) {
   let opts: CreateTraderOptions = { usdt, payout_hold_period: 0 };
   async function setup_merchant(merchant: ExtendedMerchant, trader_id: number) {
     if (usdt) {
-      await merchant.set_settings(traderSetttings([trader_id]));
+      await merchant.set_settings(traderSettings([trader_id]));
     } else {
       await merchant.set_settings(traderNoConvertSettings("RUB", [trader_id]));
     }

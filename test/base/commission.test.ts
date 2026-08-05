@@ -128,11 +128,11 @@ test
       currency: "RUB",
     });
 
-    let approveNotifiaction = merchant.queue_notification((n) => {
+    let approveNotification = merchant.queue_notification((n) => {
       assert.strictEqual(n.status, "approved");
     });
     let refund_notifications =
-      merchant.queue_refund_or_pay_notifictation("approved");
+      merchant.queue_refund_or_pay_notification("approved");
 
     let res = await merchant.create_payment(
       default_provider.request("RUB", common.amount, "pay", true),
@@ -140,7 +140,7 @@ test
     assert.strictEqual(res.payment.status, "approved");
 
     let refundRes = await merchant.create_refund({ token: res.token });
-    await approveNotifiaction;
+    await approveNotification;
     await refund_notifications;
 
     let originalFeed = await ctx.get_feed(res.token);
@@ -171,11 +171,11 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
     currency: "RUB",
   });
 
-  let approveNotifiaction = merchant.queue_notification((n) => {
+  let approveNotification = merchant.queue_notification((n) => {
     assert.strictEqual(n.status, "approved");
   });
   let refund_notifications =
-    merchant.queue_refund_or_pay_notifictation("approved");
+    merchant.queue_refund_or_pay_notification("approved");
 
   let res = await merchant.create_payment(
     default_provider.request("RUB", common.amount, "pay", true),
@@ -183,7 +183,7 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
   assert.strictEqual(res.payment.status, "approved");
 
   let refundRes = await merchant.create_refund({ token: res.token });
-  await approveNotifiaction;
+  await approveNotification;
   await refund_notifications;
 
   let originalFeed = await ctx.get_feed(res.token);
@@ -227,7 +227,7 @@ test.concurrent("commission with convert_to", async ({ ctx }) => {
   });
 
   // merchant should get 3 notifications
-  let approveNotifiaction = merchant.queue_notification((n) => {
+  let approveNotification = merchant.queue_notification((n) => {
     assert.strictEqual(n.status, "approved");
   });
 
@@ -264,5 +264,5 @@ test.concurrent("commission with convert_to", async ({ ctx }) => {
 
   assert.strictEqual(wallet.held, 0);
 
-  await approveNotifiaction;
+  await approveNotification;
 });

@@ -2,7 +2,7 @@ import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { traderSetttings } from "@/driver/trader";
+import { traderSettings } from "@/driver/trader";
 import { test } from "@/test_context";
 
 const TRADER_DELAY = 5_000;
@@ -38,7 +38,7 @@ describe
           agent_rate: "2",
         });
 
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
         await trader.cashin("main", "USDT", AMOUNT_USD * 3);
 
         // Healthcheck runs inside queue_notification: the `expect` object asserts

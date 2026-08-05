@@ -65,7 +65,7 @@ async function finalizeTransaction(
 
   if (feed.type === "PayoutRequest") {
     if (status === "approved") {
-      await this.driver.upload_reciept(feed.id);
+      await this.driver.upload_receipt(feed.id);
     } else {
       await this.driver.decline_transaction(feed.id);
     }

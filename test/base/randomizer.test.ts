@@ -129,11 +129,11 @@ class RandomizerTester {
       let amount_delta = amount - common.amount;
       assert(
         amount_delta >= 0,
-        `randomized amount sholud positive, got ${amount_delta}`,
+        `randomized amount should positive, got ${amount_delta}`,
       );
       assert(
         amount_delta % this.settings?.random_step === 0,
-        `randomized amount should multiple of step (random_amound % random_step === 0), got ${amount_delta} (step ${this.settings?.random_step})`,
+        `randomized amount should multiple of step (random_amount % random_step === 0), got ${amount_delta} (step ${this.settings?.random_step})`,
       );
     }
   }

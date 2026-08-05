@@ -215,7 +215,7 @@ test
         await transaction_notification;
 
         let refund_notifications =
-          merchant.queue_refund_or_pay_notifictation("approved");
+          merchant.queue_refund_or_pay_notification("approved");
 
         royalpay
           .queue(payment.create_refund_handler("pending"))
@@ -249,7 +249,7 @@ test
         assert.strictEqual(
           w.held,
           0,
-          "held should be empty afetr secusseful refund",
+          "held should be empty after secusseful refund",
         );
       });
     },

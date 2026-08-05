@@ -3,7 +3,7 @@ import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import type { CreateTraderOptions } from "@/driver/core";
-import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
+import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
@@ -297,7 +297,7 @@ describe
           agent_rate: "2".toString(),
           comment: "trader with commission",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let payout = await merchant
           .create_payout(payoutRequest())
@@ -369,7 +369,7 @@ describe
         });
         await trader.setup({ card: true, bank: "sberbank" });
         await merchant.cashin("USDT", MERCHANT_CASHIN);
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 
@@ -473,7 +473,7 @@ describe
           self_rate: "10",
           provider_rate: "0",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 
@@ -573,7 +573,7 @@ describe
           self_rate: "10",
           provider_rate: "5",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 
@@ -682,7 +682,7 @@ describe
             agent_id: agent.id.toString(),
             agent_rate: "2",
           });
-          await merchant.set_settings(traderSetttings([trader.id]));
+          await merchant.set_settings(traderSettings([trader.id]));
 
           let core = ctx.shared_state().core_harness;
 
@@ -736,7 +736,7 @@ describe
             self_rate: "10",
             provider_rate: "5",
           });
-          await merchant.set_settings(traderSetttings([trader.id]));
+          await merchant.set_settings(traderSettings([trader.id]));
 
           let core = ctx.shared_state().core_harness;
 
@@ -837,7 +837,7 @@ describe
             self_rate: "10",
             provider_rate: "5",
           });
-          await merchant.set_settings(traderSetttings([trader.id]));
+          await merchant.set_settings(traderSettings([trader.id]));
 
           let core = ctx.shared_state().core_harness;
 
@@ -943,7 +943,7 @@ describe
           agent_id: agent.id.toString(),
           agent_rate: "2",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 
@@ -1000,7 +1000,7 @@ describe
           self_rate: "10",
           provider_rate: "5",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 
@@ -1102,7 +1102,7 @@ describe
           self_rate: "10",
           provider_rate: "5",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let core = ctx.shared_state().core_harness;
 

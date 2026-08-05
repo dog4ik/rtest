@@ -5,7 +5,7 @@ import type { Context } from "@/test_context/context";
 import { ErrorResponse } from "./error_response";
 
 // Legacy 8pay format schema
-// export const EightpayRequesiteSchema = z.object({
+// export const EightpayRequisiteSchema = z.object({
 //   id: z.string().nonempty(),
 //   pan: z.string().nonempty(),
 //   name_seller: z.string(),
@@ -14,7 +14,7 @@ import { ErrorResponse } from "./error_response";
 //   support_bank_native: z.record(z.string(), z.string()).optional(),
 // });
 
-export const EightpayRequesiteSchema = z.object({
+export const EightpayRequisiteSchema = z.object({
   id: z.string().nonempty(),
   pan: z.string().nonempty(),
   name_seller: z.string(),
@@ -126,7 +126,7 @@ export class ProcessingUrlResponse {
   async as_8pay_requisite() {
     let json = await this.consume_json_body();
     assert.strictEqual(this.response.status, 200, "success status");
-    let response = EightpayRequesiteSchema.safeParse(json);
+    let response = EightpayRequisiteSchema.safeParse(json);
 
     assert(
       response.success,

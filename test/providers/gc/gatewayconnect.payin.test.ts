@@ -1398,7 +1398,7 @@ describe.concurrent("gateway connect refund", () => {
 
       provider.queue(suite.gw.refund_handler("approved"));
       let merchant_refund_notification =
-        merchant.queue_refund_or_pay_notifictation("approved", {
+        merchant.queue_refund_or_pay_notification("approved", {
           skip_interaction_log_card_check: true,
         });
 
@@ -1439,7 +1439,7 @@ describe.concurrent("gateway connect refund", () => {
 
       provider.queue(suite.gw.refund_handler("approved"));
       let merchant_refund_notification =
-        merchant.queue_refund_or_pay_notifictation("approved", {
+        merchant.queue_refund_or_pay_notification("approved", {
           skip_interaction_log_card_check: true,
         });
       await delay(500);
@@ -1483,7 +1483,7 @@ describe.concurrent("gateway connect refund", () => {
 
       provider.queue(suite.gw.refund_handler("pending"));
       let merchant_refund_notification =
-        merchant.queue_refund_or_pay_notifictation("declined", {
+        merchant.queue_refund_or_pay_notification("declined", {
           skip_interaction_log_card_check: true,
         });
 
@@ -1524,7 +1524,7 @@ describe.concurrent("gateway connect refund", () => {
 
       provider.queue(suite.gw.refund_handler("pending"));
       let merchant_refund_notification =
-        merchant.queue_refund_or_pay_notifictation("declined", {
+        merchant.queue_refund_or_pay_notification("declined", {
           skip_interaction_log_card_check: true,
         });
 

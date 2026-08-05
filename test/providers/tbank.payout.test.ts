@@ -126,7 +126,7 @@ describe
         });
       });
 
-      test.concurrent("tbank card status pending if status unkown error", async ({
+      test.concurrent("tbank card status pending if status unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {
@@ -153,7 +153,7 @@ describe
         });
       });
 
-      test.concurrent("tbank card payout pending if unkown error", async ({
+      test.concurrent("tbank card payout pending if unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {
@@ -179,7 +179,7 @@ describe
         });
       });
 
-      test.concurrent("tbank card get_customer pending if unkown error", async ({
+      test.concurrent("tbank card get_customer pending if unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {
@@ -245,7 +245,7 @@ describe
         });
       });
 
-      test.concurrent("tbank card init pending if unkown error", async ({
+      test.concurrent("tbank card init pending if unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {
@@ -403,7 +403,7 @@ describe
         });
       });
 
-      test.concurrent("tbank sbp init pending if unkown error", async ({
+      test.concurrent("tbank sbp init pending if unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {
@@ -425,7 +425,7 @@ describe
         });
       });
 
-      test.concurrent("tbank sbp payout pending if unkown error", async ({
+      test.concurrent("tbank sbp payout pending if unknown error", async ({
         ctx,
       }) => {
         await ctx.track_bg_rejections(async () => {

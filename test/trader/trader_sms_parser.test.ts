@@ -4,7 +4,7 @@ import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import type { CreateSmsParser } from "@/driver/core";
-import { type Requisite, traderSetttings } from "@/driver/trader";
+import { type Requisite, traderSettings } from "@/driver/trader";
 import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
 
@@ -22,7 +22,7 @@ async function setup_trader_with_bank(ctx: Context) {
   let merchant = await ctx.create_random_merchant();
   let trader = await ctx.create_random_trader({ usdt: true });
   await trader.cashin("main", "USDT", common.amount);
-  await merchant.set_settings(traderSetttings([trader.id]));
+  await merchant.set_settings(traderSettings([trader.id]));
   let setup = await trader.setup({
     bank: bank.system_name,
     card: true,
@@ -623,7 +623,7 @@ describe
   .todo("INR sms parser (surname mess)", () => {
     // The known limitation where only first letter of second name is used. Thus different second name that starts on the same letter finalizes transaction
     test_new_bank_sms(
-      "different last name starts with the same character (tests implementation limitation, idealy test should fail)",
+      "different last name starts with the same character (tests implementation limitation, ideally test should fail)",
       {
         requisite_type: "card",
         request_currency: "INR",

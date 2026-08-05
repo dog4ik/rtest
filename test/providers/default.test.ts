@@ -60,7 +60,7 @@ test.concurrent("default approved refund", async ({ ctx }) => {
 
   await merchant.set_settings(default_provider.fullSettings("RUB"));
   await merchant.cashin("RUB", common.amount / 100);
-  let approve_notifiaction = merchant.queue_notification((c) => {
+  let approve_notification = merchant.queue_notification((c) => {
     assert.strictEqual(c.type, "pay");
     assert.strictEqual(c.status, "approved");
   });
@@ -68,10 +68,10 @@ test.concurrent("default approved refund", async ({ ctx }) => {
     default_provider.request("RUB", common.amount, "pay", true),
   );
   assert(response.payment?.status === "approved");
-  await approve_notifiaction;
+  await approve_notification;
 
   let refund_notifications =
-    merchant.queue_refund_or_pay_notifictation("approved");
+    merchant.queue_refund_or_pay_notification("approved");
   await merchant.create_refund({ token: response.token });
   await refund_notifications;
 });
@@ -93,7 +93,7 @@ test.concurrent("default approved partial refund with commission 2", async ({
     operation: "RefundRequest",
   });
 
-  let approve_notifiaction = merchant.queue_notification((c) => {
+  let approve_notification = merchant.queue_notification((c) => {
     assert.strictEqual(c.type, "pay");
     assert.strictEqual(c.status, "approved");
   });
@@ -101,7 +101,7 @@ test.concurrent("default approved partial refund with commission 2", async ({
     default_provider.request("RUB", amount, "pay", true),
   );
   assert(response.payment?.status === "approved");
-  await approve_notifiaction;
+  await approve_notification;
 
   await merchant.create_refund({
     token: response.token,

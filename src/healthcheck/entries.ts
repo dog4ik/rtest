@@ -314,7 +314,7 @@ export function expected_trader_state(
   income: EntryValidator,
   deposit: EntryValidator,
   target_amount: number,
-  comission_amount: number,
+  commission_amount: number,
   type: FeedType,
   status: CoreStatus,
   amount_in_hold: number | undefined,
@@ -363,7 +363,7 @@ export function expected_trader_state(
         : 0;
     let main_expected_hold = status === CoreStatusMap.init ? target_amount : 0;
     let income_expected_available =
-      status === CoreStatusMap.approved ? comission_amount : 0;
+      status === CoreStatusMap.approved ? commission_amount : 0;
     return exact(
       [main_expected_available, main_expected_hold],
       [income_expected_available, 0],
@@ -377,7 +377,7 @@ export function expected_trader_state(
       // Profit wallet commission is not being held, for simplity.
       return exact([0, target_amount], [0, 0]);
     } else if (status === CoreStatusMap.approved) {
-      return exact([target_amount, 0], [comission_amount, 0]);
+      return exact([target_amount, 0], [commission_amount, 0]);
     } else if (status === CoreStatusMap.declined) {
       // The decline reverses the approval credits (payout amount from main,
       // provider commission from income), but each reversal may be drawn
@@ -388,12 +388,12 @@ export function expected_trader_state(
           new Match(0, main_hold),
         ),
         new BalanceValidation(
-          new RangeMatch(0, comission_amount, income_available),
+          new RangeMatch(0, commission_amount, income_available),
           new Match(0, income_hold),
         ),
         new BalanceValidation(
           new RangeMatch(
-            -(target_amount + comission_amount),
+            -(target_amount + commission_amount),
             0,
             deposit_available,
           ),
@@ -415,14 +415,14 @@ export function expected_trader_state(
           new Match(0, main_hold),
         ),
         new BalanceValidation(
-          new Match(comission_amount, income_available),
+          new Match(commission_amount, income_available),
           new Match(0, income_hold),
         ),
         new BalanceValidation(
           new RangeMatch(-target_amount, 0, deposit_available),
           new Match(0, deposit_hold),
         ),
-        new Match(-target_amount + comission_amount, sum_available),
+        new Match(-target_amount + commission_amount, sum_available),
         new Match(0, sum_hold),
       );
     } else if (status === CoreStatusMap.declined) {

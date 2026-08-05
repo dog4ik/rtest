@@ -482,7 +482,7 @@ export class GatewayConnectTransaction {
 
       return c.json({
         result: false,
-        error: message ?? "Test faiure",
+        error: message ?? "Test failure",
         logs: [],
       } as GwConnectError);
     };

@@ -1,6 +1,6 @@
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { traderSetttings } from "@/driver/trader";
+import { traderSettings } from "@/driver/trader";
 import { type ExtendedMerchant, extendMerchant } from "@/entities/merchant";
 import { type ExtendedTrader, extendTrader } from "@/entities/trader";
 import { initState, type SharedState } from "@/state";
@@ -77,7 +77,7 @@ export async function setupPlayground(): Promise<PlaygroundEnv> {
     } else {
       merchant = await ctx.create_random_merchant({ email });
       await merchant.set_settings(
-        traderSetttings(
+        traderSettings(
           traderGroups[i].map((t) => t.id),
           { pay_expired_minutes: 1 },
         ),

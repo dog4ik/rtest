@@ -51,7 +51,7 @@ const PAYIN_REQUEST_SCHEMA = z.object({
   signature: z.string(),
 });
 
-const STATUS_REQUSET_SCHEMA = z.object({
+const STATUS_REQUEST_SCHEMA = z.object({
   apiVersion: z.literal("1.0.1"),
   mId: z.string(),
   maId: z.string(),
@@ -177,7 +177,7 @@ export class ArgosPayment {
     return async (c) => {
       assert.strictEqual(c.req.method, "POST");
       assert.strictEqual(c.req.path, "/FE/rest/tx/getStatus");
-      let req = STATUS_REQUSET_SCHEMA.parse(await c.req.json());
+      let req = STATUS_REQUEST_SCHEMA.parse(await c.req.json());
       assert.strictEqual(req.txId, this.gateway_id);
       return c.json(this.status_response(status));
     };

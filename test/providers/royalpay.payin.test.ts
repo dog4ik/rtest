@@ -54,7 +54,7 @@ describe
         });
 
         let refund_notifications =
-          merchant.queue_refund_or_pay_notifictation("approved");
+          merchant.queue_refund_or_pay_notification("approved");
 
         let result = await merchant.create_payment(cardSuite().request());
         assert.strictEqual(result.payment.status, "pending");

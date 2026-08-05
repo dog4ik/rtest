@@ -65,7 +65,7 @@ export class ProviderAdapter<G = unknown> {
   queue_merchant_notification(
     status: PrimeBusinessStatus,
     type?: string,
-    check?: (notifiaction: Notification, c: HttpContext) => void,
+    check?: (notification: Notification, c: HttpContext) => void,
   ): Promise<unknown> {
     return this.merchant.queue_notification((n, c) => {
       assert.strictEqual(n.status, status, "merchant notification status");

@@ -308,7 +308,7 @@ test
         assert.strictEqual(
           n.status,
           "approved",
-          "merchant should get approved notifaction",
+          "merchant should get approved notification",
         );
       });
 
@@ -334,6 +334,6 @@ test
 
 describe
   .runIf(CONFIG.extra_mapping?.manypay)
-  .concurrent("concurrent calbacks", () => {
+  .concurrent("concurrent callbacks", () => {
     concurrentCallbackSuite(manypaySuite);
   });

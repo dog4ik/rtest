@@ -113,7 +113,7 @@ export class CoreOfficeDriver {
     await this.action("/auth/login", form);
   }
 
-  async create_settlment(currency: string, amount: number) {
+  async create_settlement(currency: string, amount: number) {
     let form = {
       currency_code: currency,
       amount: amount.toString(),

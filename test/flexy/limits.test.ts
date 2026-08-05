@@ -27,7 +27,7 @@ class LimitTester {
     this.merchant = await this.ctx.create_random_merchant();
     await this.ctx.add_flexy_guard_rule(
       rule(this.merchant.id),
-      "Limite tester rule",
+      "Limit tester rule",
     );
     await this.merchant.set_settings(
       defaultSettings(CURRENCY, JusanPayment.settings(this.uuid)),

@@ -109,7 +109,7 @@ const FeedFields = {
   agent_commission_fee: z.coerce.number().nullish(),
 };
 
-const AGENT_COLUMMNS = [
+const AGENT_COLUMNS = [
   "agent_id",
   "agent_commission_amount",
   "agent_commission_value",
@@ -121,7 +121,7 @@ export type Feed = z.infer<typeof FeedSchema>;
 export const FeedQuery = sqlProjection("feeds", FeedSchema, (project) => {
   let filter: string[] = [];
   if (!["reactivepay", "a2"].includes(project)) {
-    filter.push(...AGENT_COLUMMNS);
+    filter.push(...AGENT_COLUMNS);
     filter.push("amount_in_hold");
   }
   return filter;

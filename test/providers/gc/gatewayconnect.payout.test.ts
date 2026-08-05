@@ -29,7 +29,7 @@ callbackFinalizationSuite(ecomSuite, { tag: "ecom" });
 statusFinalizationSuite(ecomSuite, { tag: "ecom" });
 payoutPendingSuite(ecomSuite(), { tag: "ecom" });
 
-test.concurrent("gatewayconnect payout no balance for comission", ({ ctx }) =>
+test.concurrent("gatewayconnect payout no balance for commission", ({ ctx }) =>
   ctx.track_bg_rejections(async () => {
     let suite = providersSuite("RUB", payoutSuite());
     let merchant = await ctx.create_random_merchant();

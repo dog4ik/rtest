@@ -18,7 +18,7 @@ export class ProviderInstance {
 
   /**
    * Enqueue provider handler
-   * @returns {Promise} Promise that is resoved when the handler was called.
+   * @returns {Promise} Promise that is resolved when the handler was called.
    */
   queue(handler: Handler): Promise<unknown> {
     let { promise, resolve, reject } = Promise.withResolvers();

@@ -2,7 +2,7 @@ import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { PROJECT } from "@/config";
-import { EightpayRequesiteSchema } from "@/entities/payment/processing_url_response";
+import { EightpayRequisiteSchema } from "@/entities/payment/processing_url_response";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { MadsolutionPayment, payinSuite } from "@/provider_mocks/madsolution";
 import { providers } from "@/settings_builder";
@@ -127,7 +127,7 @@ describe
           ...common.paymentRequest(CURRENCY),
           extra_return_param: "card",
         });
-        let requisites = EightpayRequesiteSchema.parse(res.json);
+        let requisites = EightpayRequisiteSchema.parse(res.json);
         assert.strictEqual(requisites.pan, common.visaCard);
         assert.strictEqual(requisites.name_seller, common.fullName);
       }));

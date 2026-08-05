@@ -17,7 +17,7 @@ describe.concurrent("settlement basics", () => {
       password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
-    await office.create_settlment("RUB", 100);
+    await office.create_settlement("RUB", 100);
     await delay(SETTLEMENT_DELAY);
     let wallets = await merchant.wallets();
     let settlements = await merchant.settlements();
@@ -26,7 +26,7 @@ describe.concurrent("settlement basics", () => {
     assert.strictEqual(
       wallet.held,
       100,
-      "hold should have the settelment amount",
+      "hold should have the settlement amount",
     );
     assert(wallets.length === 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
@@ -47,7 +47,7 @@ describe.concurrent("settlement basics", () => {
       password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
-    await office.create_settlment("RUB", 100);
+    await office.create_settlement("RUB", 100);
     await delay(SETTLEMENT_DELAY);
     let wallets = await merchant.wallets();
     let settlements = await merchant.settlements();
@@ -56,7 +56,7 @@ describe.concurrent("settlement basics", () => {
     assert.strictEqual(
       wallet.held,
       100,
-      "hold should have the settelment amount",
+      "hold should have the settlement amount",
     );
     assert(wallets.length === 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
@@ -76,7 +76,7 @@ describe.concurrent("settlement basics", () => {
       password: common.password,
     });
     await delay(SETTLEMENT_DELAY);
-    await office.create_settlment("RUB", 100);
+    await office.create_settlement("RUB", 100);
     await delay(SETTLEMENT_DELAY);
     let settlements = await merchant.settlements();
     assert.isEmpty(settlements, "settlements should net be created");
@@ -122,7 +122,7 @@ describe.concurrent("commission healthcheck settlements", () => {
       );
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
-      await office.create_settlment("RUB", AMOUNT_RUB);
+      await office.create_settlement("RUB", AMOUNT_RUB);
       await delay(SETTLEMENT_DELAY);
 
       let settlements = await merchant.settlements("RUB");
@@ -165,7 +165,7 @@ describe.concurrent("commission healthcheck settlements", () => {
       );
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
-      await office.create_settlment("RUB", AMOUNT_RUB);
+      await office.create_settlement("RUB", AMOUNT_RUB);
       await delay(SETTLEMENT_DELAY);
 
       let settlements = await merchant.settlements("RUB");
@@ -210,7 +210,7 @@ describe.concurrent("commission healthcheck settlements", () => {
       );
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
-      await office.create_settlment("RUB", AMOUNT_RUB);
+      await office.create_settlement("RUB", AMOUNT_RUB);
       await delay(SETTLEMENT_DELAY);
 
       let settlements = await merchant.settlements("RUB");

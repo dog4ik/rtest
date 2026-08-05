@@ -3,7 +3,7 @@ import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import type { CreateTraderOptions } from "@/driver/core";
-import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
+import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
 import { test } from "@/test_context";
@@ -30,7 +30,7 @@ describe
       if (usdt === true) {
         await trader.cashin("main", "USDT", AMOUNT_RUB);
         await merchant.set_settings(
-          traderSetttings([trader.id], { pay_expired_minutes }),
+          traderSettings([trader.id], { pay_expired_minutes }),
         );
       } else {
         await trader.cashin("main", "RUB", AMOUNT_RUB);
@@ -262,7 +262,7 @@ async function setup_payin(
   });
   await merchant.set_settings(
     opts.usdt
-      ? traderSetttings([trader.id])
+      ? traderSettings([trader.id])
       : traderNoConvertSettings("RUB", [trader.id]),
   );
   return trader;
@@ -383,7 +383,7 @@ describe
           agent_id: agent.id.toString(),
           agent_rate: "2",
         });
-        await merchant.set_settings(traderSetttings([trader.id]));
+        await merchant.set_settings(traderSettings([trader.id]));
 
         let token = await approved_payin(ctx, merchant, trader);
 

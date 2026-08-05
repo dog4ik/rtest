@@ -178,7 +178,7 @@ vitest.describe
           merchant.queue_notification((notification) => {
             vitest.assert.strictEqual(notification.status, "approved");
           }),
-          merchant.queue_refund_or_pay_notifictation("approved"),
+          merchant.queue_refund_or_pay_notification("approved"),
         ];
         let result = await merchant.create_payment({
           ...common.paymentRequest(CURRENCY),

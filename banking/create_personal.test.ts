@@ -2,7 +2,7 @@ import { faker } from "@faker-js/faker";
 import { delay } from "@std/async";
 import { test } from "@/test_context";
 
-test.concurrent("cerate personal account", { timeout: 60_000 }, async ({
+test.concurrent("create personal account", { timeout: 60_000 }, async ({
   ctx,
   browser,
 }) => {

@@ -265,7 +265,7 @@ export class TraderDriver {
     });
   }
 
-  async upload_reciept(id: number) {
+  async upload_receipt(id: number) {
     let file = await fs.readFile(assets.PngImgPath);
     return await this.client.POST("/api/feeds/{id}/upload", {
       params: { path: { id } },
@@ -290,7 +290,7 @@ export class TraderDriver {
   }
 }
 
-export function traderSetttings(
+export function traderSettings(
   list: number[],
   opts?: { pay_expired_minutes?: number },
 ) {

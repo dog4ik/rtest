@@ -276,7 +276,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     }
   }
 
-  function queue_refund_or_pay_notifictation(
+  function queue_refund_or_pay_notification(
     refund_status: PrimeBusinessStatus,
     options?: NotificationHandlerOptions,
   ) {
@@ -295,7 +295,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
           assert.strictEqual(
             notification.status,
             "refunded",
-            "payment should be refunded when refund succeded",
+            "payment should be refunded when refund succeeded",
           );
         } else {
           assert.strictEqual(
@@ -386,7 +386,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     create_dispute_err: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_error().as_common_error()),
     queue_notification,
-    queue_refund_or_pay_notifictation,
+    queue_refund_or_pay_notification,
     callbackUrl,
     set_commission,
     block_traffic,

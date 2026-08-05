@@ -4,7 +4,7 @@ const EXCLUDE = [
   "consider_all_requests_local",
 ];
 
-const SLASH_ATTECHED_GATEWAYS = ["paylonium_payout"];
+const SLASH_ATTACHED_GATEWAYS = ["paylonium_payout"];
 
 export const MAPPING_START_PORT = 64530;
 
@@ -148,7 +148,7 @@ export function patchProductionRb(contents: string): {
       patchedLines.push(
         config.getInternalHostLine(
           mapping.next_port,
-          SLASH_ATTECHED_GATEWAYS.includes(config.strippedConfigName()),
+          SLASH_ATTACHED_GATEWAYS.includes(config.strippedConfigName()),
         ),
       );
       mapping.insert(config.strippedConfigName());

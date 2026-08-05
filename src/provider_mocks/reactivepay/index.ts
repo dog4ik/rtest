@@ -388,7 +388,7 @@ export class ReactivepayTransaction {
     const url =
       this.payin_request_data.callback_url ||
       this.payin_request_data.callbackUrl;
-    assert(url, "mising callback url");
+    assert(url, "missing callback url");
     console.log("Sending reactivepay callback to", url, payload);
     await fetch(url, {
       method: "POST",
@@ -407,7 +407,7 @@ export class ReactivepayTransaction {
     const url =
       this.payin_request_data.callback_url ||
       this.payin_request_data.callbackUrl;
-    assert(url, "mising callback url");
+    assert(url, "missing callback url");
     console.log("Sending reactivepay callback to", url, payload);
     await fetch(url, {
       method: "POST",

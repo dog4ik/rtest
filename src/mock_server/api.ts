@@ -55,8 +55,8 @@ export function spawn_merchant_server(): MerchantServerInstance {
   const api = new Hono();
   let handlersMap: Map<number, Handler[]> = new Map();
 
-  api.all("/:merhant_id", async (c) => {
-    let handler = handlersMap.get(+c.req.param("merhant_id"))?.shift();
+  api.all("/:merchant_id", async (c) => {
+    let handler = handlersMap.get(+c.req.param("merchant_id"))?.shift();
     if (handler !== undefined) {
       return await handler(c);
     }
