@@ -1,8 +1,8 @@
-import { err_bad_status } from "@/fetch_utils";
 import * as encoding from "@std/encoding";
 import { CONFIG } from "@/config";
+import { err_bad_status } from "@/fetch_utils";
 export async function update_gateway(settings: Record<string, any>) {
-  let basic_auth = encoding.encodeBase64(`admin:admin`);
+  let _basic_auth = encoding.encodeBase64(`admin:admin`);
   await fetch(`${CONFIG.urls().business}/api/v1/gateway_settings`, {
     method: "POST",
     headers: {

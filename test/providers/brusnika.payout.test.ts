@@ -1,18 +1,17 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { BrusnikaPayout } from "@/provider_mocks/brusnika";
-import { payoutSuite } from "@/provider_mocks/brusnika";
+import { CONFIG } from "@/config";
+import { BrusnikaPayout, payoutSuite } from "@/provider_mocks/brusnika";
+import { defaultSettings, providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
-  statusFinalizationSuite,
-  defaultSuite,
-  providersSuite,
-  payoutPendingSuite,
   dataFlowTest,
+  defaultSuite,
+  payoutPendingSuite,
+  providersSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { defaultSettings, providers } from "@/settings_builder";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { CONFIG } from "@/config";
 
 const CURRENCY = "UZS";
 
@@ -20,8 +19,8 @@ let brusnikaDefaultSuite = () => {
   let suite = defaultSuite(CURRENCY, payoutSuite());
   let settings = (secret: string) => {
     let settings = suite.settings(secret);
-    settings.gateways["skip_card_payout_validation"] = true;
-    settings.gateways["skip_processing_url"] = true;
+    settings.gateways.skip_card_payout_validation = true;
+    settings.gateways.skip_processing_url = true;
     return settings;
   };
   let payoutRequest = common.payoutRequest("UZS");
@@ -45,7 +44,7 @@ let brusnikaProvidersSuite = () => {
   let suite = providersSuite(CURRENCY, payoutSuite());
   let settings = (secret: string) => {
     let settings = suite.settings(secret);
-    settings["payout_providers_card"] = true;
+    settings.payout_providers_card = true;
     return settings;
   };
   let payoutRequest = common.payoutRequest("UZS");
@@ -84,7 +83,7 @@ describe
           ...BrusnikaPayout.settings(ctx.uuid),
           wrapped_to_json_response: true,
         });
-        settings.gateways["skip_card_payout_validation"] = true;
+        settings.gateways.skip_card_payout_validation = true;
         await merchant.set_settings(settings);
         let brusnika = ctx.mock_server(
           BrusnikaPayout.mock_params_uzs(ctx.uuid),
@@ -127,8 +126,8 @@ describe
           ...BrusnikaPayout.settings(ctx.uuid),
           wrapped_to_json_response: true,
         });
-        settings["payout_providers_card"] = true;
-        settings["gateways"]["skip_processing_url"] = true;
+        settings.payout_providers_card = true;
+        settings.gateways.skip_processing_url = true;
         await merchant.set_settings(settings);
         let brusnika = ctx.mock_server(
           BrusnikaPayout.mock_params_uzs(ctx.uuid),
@@ -153,19 +152,16 @@ describe
             ip: common.ip,
             first_name: common.firstName,
             last_name: common.lastName,
-            phone: "+" + common.phoneNumber,
+            phone: `+${common.phoneNumber}`,
           },
         });
         let raw_response = response.as_p2p_ok();
         assert(raw_response.payment);
-        assert.strictEqual(raw_response.payment["amount"], common.amount);
-        assert.strictEqual(raw_response.payment["currency"], "UZS");
-        assert.strictEqual(
-          raw_response.payment["gateway_amount"],
-          common.amount,
-        );
-        assert.strictEqual(raw_response.payment["gateway_currency"], "UZS");
-        assert.strictEqual(raw_response.payment["status"], "pending");
+        assert.strictEqual(raw_response.payment.amount, common.amount);
+        assert.strictEqual(raw_response.payment.currency, "UZS");
+        assert.strictEqual(raw_response.payment.gateway_amount, common.amount);
+        assert.strictEqual(raw_response.payment.gateway_currency, "UZS");
+        assert.strictEqual(raw_response.payment.status, "pending");
       });
     });
 

@@ -184,7 +184,7 @@ export function readProductionRb(contents: string): Map<string, number> {
       let url = config.urlParsed();
       if (url.hostname === "host.docker.internal") {
         if (url.port) {
-          mapping.set(config.strippedConfigName(), parseInt(url.port));
+          mapping.set(config.strippedConfigName(), parseInt(url.port, 10));
         } else {
           console.error(`docker host without port: ${url}`);
         }

@@ -1,6 +1,5 @@
 import * as playwright from "playwright";
-import { CONFIG } from "@/config";
-import { DEFAULT_CONFIG } from "@/config";
+import { CONFIG, DEFAULT_CONFIG } from "@/config";
 
 export async function createBrowser() {
   let chromium = playwright.chromium;

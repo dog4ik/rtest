@@ -1,5 +1,5 @@
-import type { TestCaseBase } from "@/suite_interfaces";
 import * as common from "@/common";
+import type { TestCaseBase } from "@/suite_interfaces";
 
 type OperationType = "pay" | "payout";
 

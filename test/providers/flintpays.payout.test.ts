@@ -1,13 +1,13 @@
+import { delay } from "@std/async";
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { providers } from "@/settings_builder";
-import { FlintpayOperation } from "@/provider_mocks/flintpays";
-import type { Context } from "@/test_context/context";
 import type { FlintpayStatus } from "@/provider_mocks/flintpays";
-import { delay } from "@std/async";
+import { FlintpayOperation } from "@/provider_mocks/flintpays";
+import { providers } from "@/settings_builder";
 import { CALLBACK_DELAY } from "@/suite_interfaces";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "TJS";
 
@@ -15,7 +15,7 @@ async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
   let merchant = await ctx.create_random_merchant();
   let settings = providers(CURRENCY, FlintpayOperation.settings(uuid));
-  settings.gateways["skip_card_payout_validation"] = true;
+  settings.gateways.skip_card_payout_validation = true;
   await merchant.set_settings(settings);
   await merchant.cashin(CURRENCY, 1234.56);
   let flintpays = ctx.mock_server(FlintpayOperation.mock_params(uuid));
@@ -41,62 +41,59 @@ vitest.describe
     ] as const;
 
     for (let [flintpay_status, rp_status] of CASES) {
-      test.concurrent(
-        `callback finalization to ${rp_status}`,
-        { timeout: 30_000 },
-        async ({ ctx }) => {
-          await ctx.track_bg_rejections(async () => {
-            let { merchant, flintpays, payout } = await setupMerchant(ctx);
-            flintpays
-              .queue(payout.create_response_handler("created"))
-              .then(async () => {
-                await delay(CALLBACK_DELAY);
-                await payout.send_callback(flintpay_status);
-              });
+      test.concurrent(`callback finalization to ${rp_status}`, {
+        timeout: 30_000,
+      }, async ({ ctx }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, flintpays, payout } = await setupMerchant(ctx);
+          flintpays
+            .queue(payout.create_response_handler("created"))
+            .then(async () => {
+              await delay(CALLBACK_DELAY);
+              await payout.send_callback(flintpay_status);
+            });
 
-            flintpays.queue(async (c) => {
-              return c.json(payout.status_response("created"));
-            });
-            let res = await merchant.create_payout(payoutRequest());
-            await res.followFirstProcessingUrl();
-            await merchant.queue_notification(async (notification) => {
-              vitest.assert.strictEqual(
-                notification.status,
-                rp_status,
-                "merchant notification status",
-              );
-            });
+          flintpays.queue(async (c) => {
+            return c.json(payout.status_response("created"));
           });
-        },
-      );
-
-      test.concurrent(
-        `status finalization to ${rp_status}`,
-        async ({ ctx }) => {
-          await ctx.track_bg_rejections(async () => {
-            let { merchant, flintpays, payout } = await setupMerchant(ctx);
-            flintpays.queue(async (c) => {
-              return c.json(
-                payout.create_response("created", await c.req.json()),
-              );
-            });
-
-            flintpays.queue((c) =>
-              c.json(payout.status_response(flintpay_status)),
+          let res = await merchant.create_payout(payoutRequest());
+          await res.followFirstProcessingUrl();
+          await merchant.queue_notification(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
             );
-
-            let res = await merchant.create_payout(payoutRequest());
-            await res.followFirstProcessingUrl();
-            await merchant.queue_notification(async (notification) => {
-              vitest.assert.strictEqual(
-                notification.status,
-                rp_status,
-                "merchant notification status",
-              );
-            });
           });
-        },
-      );
+        });
+      });
+
+      test.concurrent(`status finalization to ${rp_status}`, async ({
+        ctx,
+      }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, flintpays, payout } = await setupMerchant(ctx);
+          flintpays.queue(async (c) => {
+            return c.json(
+              payout.create_response("created", await c.req.json()),
+            );
+          });
+
+          flintpays.queue((c) =>
+            c.json(payout.status_response(flintpay_status)),
+          );
+
+          let res = await merchant.create_payout(payoutRequest());
+          await res.followFirstProcessingUrl();
+          await merchant.queue_notification(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
+          });
+        });
+      });
     }
 
     test.concurrent("payout declined if no balance", async ({ ctx }) => {
@@ -104,9 +101,7 @@ vitest.describe
 
       flintpays.queue(FlintpayOperation.no_balance_response_handler());
       let res = await merchant.create_payout(payoutRequest());
-      await res
-        .followFirstProcessingUrl()
-        .then((r) => r.as_raw_json());
+      await res.followFirstProcessingUrl().then((r) => r.as_raw_json());
       let businessPayment = await ctx.get_payment(res.token);
       vitest.assert.strictEqual(
         businessPayment.status,
@@ -137,24 +132,22 @@ vitest.describe
       );
     });
 
-    test.concurrent(
-      "payout pending if timed out",
-      { timeout: 80_000 },
-      async ({ ctx }) => {
-        let { merchant, flintpays, payout } = await setupMerchant(ctx);
+    test.concurrent("payout pending if timed out", { timeout: 80_000 }, async ({
+      ctx,
+    }) => {
+      let { merchant, flintpays, payout } = await setupMerchant(ctx);
 
-        flintpays.queue(async (c) => {
-          await delay(60_000);
-          return c.json(payout.create_response("created", await c.req.json()));
-        });
-        let res = await merchant.create_payout(payoutRequest());
-        await res.followFirstProcessingUrl();
-        let businessPayment = await ctx.get_payment(res.token);
-        vitest.assert.strictEqual(
-          businessPayment.status,
-          "pending",
-          "payout should stay in pending",
-        );
-      },
-    );
+      flintpays.queue(async (c) => {
+        await delay(60_000);
+        return c.json(payout.create_response("created", await c.req.json()));
+      });
+      let res = await merchant.create_payout(payoutRequest());
+      await res.followFirstProcessingUrl();
+      let businessPayment = await ctx.get_payment(res.token);
+      vitest.assert.strictEqual(
+        businessPayment.status,
+        "pending",
+        "payout should stay in pending",
+      );
+    });
   });

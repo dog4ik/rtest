@@ -1,22 +1,22 @@
+import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { defaultSettings } from "@/settings_builder";
 import {
   DalapayTransaction,
   OperationStatusMap,
   payinSuite,
 } from "@/provider_mocks/dalapay";
-import type { Context } from "@/test_context/context";
+import { defaultSettings } from "@/settings_builder";
 import {
   CALLBACK_DELAY,
   callbackFinalizationSuite,
   dataFlowTest,
-  statusFinalizationSuite,
   type P2PSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { delay } from "@std/async";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "CDF";
 
@@ -24,7 +24,7 @@ async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
   let merchant = await ctx.create_random_merchant();
   let settings = defaultSettings(CURRENCY, DalapayTransaction.settings(uuid));
-  settings.gateways["allow_h2h_payin_without_card"] = true;
+  settings.gateways.allow_h2h_payin_without_card = true;
   await merchant.set_settings(settings);
   let dalapay = ctx.mock_server(DalapayTransaction.mock_params(uuid));
   let payment = new DalapayTransaction();
@@ -40,7 +40,7 @@ let dalapaySuite = () => {
         suite.request().currency,
         suite.settings(secret),
       );
-      settings.gateways["allow_h2h_payin_without_card"] = true;
+      settings.gateways.allow_h2h_payin_without_card = true;
       return settings;
     },
   } as P2PSuite<DalapayTransaction>;
@@ -58,7 +58,7 @@ describe
         let request = dalapaySuite().request();
         let customer = request.customer as Record<string, any>;
         request.extra_return_param = "Orange Money";
-        customer["otp"] = "1111";
+        customer.otp = "1111";
         return request;
       },
       after_create_check() {

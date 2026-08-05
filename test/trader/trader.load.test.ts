@@ -1,12 +1,11 @@
-import { CONFIG } from "@/config";
+import { describe } from "vitest";
 import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { CreateTraderOptions } from "@/driver/core";
+import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
+import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import type { CreateTraderOptions } from "@/driver/core";
-import type { ExtendedMerchant } from "@/entities/merchant";
-import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
-import { delay } from "@std/async";
 
 for (const usdt of [true]) {
   let opts: CreateTraderOptions = { usdt, payout_hold_period: 0 };
@@ -34,36 +33,33 @@ for (const usdt of [true]) {
       `trader tests ${usdt ? "ustd" : "without convert"}`,
       { timeout: 180_000 },
       () => {
-        test.skip(
-          "card payin transactions load test",
-          ({ ctx, merchant }) =>
-            ctx.track_bg_rejections(async () => {
-              let trader = await ctx.create_random_trader(opts);
-              await trader.setup({ card: true, bank: "sberbank" });
-              let transactions_amount = 1;
-              await trader_cashin(
-                trader,
-                transactions_amount * (common.amount / 100),
-              );
-              await setup_merchant(merchant, trader.id);
-              let requisites = [...new Array(transactions_amount)].map(
-                async (_, i) => {
-                  let res = await merchant
-                    .create_payment({
-                      ...common.traderPaymentRequest("RUB", "card"),
-                      amount: common.amount + i,
-                    })
-                    .then((r) => r.followFirstProcessingUrl())
-                    .then((r) => r.as_trader_requisites());
-                  return res.token;
-                },
-              );
-              let tokens = await Promise.all(requisites);
-              for (let token of tokens) {
-                // await trader.finalizeTransaction(token, "approved");
-              }
-            }),
-        );
+        test.skip("card payin transactions load test", ({ ctx, merchant }) =>
+          ctx.track_bg_rejections(async () => {
+            let trader = await ctx.create_random_trader(opts);
+            await trader.setup({ card: true, bank: "sberbank" });
+            let transactions_amount = 1;
+            await trader_cashin(
+              trader,
+              transactions_amount * (common.amount / 100),
+            );
+            await setup_merchant(merchant, trader.id);
+            let requisites = [...new Array(transactions_amount)].map(
+              async (_, i) => {
+                let res = await merchant
+                  .create_payment({
+                    ...common.traderPaymentRequest("RUB", "card"),
+                    amount: common.amount + i,
+                  })
+                  .then((r) => r.followFirstProcessingUrl())
+                  .then((r) => r.as_trader_requisites());
+                return res.token;
+              },
+            );
+            let tokens = await Promise.all(requisites);
+            for (let _token of tokens) {
+              // await trader.finalizeTransaction(token, "approved");
+            }
+          }));
       },
     );
 }

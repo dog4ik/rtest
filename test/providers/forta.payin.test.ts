@@ -1,20 +1,19 @@
+import { assert, describe } from "vitest";
+import { z } from "zod";
 import * as common from "@/common";
-import { FortaPayment } from "@/provider_mocks/forta";
-import { payinSuite } from "@/provider_mocks/forta";
+import { CONFIG, PROJECT } from "@/config";
+import { err_bad_status } from "@/fetch_utils";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { EightpayTpayQrForm, type Platform } from "@/pages/8pay_tpayform";
+import { FortaPayment, payinSuite } from "@/provider_mocks/forta";
+import { providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
-  payformDataFlowTest,
   type PayformDataFlow,
+  payformDataFlowTest,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
-import { err_bad_status } from "@/fetch_utils";
-import { EightpayTpayQrForm, type Platform } from "@/pages/8pay_tpayform";
-import { z } from "zod";
 
 const CURRENCY = "RUB";
 
@@ -154,7 +153,7 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
   });
 });
 
-describe.runIf(PROJECT == "8pay").concurrent("forta 8pay form", () => {
+describe.runIf(PROJECT === "8pay").concurrent("forta 8pay form", () => {
   payformDataFlowTest("card", {
     ...payinSuite(CURRENCY),
     settings: (secret) =>

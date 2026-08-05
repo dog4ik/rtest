@@ -1,16 +1,16 @@
-import { describe, assert } from "vitest";
-import { test } from "@/test_context";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
+import {
+  payoutSuite,
+  ReactivepayTransaction,
+} from "@/provider_mocks/reactivepay";
 import { defaultSettings } from "@/settings_builder";
 import {
-  ReactivepayTransaction,
-  payoutSuite,
-} from "@/provider_mocks/reactivepay";
-import {
-  payoutPendingSuite,
   callbackFinalizationSuite,
+  payoutPendingSuite,
 } from "@/suite_interfaces";
+import { test } from "@/test_context";
 
 const CURRENCY = "USD";
 

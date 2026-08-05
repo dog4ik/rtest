@@ -1,16 +1,16 @@
-import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { describe, assert } from "vitest";
+import { delay } from "@std/async";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { ExtendedMerchant } from "@/entities/merchant";
+import type { ProviderInstance } from "@/mock_server/instance";
+import { BrusnikaPayment } from "@/provider_mocks/brusnika";
+import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
+import { IronpayPayment } from "@/provider_mocks/ironpay";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { defaultSettings, SettingsBuilder } from "@/settings_builder";
+import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
-import type { ProviderInstance } from "@/mock_server/instance";
-import type { ExtendedMerchant } from "@/entities/merchant";
-import { BrusnikaPayment } from "@/provider_mocks/brusnika";
-import { IronpayPayment } from "@/provider_mocks/ironpay";
-import { delay } from "@std/async";
-import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 
 const CURRENCY = "RUB";
 
@@ -25,15 +25,22 @@ class LimitTester {
 
   async init(rule: (mid: number) => {}) {
     this.merchant = await this.ctx.create_random_merchant();
-    await this.ctx.add_flexy_guard_rule(rule(this.merchant.id), "Limite tester rule");
-    await this.merchant.set_settings(defaultSettings(CURRENCY, JusanPayment.settings(this.uuid)));
+    await this.ctx.add_flexy_guard_rule(
+      rule(this.merchant.id),
+      "Limite tester rule",
+    );
+    await this.merchant.set_settings(
+      defaultSettings(CURRENCY, JusanPayment.settings(this.uuid)),
+    );
   }
 
   async run_n_approves(n: number) {
     assert(this.merchant);
     for (let i = 0; i < n; ++i) {
       let payment = new JusanPayment();
-      let provider_approve = this.jusan_pay.queue(payment.create_response_handler("approved"));
+      let provider_approve = this.jusan_pay.queue(
+        payment.create_response_handler("approved"),
+      );
       let res = await this.merchant.create_payment({
         ...common.paymentRequest(CURRENCY),
         card: common.cardObject(),
@@ -54,11 +61,16 @@ class LimitTester {
 describe
   .runIf(CONFIG.in_project(["spinpay", "reactivepay", "8pay"]))
   .concurrent("limits tests", () => {
-    test.concurrent("daily p2p approve routing", ({ ctx, merchant, brusnika, ironpay }) =>
+    test.concurrent("daily p2p approve routing", ({
+      ctx,
+      merchant,
+      brusnika,
+      ironpay,
+    }) =>
       ctx.track_bg_rejections(async () => {
         let brusnika_payment = new BrusnikaPayment();
         let brusnika_payment2 = new BrusnikaPayment();
-        let ironpay_payment = new IronpayPayment();
+        let _ironpay_payment = new IronpayPayment();
         let ironpay_payment2 = new IronpayPayment();
         let settings = new SettingsBuilder()
           .withGateway(IronpayPayment.settings(ctx.uuid), "ironpay")
@@ -90,10 +102,12 @@ describe
         let brusnika_approved = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "approved");
         });
-        brusnika.queue(brusnika_payment.create_handler("success")).then(async () => {
-          await delay(5_000);
-          brusnika_payment.send_callback("success");
-        });
+        brusnika
+          .queue(brusnika_payment.create_handler("success"))
+          .then(async () => {
+            await delay(5_000);
+            brusnika_payment.send_callback("success");
+          });
 
         await merchant
           .create_payment({
@@ -115,10 +129,12 @@ describe
         //   await delay(5_000);
         //   ironpay_payment.send_callback("Approved", ctx.uuid);
         // });
-        brusnika.queue(brusnika_payment2.create_handler("in_progress")).then(async () => {
-          await delay(5_000);
-          brusnika_payment2.send_callback("success");
-        });
+        brusnika
+          .queue(brusnika_payment2.create_handler("in_progress"))
+          .then(async () => {
+            await delay(5_000);
+            brusnika_payment2.send_callback("success");
+          });
 
         await merchant
           .create_payment({
@@ -155,8 +171,16 @@ describe
       .runIf(CONFIG.in_project(["spinpay"]))
       .concurrent("amount limit routing", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
-          let gc0 = new GatewayConnectTransaction("manypay", {}, crypto.randomUUID());
-          let gc1 = new GatewayConnectTransaction("manypay", {}, crypto.randomUUID());
+          let gc0 = new GatewayConnectTransaction(
+            "manypay",
+            {},
+            crypto.randomUUID(),
+          );
+          let gc1 = new GatewayConnectTransaction(
+            "manypay",
+            {},
+            crypto.randomUUID(),
+          );
           let gc2 = new IronpayPayment();
           // let gc2 = new GatewayConnectTransaction("manypay", {}, crypto.randomUUID());
           let gateway0 = ctx.mock_server(gc0.mock_params(ctx.uuid));
@@ -224,7 +248,7 @@ describe
           });
           gateway0.queue(gc0.requisites_payin_handler("declined", "sbp"));
           gateway1.queue(() => {
-            assert.fail("2nd gateway request should be skipped")
+            assert.fail("2nd gateway request should be skipped");
           });
           gateway2.queue(IronpayPayment.login_handler(ctx.uuid));
           gateway2.queue(gc2.create_handler());
@@ -270,10 +294,12 @@ describe
         let declined = merchant.queue_notification((n) => {
           assert.strictEqual(n.status, "declined");
         });
-        brusnika.queue(brusnika_payment.create_handler("created")).then(async () => {
-          await delay(5_000);
-          brusnika_payment.send_callback("success");
-        });
+        brusnika
+          .queue(brusnika_payment.create_handler("created"))
+          .then(async () => {
+            await delay(5_000);
+            brusnika_payment.send_callback("success");
+          });
 
         await merchant
           .create_payment({
@@ -285,38 +311,40 @@ describe
         await declined;
       }));
 
-    test.skipIf(CONFIG.in_project("8pay")).concurrent("daily approve limit", ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let rule = (mid: number) => ({
-          header: {
-            mid,
-            currency: "RUB",
-            type: "pay",
-          },
-          body: {
-            amount: {
-              value: [0, 10000000],
+    test
+      .skipIf(CONFIG.in_project("8pay"))
+      .concurrent("daily approve limit", ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let rule = (mid: number) => ({
+            header: {
+              mid,
+              currency: "RUB",
+              type: "pay",
             },
-            status: {
-              sum: {
-                "1Europe/Moscow#approved#amount": [0, 99900000],
+            body: {
+              amount: {
+                value: [0, 10000000],
               },
-            },
-            card: {
               status: {
-                count: {
-                  "1Europe/Moscow#approved": [0, 2],
+                sum: {
+                  "1Europe/Moscow#approved#amount": [0, 99900000],
+                },
+              },
+              card: {
+                status: {
+                  count: {
+                    "1Europe/Moscow#approved": [0, 2],
+                  },
                 },
               },
             },
-          },
-          routing: {},
-          action: null,
-          dispatching: null,
-        });
-        let tester = new LimitTester(ctx);
-        await tester.init(rule);
-        await tester.run_n_approves(2);
-      }),
-    );
+            routing: {},
+            action: null,
+            dispatching: null,
+          });
+          let tester = new LimitTester(ctx);
+          await tester.init(rule);
+          await tester.run_n_approves(2);
+        }),
+      );
   });

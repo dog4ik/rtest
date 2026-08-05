@@ -1,13 +1,13 @@
+import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { ExtendedMerchant } from "@/entities/merchant";
+import type { Project } from "@/project";
 import * as default_provider from "@/provider_mocks/default";
 import { payoutSuite } from "@/provider_mocks/gateway_connect";
 import { defaultSuite, providersSuite } from "@/suite_interfaces";
-import * as common from "@/common";
-import { CONFIG } from "@/config";
-import type { Project } from "@/project";
-import type { Context } from "@/test_context/context";
-import type { ExtendedMerchant } from "@/entities/merchant";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
+import type { Context } from "@/test_context/context";
 
 const GC_PROJECTS: Project[] = ["reactivepay", "8pay", "spinpay"];
 
@@ -29,14 +29,19 @@ function makeEnv(opts: {
     async expectPayoutError(merchant: ExtendedMerchant) {
       if (opts.via_processing_url) {
         let res = await merchant.create_payout(opts.request);
-        let error = await res.followFirstProcessingUrl().then((r) => r.as_error());
+        let error = await res
+          .followFirstProcessingUrl()
+          .then((r) => r.as_error());
         return { error, token: res.token };
       }
       if (CONFIG.in_project(["spinpay", "reactivepay"])) {
         let payout_res = await merchant.create_payout(opts.request);
         return { payout_res, token: payout_res.token };
       } else {
-        return { error: await merchant.create_payout_err(opts.request), token: undefined };
+        return {
+          error: await merchant.create_payout_err(opts.request),
+          token: undefined,
+        };
       }
     },
   };
@@ -120,25 +125,26 @@ describe.concurrent("payout no balance", () => {
   for (let settings_kind of SETTINGS_KINDS) {
     for (let convert_to of [undefined, "USDT"] as const) {
       let suffix = `${settings_kind} settings${convert_to ? `, convert_to ${convert_to}` : ""}`;
-      test.skipIf(skipSettings(settings_kind)).concurrent(`no balance (${suffix})`, ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let env = setupPayoutProvider(ctx, {
-            amount: common.amount,
-            settings_kind,
-            convert_to,
-          });
-          let merchant = await ctx.create_random_merchant();
-          await merchant.set_settings(env.settings);
-          await merchant.set_commission();
-          env.guardGatewayUnreached();
+      test
+        .skipIf(skipSettings(settings_kind))
+        .concurrent(`no balance (${suffix})`, ({ ctx }) =>
+          ctx.track_bg_rejections(async () => {
+            let env = setupPayoutProvider(ctx, {
+              amount: common.amount,
+              settings_kind,
+              convert_to,
+            });
+            let merchant = await ctx.create_random_merchant();
+            await merchant.set_settings(env.settings);
+            await merchant.set_commission();
+            env.guardGatewayUnreached();
 
-          let { error, token } = await env.expectPayoutError(merchant);
-          // error.assert_error([{ code: "amount_less_than_balance", kind: "processing_error" }]);
-          if (CONFIG.in_project(["spinpay"]) && token) {
-            await ctx.healthcheck(token);
-          }
-        }),
-      );
+            let { token } = await env.expectPayoutError(merchant);
+            if (CONFIG.in_project(["spinpay"]) && token) {
+              await ctx.healthcheck(token);
+            }
+          }),
+        );
     }
   }
 
@@ -160,8 +166,7 @@ describe.concurrent("payout no balance", () => {
       await merchant.set_settings(env.settings);
       env.guardGatewayUnreached();
 
-      let { error, token } = await env.expectPayoutError(merchant);
-      // error.assert_error([{ code: "amount_less_than_balance", kind: "processing_error" }]);
+      let { token } = await env.expectPayoutError(merchant);
       if (token && CONFIG.in_project(["spinpay"])) {
         await ctx.healthcheck(token);
       }

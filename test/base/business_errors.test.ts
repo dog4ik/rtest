@@ -1,15 +1,15 @@
-import { CONFIG, PROJECT } from "@/config";
-import { test } from "@/test_context";
-import * as common from "@/common";
 import { describe } from "vitest";
-import { ProviderAdapter } from "@/suite_interfaces/provider_adapter";
-import * as millennium from "@/provider_mocks/millennium";
+import * as common from "@/common";
+import { CONFIG, PROJECT } from "@/config";
 import * as flintpays from "@/provider_mocks/flintpays";
+import * as millennium from "@/provider_mocks/millennium";
 import {
   defaultSuite,
-  providersSuite,
   type P2PSuite,
+  providersSuite,
 } from "@/suite_interfaces";
+import { ProviderAdapter } from "@/suite_interfaces/provider_adapter";
+import { test } from "@/test_context";
 
 function payoutRequest(currency?: string) {
   return {

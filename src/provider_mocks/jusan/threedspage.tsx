@@ -1,5 +1,5 @@
-import type { PrimeBusinessStatus } from "@/db/business";
 import * as encoding from "@std/encoding";
+import type { PrimeBusinessStatus } from "@/db/business";
 import type { CResResponse } from ".";
 
 type Props = { termUrl: string; cres: (success: boolean) => CResResponse };
@@ -40,7 +40,7 @@ export function StatusPage(status: PrimeBusinessStatus) {
     declined: "Transaction declined",
   };
   return (
-    <html>
+    <html lang="en">
       <head>
         <title>{titleStatusMapping[status]}</title>
       </head>

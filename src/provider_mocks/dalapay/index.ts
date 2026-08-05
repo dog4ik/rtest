@@ -1,12 +1,12 @@
 import * as vitest from "vitest";
 import { z } from "zod";
-import * as sign from "./signature";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { err_bad_status } from "@/fetch_utils";
-import type { P2PSuite } from "@/suite_interfaces";
-import type { PrimeBusinessStatus } from "@/db/business";
 import * as common from "@/common";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { CurlBuilder } from "@/story/curl";
+import type { P2PSuite } from "@/suite_interfaces";
+import * as sign from "./signature";
 
 export const OperationStatusMap = {
   UNDEFINED: -1,
@@ -55,7 +55,7 @@ export class DalapayTransaction {
   }
 
   private provider_message(status: OperationStatus) {
-    return status == OperationStatusMap.FAILED ? "My fancy error" : "Good";
+    return status === OperationStatusMap.FAILED ? "My fancy error" : "Good";
   }
 
   callback(status: OperationStatus) {
@@ -89,7 +89,7 @@ export class DalapayTransaction {
       service_date_time: "2023-11-17 13:15:00.000000",
     };
     let signature = sign.calculateSignature(data, CALLBACK_SECRET);
-    data["signature"] = signature;
+    data.signature = signature;
     return data;
   }
 

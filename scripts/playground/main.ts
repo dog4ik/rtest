@@ -1,6 +1,6 @@
-import { setupPlayground } from "./setup";
 import { createJob, runJob } from "./jobs";
 import { log, summary } from "./log";
+import { setupPlayground } from "./setup";
 
 const CONCURRENCY = 30;
 
@@ -40,8 +40,8 @@ async function worker() {
     log(
       "job",
       `#${job.id} ${job.operation} status=${job.status} mid=${job.merchant.id} ` +
-      `req=${job.requisite ?? "-"} amount=${job.amount}` +
-      (job.dispute ? ` dispute=${job.dispute.status}` : ""),
+        `req=${job.requisite ?? "-"} amount=${job.amount}` +
+        (job.dispute ? ` dispute=${job.dispute.status}` : ""),
     );
     try {
       await runJob(env, job);

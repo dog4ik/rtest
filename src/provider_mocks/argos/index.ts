@@ -1,12 +1,12 @@
+import { assert } from "vitest";
 import { z } from "zod";
-import { createSignature, decryptAES128, buildSignatureInput } from "./sign";
+import * as common from "@/common";
+import type { PrimeBusinessStatus } from "@/db/business";
 import { err_bad_status } from "@/fetch_utils";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { assert } from "vitest";
-import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
-import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
+import { buildSignatureInput, createSignature, decryptAES128 } from "./sign";
 
 const PAYMENT_MODE_SCHEMA = z.enum(["V2C"]);
 
@@ -169,10 +169,7 @@ export class ArgosPayment {
       redirect3DUrl: null,
       payUrl: null,
     };
-    data["signature"] = createSignature(
-      buildSignatureInput(data),
-      MERCHANT_KEY,
-    );
+    data.signature = createSignature(buildSignatureInput(data), MERCHANT_KEY);
     return data;
   }
 
@@ -233,7 +230,7 @@ export class ArgosPayment {
       alias: "argospay",
       filter_fn: async (req) => {
         let json = await req.json();
-        let pass = json["password"];
+        let pass = json.password;
         console.log({ pass });
         let decrypted = decryptAES128(pass, MERCHANT_KEY);
         console.log({ decrypted });

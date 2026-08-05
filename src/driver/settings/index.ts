@@ -1,7 +1,7 @@
 import * as encoding from "@std/encoding";
-import { authorize_client, type Credentials } from "..";
-import { err_bad_status } from "@/fetch_utils";
 import { CONFIG, PROJECT } from "@/config";
+import { err_bad_status } from "@/fetch_utils";
+import { authorize_client, type Credentials } from "..";
 
 export class SettingsDriver {
   private base_url: string;
@@ -10,7 +10,7 @@ export class SettingsDriver {
     base_url: string,
     private credentials: Credentials,
   ) {
-    this.base_url = base_url + "/settings/admin";
+    this.base_url = `${base_url}/settings/admin`;
     this.cookies = "";
   }
 

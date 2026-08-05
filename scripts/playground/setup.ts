@@ -1,10 +1,10 @@
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { traderSetttings } from "@/driver/trader";
+import { type ExtendedMerchant, extendMerchant } from "@/entities/merchant";
+import { type ExtendedTrader, extendTrader } from "@/entities/trader";
 import { initState, type SharedState } from "@/state";
 import { Context } from "@/test_context/context";
-import { traderSetttings } from "@/driver/trader";
-import * as common from "@/common";
-import { extendTrader, type ExtendedTrader } from "@/entities/trader";
-import { extendMerchant, type ExtendedMerchant } from "@/entities/merchant";
 import { log } from "./log";
 
 const ACCOUNT_SEED = 0;

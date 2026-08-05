@@ -92,7 +92,7 @@ export class RoutingBuilder {
     await Promise.all(
       this.rules.map((rule, index) => {
         this.ctx.story.add_chapter("Create flexy guard rule", rule);
-        this.ctx
+        return this.ctx
           .shared_state()
           .guard_service.add_rule(rule, `Routing rule #${index + 1}`);
       }),

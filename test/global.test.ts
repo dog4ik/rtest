@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe } from "vitest";
+import { assert, describe } from "vitest";
 
 let dirs = ["test"];
 while (dirs.length) {
-  let dir = dirs.pop()!;
+  let dir = dirs.pop();
+  assert(dir, "dir popped from non-empty stack");
   let entries = fs.readdirSync(dir);
   for (let entry of entries) {
     let entry_path = path.join(dir, entry);
@@ -14,7 +15,7 @@ while (dirs.length) {
     } else if (
       stats.isFile() &&
       entry.endsWith(".test.ts") &&
-      entry != path.basename(import.meta.filename)
+      entry !== path.basename(import.meta.filename)
     ) {
       describe.concurrent(entry_path, async () => {
         await import(path.resolve(entry_path));

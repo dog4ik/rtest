@@ -1,10 +1,10 @@
 import {
-  spawn_merchant_server,
-  spawn_provider_server,
   type Handler,
   type MerchantServerInstance,
   type ProviderHandler,
   type ProviderServerInstance,
+  spawn_merchant_server,
+  spawn_provider_server,
 } from "./api";
 
 /**
@@ -38,7 +38,6 @@ export class MockServerState {
   registerProviderServer(alias: string, handler: ProviderHandler) {
     let existingHandler = this.providers_handlers.get(alias);
     if (existingHandler === undefined) {
-
       let port = this.mapping.get(alias);
       if (port === undefined) {
         throw Error(`Failed to get port mapping for provider alias: ${alias}`);

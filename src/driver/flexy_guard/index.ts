@@ -1,7 +1,7 @@
 import * as encoding from "@std/encoding";
-import { authorize_client, type Credentials } from "..";
-import { err_bad_status } from "@/fetch_utils";
 import { CONFIG, PROJECT } from "@/config";
+import { err_bad_status } from "@/fetch_utils";
+import { authorize_client, type Credentials } from "..";
 
 export class FlexyGuardHarness {
   base_url: string;

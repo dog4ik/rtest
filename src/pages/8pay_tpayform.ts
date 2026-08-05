@@ -1,4 +1,4 @@
-import * as playwright from "playwright";
+import type * as playwright from "playwright";
 import { expect } from "playwright/test";
 
 export type Platform = "ios" | "android";

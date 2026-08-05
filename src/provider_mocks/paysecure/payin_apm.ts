@@ -1,14 +1,14 @@
 // This is cancer.
 
-import * as assets from "@/assets";
-import { err_bad_status } from "@/fetch_utils";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { CurlBuilder } from "@/story/curl";
 import crypto from "node:crypto";
 import { assert } from "vitest";
 import { z } from "zod";
-import { sign } from "./signature";
+import * as assets from "@/assets";
 import { CONFIG } from "@/config";
+import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import { CurlBuilder } from "@/story/curl";
+import { sign } from "./signature";
 
 export type PaysecureStatus =
   | "paid"
@@ -206,7 +206,7 @@ export class PaysecureApmPayment {
   }
 
   static no_customer_handler(): Handler {
-    return (c) => c.json(this.no_customer_response(), 400);
+    return (c) => c.json(PaysecureApmPayment.no_customer_response(), 400);
   }
 
   get_customer_response() {
@@ -432,7 +432,7 @@ export class PaysecureApmPayment {
         paymentMethod: common_request.paymentMethod ?? "APPLEPAY-REDIRECT",
         amountUnit: "MAJOR",
         errorMsg:
-          status == "error" ? "This customer can not be processed !" : "",
+          status === "error" ? "This customer can not be processed !" : "",
         errorCode: "NA",
         force_recurring: false,
         created_on: 1770152405,
@@ -539,7 +539,7 @@ export class PaysecureApmPayment {
     let request_data = this.session_request || this.purchase_request;
     assert(request_data);
     let url: string;
-    if (status == "paid") {
+    if (status === "paid") {
       url = request_data.success_callback;
     } else {
       url = request_data.failure_callback;

@@ -1,11 +1,11 @@
-import { parse, isElement } from "@std/xml";
+import { isElement, parse } from "@std/xml";
 import { assert } from "vitest";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import type { PrimeBusinessStatus } from "@/db/business";
-import type { Status } from "@/suite_interfaces";
 import * as common from "@/common";
-import { defaultSettings } from "@/settings_builder";
 import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import { defaultSettings } from "@/settings_builder";
+import type { Status } from "@/suite_interfaces";
 
 type PayoutStatus = "approved" | "declined" | "pending";
 
@@ -154,7 +154,7 @@ export function payoutSuite(currency = "RUB"): Status<PayloniumPayout> {
         currency,
         PayloniumPayout.settings(secret),
       );
-      settings.gateways["skip_card_payout_validation"] = true;
+      settings.gateways.skip_card_payout_validation = true;
       return settings;
     },
   };

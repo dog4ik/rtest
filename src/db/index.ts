@@ -1,6 +1,6 @@
-import type { Project } from "@/project";
 import { Pool } from "pg";
 import { z } from "zod";
+import type { Project } from "@/project";
 
 type Entity = { [k: string]: z.ZodType };
 
@@ -69,7 +69,7 @@ export class Db {
   ): Promise<z.infer<typeof schema> | undefined> {
     console.log(`executing optional query: ${query}`);
     let res = await this.pool.query(query);
-    if (res.rowCount == 0) return;
+    if (res.rowCount === 0) return;
     return schema.parse(res.rows[0]);
   }
 

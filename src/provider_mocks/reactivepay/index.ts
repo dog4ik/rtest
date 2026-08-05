@@ -1,14 +1,14 @@
 import crypto from "node:crypto";
-import { z } from "zod";
 import { assert } from "vitest";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { err_bad_status } from "@/fetch_utils";
+import { z } from "zod";
 import * as common from "@/common";
 import type { BusinessStatus, PrimeBusinessStatus } from "@/db/business";
-import type { P2PSuite, Status, Callback } from "@/suite_interfaces";
+import type { Requisite } from "@/driver/trader";
+import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { MAPPING_START_PORT } from "@/patch/production_file";
 import { defaultSettings, providers } from "@/settings_builder";
-import type { Requisite } from "@/driver/trader";
+import type { Callback, P2PSuite, Status } from "@/suite_interfaces";
 
 export const REACTIVEPAY_MOCK_PORT = MAPPING_START_PORT - 2;
 export const REACTIVEPAY_MAPPING_KEY = "_reactivepay";
@@ -161,7 +161,7 @@ export class ReactivepayTransaction {
     };
 
     if (status !== "declined") {
-      response["redirectRequest"] = {
+      response.redirectRequest = {
         type: "get",
         url: common.redirectPayUrl,
       };
@@ -170,31 +170,35 @@ export class ReactivepayTransaction {
     return response;
   }
 
-  requisite_response(status: PrimeBusinessStatus, type?: Requisite, amount?: number) {
+  requisite_response(
+    status: PrimeBusinessStatus,
+    type?: Requisite,
+    amount?: number,
+  ) {
     assert(this.payin_request_data);
 
     let requisite: Record<string, any> = {};
     if (status === "pending") {
       if (type === "card") {
-        requisite["card"] = {
+        requisite.card = {
           name: common.fullName,
           bank: common.bankName,
           pan: common.visaCard,
         };
       } else if (type === "account") {
-        requisite["account"] = {
+        requisite.account = {
           name: common.fullName,
           bank: common.bankName,
           number: common.accountNumber,
         };
       } else if (type === "sbp") {
-        requisite["phone"] = {
+        requisite.phone = {
           name: common.fullName,
           bank: common.bankName,
           phone: common.phoneNumber,
         };
       } else if (type === "link") {
-        requisite["link"] = {
+        requisite.link = {
           name: common.fullName,
           bank: common.bankName,
           url: common.redirectPayUrl,
@@ -211,7 +215,9 @@ export class ReactivepayTransaction {
       payment: {
         amount: amount ?? this.payin_request_data.amount,
         currency: this.payin_request_data.currency,
-        gateway_amount: Math.floor((amount ?? this.payin_request_data.amount) / 9),
+        gateway_amount: Math.floor(
+          (amount ?? this.payin_request_data.amount) / 9,
+        ),
         // gateway_currency: this.payin_request_data.currency,
         gateway_currency: "USDT",
         status,
@@ -223,7 +229,8 @@ export class ReactivepayTransaction {
   }
 
   h2h_create_handler(status: PrimeBusinessStatus): Handler {
-    return async (c) => c.json(this.h2h_create_response(status, await c.req.json()));
+    return async (c) =>
+      c.json(this.h2h_create_response(status, await c.req.json()));
   }
 
   p2p_create_handler(): Handler {
@@ -235,7 +242,8 @@ export class ReactivepayTransaction {
     requisite_type?: Requisite,
     amount?: number,
   ): Handler {
-    return async (c) => c.json(this.requisite_response(status, requisite_type, amount));
+    return async (c) =>
+      c.json(this.requisite_response(status, requisite_type, amount));
   }
 
   status_handler(_status: PrimeBusinessStatus): Handler {
@@ -256,7 +264,8 @@ export class ReactivepayTransaction {
         timestamp,
         status,
         scoring_action: status === "declined" ? "failed" : "success",
-        decline_reason: status == "declined" ? "Test error message" : undefined,
+        decline_reason:
+          status === "declined" ? "Test error message" : undefined,
       },
       token: this.token,
       timestamp,
@@ -308,7 +317,8 @@ export class ReactivepayTransaction {
   async send_payout_callback(status: PrimeBusinessStatus, signKey: string) {
     assert(this.payout_request_data, "payout request data should be defined");
     const payload = this.payout_callback(status, signKey);
-    let url = this.payout_request_data.callbackUrl!;
+    let url = this.payout_request_data.callbackUrl;
+    assert(url, "payout callback url should be defined");
     console.log("Sending reactivepay payout callback to", url, payload);
     await fetch(url, {
       method: "POST",
@@ -318,10 +328,16 @@ export class ReactivepayTransaction {
   }
 
   no_requisites_handler(): Handler {
-    return async (c) => c.json(this.h2h_create_response("declined", await c.req.json()));
+    return async (c) =>
+      c.json(this.h2h_create_response("declined", await c.req.json()));
   }
 
-  callback(status: BusinessStatus, signKey: string, type: "pay" | "dispute", amount?: number) {
+  callback(
+    status: BusinessStatus,
+    signKey: string,
+    type: "pay" | "dispute",
+    amount?: number,
+  ) {
     assert(this.payin_request_data, "request data should be defined");
     let resolved_amount = amount ?? this.payin_request_data.amount;
     let resolved_gateway_amount = Math.floor(resolved_amount / 9);
@@ -362,10 +378,16 @@ export class ReactivepayTransaction {
     };
   }
 
-  async send_callback(status: BusinessStatus, signKey: string, amount?: number) {
+  async send_callback(
+    status: BusinessStatus,
+    signKey: string,
+    amount?: number,
+  ) {
     assert(this.payin_request_data, "request data should be defined");
     const payload = this.callback(status, signKey, "pay", amount);
-    const url = this.payin_request_data.callback_url || this.payin_request_data.callbackUrl;
+    const url =
+      this.payin_request_data.callback_url ||
+      this.payin_request_data.callbackUrl;
     assert(url, "mising callback url");
     console.log("Sending reactivepay callback to", url, payload);
     await fetch(url, {
@@ -375,10 +397,16 @@ export class ReactivepayTransaction {
     }).then(err_bad_status);
   }
 
-  async send_dispute_callback(status: PrimeBusinessStatus, signKey: string, amount?: number) {
+  async send_dispute_callback(
+    status: PrimeBusinessStatus,
+    signKey: string,
+    amount?: number,
+  ) {
     assert(this.payin_request_data, "request data should be defined");
     const payload = this.callback(status, signKey, "dispute", amount);
-    const url = this.payin_request_data.callback_url || this.payin_request_data.callbackUrl;
+    const url =
+      this.payin_request_data.callback_url ||
+      this.payin_request_data.callbackUrl;
     assert(url, "mising callback url");
     console.log("Sending reactivepay callback to", url, payload);
     await fetch(url, {

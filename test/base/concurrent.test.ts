@@ -1,10 +1,10 @@
-import { CONFIG, PROJECT } from "@/config";
+import { delay } from "@std/async";
+import { assert } from "vitest";
 import * as common from "@/common";
+import { CONFIG, PROJECT } from "@/config";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { providers } from "@/settings_builder";
 import { test } from "@/test_context";
-import { assert } from "vitest";
-import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
 
@@ -108,7 +108,10 @@ test
         );
         await merchant.cashin(CURRENCY, 10);
         await merchant.cashout(CURRENCY, 10);
-        await merchant.set_balance(CURRENCY, {hold: 9999999, available: 9999999 });
+        await merchant.set_balance(CURRENCY, {
+          hold: 9999999,
+          available: 9999999,
+        });
         let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
         gw.queue(payment.requisites_payin_handler("pending", "card"));
         // When the status checker polls and gets "approved", it races with the concurrent
@@ -348,7 +351,9 @@ test
         gw.queue(payment.requisites_payin_handler("pending", "card"));
         gw.queue(payment.status_handler("approved"));
 
-        let payment_response;
+        let payment_response: Awaited<
+          ReturnType<typeof merchant.create_payment>
+        >;
         if (PROJECT === "8pay") {
           payment_response = await merchant.create_payment({
             ...common.paymentRequest(CURRENCY),
@@ -428,7 +433,9 @@ test
         gw.queue(payment.status_handler("approved"));
         gw.queue(payment.status_handler("approved"));
 
-        let payment_response;
+        let payment_response: Awaited<
+          ReturnType<typeof merchant.create_payment>
+        >;
         if (PROJECT === "8pay") {
           payment_response = await merchant.create_payment({
             ...common.paymentRequest(CURRENCY),

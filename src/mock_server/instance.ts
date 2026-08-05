@@ -1,6 +1,6 @@
 import type { Story } from "@/story";
-import type { Handler, HttpContext, HttpRequest } from "./api";
 import { CurlBuilder } from "@/story/curl";
+import type { Handler, HttpContext, HttpRequest } from "./api";
 
 /**
  * Provider instance obtained by the running test
@@ -49,7 +49,7 @@ export class ProviderInstance {
     try {
       let content_type = req.header("content-type");
       if (content_type?.startsWith("application/json")) {
-        let curl = new CurlBuilder(`https://${this.alias}` + req.path, "POST")
+        let curl = new CurlBuilder(`https://${this.alias}${req.path}`, "POST")
           .set_headers(req.raw.headers)
           .header("content-type", "application/json")
           .json_data(await req.json())
@@ -69,7 +69,7 @@ export class ProviderInstance {
   private async try_write_gateway_response(res: Response) {
     try {
       let headers = Array.from(res.headers).reduce(
-        (acc, [name, value]) => acc + `${name}: ${value}\n`,
+        (acc, [name, value]) => `${acc}${name}: ${value}\n`,
         "",
       );
 
@@ -78,7 +78,7 @@ export class ProviderInstance {
 Headers:
 ${headers}`;
 
-      let body: string | undefined = undefined;
+      let body: string | undefined;
 
       if (res.headers.get("content-type") === "application/json") {
         body = JSON.stringify(await res.json(), null, 2);

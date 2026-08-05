@@ -1,12 +1,12 @@
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import * as common from "@/common";
-import * as vitest from "vitest";
 import crypto from "node:crypto";
 import * as encoding from "@std/encoding";
+import * as vitest from "vitest";
 import { z } from "zod";
-import { StatusPage, ThreeDsForm } from "./threedspage";
-import type { PrimeBusinessStatus } from "@/db/business";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import { StatusPage, ThreeDsForm } from "./threedspage";
 
 const THREEDS_HANDLER_PATH = "/3dsHandler";
 
@@ -141,8 +141,8 @@ function OnLoadEvent () {
     };
   }
 
-  create_3ds_html_fp_handler(post_url_base: string, secret: string): Handler {
-    let creq = encoding.encodeBase64Url(JSON.stringify(this.creq));
+  create_3ds_html_fp_handler(_post_url_base: string, _secret: string): Handler {
+    let _creq = encoding.encodeBase64Url(JSON.stringify(this.creq));
     return async (c) => {
       this.request_data = PAYIN_REQUEST_SCHEMA.parse(await c.req.parseBody());
       return c.html(
@@ -247,7 +247,7 @@ div { background-color: #702f8a; height: 100%; width: 6px; display: inline-block
 
   status_response(status: PrimeBusinessStatus) {
     vitest.assert(this.request_data, "request data should be defined");
-    let is_declined = status == "declined";
+    let is_declined = status === "declined";
     type StatusSpecificData = {
       status: "S" | "E";
       status_desc: string;
@@ -384,11 +384,11 @@ div { background-color: #702f8a; height: 100%; width: 6px; display: inline-block
       alias: "jusan_payment",
       filter_fn: async (req) => {
         if (req.path === THREEDS_HANDLER_PATH) {
-          return req.query("secret") == secret;
+          return req.query("secret") === secret;
         }
-        if (req.path == "/") {
+        if (req.path === "/") {
           let body = await req.parseBody();
-          return body.MERCHANT == secret;
+          return body.MERCHANT === secret;
         }
         return false;
       },

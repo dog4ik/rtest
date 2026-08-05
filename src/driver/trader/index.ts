@@ -1,16 +1,20 @@
 import fs from "node:fs/promises";
+import type { Middleware } from "openapi-fetch";
+import { assert } from "vitest";
+import { z } from "zod";
 import * as assets from "@/assets";
 import * as common from "@/common";
-import type { Middleware } from "openapi-fetch";
-import { throwResponseErrors, createTraderClient, type TraderClient } from "./traderFetchClient";
-import { assert } from "vitest";
-import type { Context } from "@/test_context/context";
+import { CONFIG } from "@/config";
 import type { PrimeBusinessStatus } from "@/db/business";
-import type { TestCaseBase } from "@/suite_interfaces";
-import { z } from "zod";
 import { err_bad_status } from "@/fetch_utils";
 import { CurlBuilder } from "@/story/curl";
-import { CONFIG } from "@/config";
+import type { TestCaseBase } from "@/suite_interfaces";
+import type { Context } from "@/test_context/context";
+import {
+  createTraderClient,
+  type TraderClient,
+  throwResponseErrors,
+} from "./traderFetchClient";
 
 const BANKLIST = [
   "sberbank",
@@ -213,7 +217,10 @@ export class TraderDriver {
   }
 
   async send_sms(payload: SendSmsPayload) {
-    assert(this.session_token, "session token should be defined when sms is sent");
+    assert(
+      this.session_token,
+      "session token should be defined when sms is sent",
+    );
     let now = new Date();
     let payload_with_time = {
       ...payload,
@@ -283,7 +290,10 @@ export class TraderDriver {
   }
 }
 
-export function traderSetttings(list: number[], opts?: { pay_expired_minutes?: number }) {
+export function traderSetttings(
+  list: number[],
+  opts?: { pay_expired_minutes?: number },
+) {
   return {
     USDT: {
       gateways: {

@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { assert } from "vitest";
+import { z } from "zod";
 
 const ErrorObjectSchema = z.object({
   code: z.string().nullish(),
@@ -48,7 +48,7 @@ export class ErrorResponse {
       ...response.data,
       assert_message(msg: string) {
         if (Array.isArray(this.errors)) {
-          if (this.errors.every((v) => typeof v == "string")) {
+          if (this.errors.every((v) => typeof v === "string")) {
             assert.strictEqual(this.errors.join(" | "), msg);
             return;
           }

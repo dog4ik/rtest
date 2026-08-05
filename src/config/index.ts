@@ -1,7 +1,7 @@
 import fs from "node:fs";
-import z from "zod";
 import * as toml from "@std/toml";
-import { ProjectSchema, type Project } from "@/project";
+import z from "zod";
+import { type Project, ProjectSchema } from "@/project";
 
 const DEFAULT_LOGIN_PASSWORD = {
   login: "admin@admin.admin",
@@ -34,7 +34,10 @@ const DEFAULT_URLS = {
   trader_sms: "http://localhost:5070",
   pixelwave: "http://localhost:4207",
   postgres: {
-    core: { ...DEFAULT_POSTGRES_CREDS, database: "reactivepay_core_production" },
+    core: {
+      ...DEFAULT_POSTGRES_CREDS,
+      database: "reactivepay_core_production",
+    },
     business: {
       ...DEFAULT_POSTGRES_CREDS,
       database: "reactivepay_business_production",
@@ -218,16 +221,16 @@ export function open(path: string) {
 export const CONFIG = {
   ...open("configuration.toml"),
   dummyRsaPub() {
-    return this[this.project]!.dummy_rsa_public_key_path;
+    return this[this.project]?.dummy_rsa_public_key_path;
   },
   dummyRsa() {
-    return this[this.project]!.dummy_rsa_private_key_path;
+    return this[this.project]?.dummy_rsa_private_key_path;
   },
   dummyCert() {
-    return this[this.project]!.dummy_ssl_path;
+    return this[this.project]?.dummy_ssl_path;
   },
   urls() {
-    return this[this.project]!.urls;
+    return projectUrls(this);
   },
   /** Resolve the connection parameters for one of the project's databases. */
   postgres(db: PostgresDatabase) {

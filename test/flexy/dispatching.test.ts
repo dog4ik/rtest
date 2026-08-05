@@ -1,12 +1,12 @@
-import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { describe, assert } from "vitest";
-import * as common from "@/common";
-import { JusanPayment } from "@/provider_mocks/jusan";
 import { MongoClient } from "mongodb";
-import type { Context } from "@/test_context/context";
-import type { ProviderInstance } from "@/mock_server/instance";
+import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
 import type { ExtendedMerchant } from "@/entities/merchant";
+import type { ProviderInstance } from "@/mock_server/instance";
+import { JusanPayment } from "@/provider_mocks/jusan";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 // nasty solition to remove flaky tests
 async function reset_dispatching_queue(aliases: string[]): Promise<void> {
@@ -131,6 +131,5 @@ describe
         await tester.pay_via(2);
 
         await tester.pay_via(0);
-      }),
-    );
+      }));
   });

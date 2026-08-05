@@ -1,26 +1,26 @@
-import * as mad from "@/provider_mocks/madsolution";
-import * as mil from "@/provider_mocks/millennium";
-import * as brus from "@/provider_mocks/brusnika";
-import * as iron from "@/provider_mocks/ironpay";
-import * as forta from "@/provider_mocks/forta";
-import * as pixel from "@/provider_mocks/pixelwave";
-import * as argos from "@/provider_mocks/argos";
-import * as gatewayconnect from "@/provider_mocks/gateway_connect";
-import { CONFIG } from "@/config";
+import type * as playwright from "playwright";
 import { describe } from "vitest";
 import * as common from "@/common";
-import * as playwright from "playwright";
-import {
-  maskedSuite,
-  routingFinalizationSuite,
-  type Callback,
-  type P2PSuite,
-  type Routable,
-} from "@/suite_interfaces";
+import { CONFIG } from "@/config";
 import type { ProcessingUrlResponse } from "@/entities/payment/processing_url_response";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
-import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
+import * as argos from "@/provider_mocks/argos";
+import * as brus from "@/provider_mocks/brusnika";
+import * as forta from "@/provider_mocks/forta";
+import type { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
+import * as gatewayconnect from "@/provider_mocks/gateway_connect";
+import * as iron from "@/provider_mocks/ironpay";
+import * as mad from "@/provider_mocks/madsolution";
+import * as mil from "@/provider_mocks/millennium";
+import * as pixel from "@/provider_mocks/pixelwave";
+import {
+  type Callback,
+  maskedSuite,
+  type P2PSuite,
+  type Routable,
+  routingFinalizationSuite,
+} from "@/suite_interfaces";
 
 // Use status additional finalization handler for the last gateway in routing
 const use_status_handler = true;
@@ -102,7 +102,7 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("routing 8pay", () => {
       ],
       () => [brus.payinSuite(), gatewayConnectRoutingSuite("card")],
     ];
-    if (CONFIG.extra_mapping?.["pixelwave"]) {
+    if (CONFIG.extra_mapping?.pixelwave) {
       cases.push(() => [pixel.payinSuite(), brus.payinSuite()]);
       cases.push(() => [brus.payinSuite(), pixel.payinSuite()]);
       cases.push(() => [

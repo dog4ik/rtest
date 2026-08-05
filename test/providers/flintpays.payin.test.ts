@@ -1,13 +1,13 @@
+import { delay } from "@std/async";
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { providers } from "@/settings_builder";
-import { FlintpayOperation } from "@/provider_mocks/flintpays";
-import type { Context } from "@/test_context/context";
 import type { FlintpayStatus } from "@/provider_mocks/flintpays";
+import { FlintpayOperation } from "@/provider_mocks/flintpays";
+import { providers } from "@/settings_builder";
 import { CALLBACK_DELAY } from "@/suite_interfaces";
-import { delay } from "@std/async";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "TJS";
 
@@ -38,52 +38,49 @@ vitest.describe
     ] as const;
 
     for (let [flintpay_status, rp_status] of CASES) {
-      test.concurrent(
-        `callback finalization to ${rp_status}`,
-        { timeout: 30_000 },
-        async ({ ctx }) => {
-          await ctx.track_bg_rejections(async () => {
-            let { merchant, flintpays, payment } = await setupMerchant(ctx);
-            flintpays
-              .queue(payment.create_response_handler("created"))
-              .then(async () => {
-                await delay(CALLBACK_DELAY);
-                await payment.send_callback(flintpay_status);
-              });
-
-            flintpays.queue(payment.status_handler("created"));
-            let res = await merchant.create_payment(paymentRequest());
-            await res.followFirstProcessingUrl();
-            await merchant.queue_notification(async (notification) => {
-              vitest.assert.strictEqual(
-                notification.status,
-                rp_status,
-                "merchant notification status",
-              );
+      test.concurrent(`callback finalization to ${rp_status}`, {
+        timeout: 30_000,
+      }, async ({ ctx }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, flintpays, payment } = await setupMerchant(ctx);
+          flintpays
+            .queue(payment.create_response_handler("created"))
+            .then(async () => {
+              await delay(CALLBACK_DELAY);
+              await payment.send_callback(flintpay_status);
             });
-          });
-        },
-      );
 
-      test.concurrent(
-        `status finalization to ${rp_status}`,
-        async ({ ctx }) => {
-          await ctx.track_bg_rejections(async () => {
-            let { merchant, flintpays, payment } = await setupMerchant(ctx);
-            flintpays.queue(payment.create_response_handler("created"));
-            flintpays.queue(payment.status_handler(flintpay_status));
-
-            let res = await merchant.create_payment(paymentRequest());
-            await res.followFirstProcessingUrl();
-            await merchant.queue_notification(async (notification) => {
-              vitest.assert.strictEqual(
-                notification.status,
-                rp_status,
-                "merchant notification status",
-              );
-            });
+          flintpays.queue(payment.status_handler("created"));
+          let res = await merchant.create_payment(paymentRequest());
+          await res.followFirstProcessingUrl();
+          await merchant.queue_notification(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
           });
-        },
-      );
+        });
+      });
+
+      test.concurrent(`status finalization to ${rp_status}`, async ({
+        ctx,
+      }) => {
+        await ctx.track_bg_rejections(async () => {
+          let { merchant, flintpays, payment } = await setupMerchant(ctx);
+          flintpays.queue(payment.create_response_handler("created"));
+          flintpays.queue(payment.status_handler(flintpay_status));
+
+          let res = await merchant.create_payment(paymentRequest());
+          await res.followFirstProcessingUrl();
+          await merchant.queue_notification(async (notification) => {
+            vitest.assert.strictEqual(
+              notification.status,
+              rp_status,
+              "merchant notification status",
+            );
+          });
+        });
+      });
     }
   });

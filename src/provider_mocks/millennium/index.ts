@@ -1,19 +1,17 @@
+import crypto from "node:crypto";
 import * as vitest from "vitest";
-import * as common from "@/common";
 import { z } from "zod";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
 import type {
   Handler,
   HttpContext,
   MockProviderParams,
 } from "@/mock_server/api";
-import { err_bad_status } from "@/fetch_utils";
-import type { PrimeBusinessStatus } from "@/db/business";
 import { CurlBuilder } from "@/story/curl";
 import type { P2PSuite } from "@/suite_interfaces";
-import { defaultSettings, providers } from "@/settings_builder";
-import { CONFIG } from "@/config";
-
-import crypto from "node:crypto";
 
 export function callbackSignature(
   params: Record<string, any>,
@@ -94,8 +92,9 @@ export class MillenniumTransaction {
   }
 
   private requestData() {
-    vitest.assert(this.payin_data || this.payout_data);
-    return this.payin_data ?? this.payout_data!;
+    let data = this.payin_data ?? this.payout_data;
+    vitest.assert(data, "request data should be defined");
+    return data;
   }
 
   private requisiteNumber(code: string) {
@@ -166,7 +165,7 @@ export class MillenniumTransaction {
   }
 
   static no_requisites_handler(): Handler {
-    return (c) => c.json(this.no_requisites_response(), 404);
+    return (c) => c.json(MillenniumTransaction.no_requisites_response(), 404);
   }
 
   /**

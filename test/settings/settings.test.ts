@@ -1,8 +1,8 @@
-import { JusanPayment } from "@/provider_mocks/jusan";
 import * as common from "@/common";
+import { CONFIG } from "@/config";
+import { JusanPayment } from "@/provider_mocks/jusan";
 import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
-import { CONFIG } from "@/config";
 
 function createJusanInstance(ctx: Context) {
   let uuid = crypto.randomUUID();

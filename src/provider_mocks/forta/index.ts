@@ -1,13 +1,12 @@
-import { z } from "zod";
 import crypto from "node:crypto";
+import { assert } from "vitest";
+import { z } from "zod";
+import * as common from "@/common";
+import type { PrimeBusinessStatus } from "@/db/business";
 import { err_bad_status } from "@/fetch_utils";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { assert } from "vitest";
-import * as common from "@/common";
 import { CurlBuilder } from "@/story/curl";
-import type { PrimeBusinessStatus } from "@/db/business";
 import type { P2PSuite } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
 
 const BankSchema = z.enum(["ANY", "SBP", "SBP_TG", "tpay"]);
 
@@ -59,7 +58,7 @@ export class FortaPayment {
           return { receiverPhone: `+${common.phoneNumber}` };
         case "SBP_TG":
           return { receiverPhone: `+${common.phoneNumber}` };
-        case "tpay":
+        case "tpay": {
           let base = "https://app-redir.wallet-expert.com";
           assert(this.request_data);
           let phone = `+${common.phoneNumber}`;
@@ -75,6 +74,7 @@ export class FortaPayment {
           let url = new URL(base);
           url.search = new URLSearchParams(params).toString();
           return { qrCodeLink: String(url), receiverPhone: phone };
+        }
         default:
           assert.fail(`unhandled payment bank: ${bank}`);
       }
@@ -133,7 +133,7 @@ export class FortaPayment {
   }
 
   static no_requisites_handler(): Handler {
-    return (c) => c.json(this.no_requisites_response(), 400);
+    return (c) => c.json(FortaPayment.no_requisites_response(), 400);
   }
 
   /**
@@ -171,9 +171,9 @@ export class FortaPayment {
       amount: this.request_data.amount,
       ...this.requisites(this.request_data.bank),
     };
-    let signatureStr = `${data["orderId"]}${data["amount"]}${secret}`;
+    let signatureStr = `${data.orderId}${data.amount}${secret}`;
     let sign = crypto.createHash("md5").update(signatureStr).digest("hex");
-    data["sign"] = sign;
+    data.sign = sign;
     return data;
   }
 

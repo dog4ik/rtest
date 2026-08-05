@@ -1,23 +1,21 @@
-import { describe, assert } from "vitest";
+import { delay } from "@std/async";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import * as playwright from "playwright/test";
 import { PROJECT } from "@/config";
-import { test } from "@/test_context";
-import { providers } from "@/settings_builder";
-import { MillenniumTransaction } from "@/provider_mocks/millennium";
-import { payinSuite } from "@/provider_mocks/millennium";
-import type { Context } from "@/test_context/context";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { MillenniumTransaction, payinSuite } from "@/provider_mocks/millennium";
+import { providers } from "@/settings_builder";
 import {
+  CALLBACK_DELAY,
   callbackFinalizationSuite,
   dataFlowTest,
-  payformDataFlowTest,
-  statusFinalizationSuite,
-  providersSuite,
   maskedSuite,
-  CALLBACK_DELAY,
+  payformDataFlowTest,
+  providersSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { delay } from "@std/async";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "RUB";
 
@@ -162,11 +160,11 @@ describe
 
     callbackFinalizationSuite(maskedMillenniumSuite, {
       tag: "masked_provider",
-      skip_if: PROJECT != "8pay",
+      skip_if: PROJECT !== "8pay",
     });
     statusFinalizationSuite(maskedMillenniumSuite, {
       tag: "masked_provider",
-      skip_if: PROJECT != "8pay",
+      skip_if: PROJECT !== "8pay",
     });
 
     dataFlowTest("extra_return_param sbp", {

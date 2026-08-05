@@ -1,11 +1,11 @@
-import type { ProviderInstance } from "@/mock_server/instance";
-import type { P2PSuite } from ".";
-import type { Context } from "@/test_context/context";
-import type { ExtendedMerchant } from "@/entities/merchant";
-import type { PrimeBusinessStatus } from "@/db/business";
 import { assert } from "vitest";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Notification } from "@/entities/merchant_notification";
 import type { HttpContext } from "@/mock_server/api";
+import type { ProviderInstance } from "@/mock_server/instance";
+import type { Context } from "@/test_context/context";
+import type { P2PSuite } from ".";
 
 export class ProviderAdapter<G = unknown> {
   public provider: ProviderInstance;

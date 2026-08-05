@@ -1,8 +1,8 @@
-import * as playwright from "playwright";
+import type * as playwright from "playwright";
 import * as playwright_test from "playwright/test";
-import * as common from "@/common";
 import { expect } from "playwright/test";
 import { assert } from "vitest";
+import * as common from "@/common";
 
 function formatAmounts(value: number) {
   let number = new Intl.NumberFormat("ru-RU", {

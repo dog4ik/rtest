@@ -1,19 +1,18 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { PixelwavePayment } from "@/provider_mocks/pixelwave";
-import { payinSuite } from "@/provider_mocks/pixelwave";
+import { CONFIG, PROJECT } from "@/config";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { PixelwavePayment, payinSuite } from "@/provider_mocks/pixelwave";
+import { providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
-  payformDataFlowTest,
-  statusFinalizationSuite,
-  providersSuite,
   maskedSuite,
+  payformDataFlowTest,
+  providersSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
@@ -22,7 +21,7 @@ let maskedPixelwaveSuite = () =>
   providersSuite(CURRENCY, maskedSuite(payinSuite()));
 
 describe
-  .runIf(CONFIG.extra_mapping?.["pixelwave"])
+  .runIf(CONFIG.extra_mapping?.pixelwave)
   .concurrent("pixelwave gateway", () => {
     callbackFinalizationSuite(pixelwaveSuite);
     statusFinalizationSuite(pixelwaveSuite);
@@ -58,7 +57,7 @@ describe
   });
 
 describe
-  .runIf(PROJECT === "8pay" && CONFIG.extra_mapping?.["pixelwave"])
+  .runIf(PROJECT === "8pay" && CONFIG.extra_mapping?.pixelwave)
   .concurrent("pixelwave 8pay", () => {
     callbackFinalizationSuite(maskedPixelwaveSuite, {
       tag: "masked_provider",
@@ -185,9 +184,7 @@ describe
   });
 
 describe
-  .runIf(
-    CONFIG.project === "reactivepay" && CONFIG.extra_mapping?.["pixelwave"],
-  )
+  .runIf(CONFIG.project === "reactivepay" && CONFIG.extra_mapping?.pixelwave)
   .concurrent("pixelwave pcidss requisite", () => {
     dataFlowTest("bank_account sbp", {
       ...pixelwaveSuite(),

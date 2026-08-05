@@ -1,7 +1,7 @@
 import * as yaml from "@std/yaml";
 
 function insertExtraHost(map: Record<string, any>) {
-  map["extra_hosts"] = ["host.docker.internal:host-gateway"];
+  map.extra_hosts = ["host.docker.internal:host-gateway"];
 }
 
 function makeDependency(
@@ -23,7 +23,7 @@ export function patchedDockerCompose(
   const volumes = doc.volumes;
 
   // Patch postgres
-  const postgres = services["postgres"];
+  const postgres = services.postgres;
   if (!postgres) throw new Error("No postgres service found");
 
   postgres.healthcheck = {
@@ -35,25 +35,25 @@ export function patchedDockerCompose(
 
   if (patchVolumes) {
     volumes["postgres-data-test"] = { driver: "local" };
-    postgres["volumes"] = ["postgres-data-test:/var/lib/postgresql/data"];
+    postgres.volumes = ["postgres-data-test:/var/lib/postgresql/data"];
   }
 
-  const mongoSetup = services["mongo"];
+  const mongoSetup = services.mongo;
 
   if (mongoSetup) {
     if (patchVolumes) {
       volumes["mongo-data-test"] = { driver: "local" };
-      mongoSetup["volumes"] = ["mongo-data-test:/data/db"];
+      mongoSetup.volumes = ["mongo-data-test:/data/db"];
     }
   }
 
-  const minioSetup = services["minio"];
+  const minioSetup = services.minio;
 
   if (minioSetup) {
     if (patchVolumes) {
       volumes["minio-data-test"] = { driver: "local" };
       volumes["minio-config-test"] = { driver: "local" };
-      minioSetup["volumes"] = [
+      minioSetup.volumes = [
         "minio-data-test:/export",
         "minio-config-test:/root/.minio",
       ];
@@ -61,7 +61,7 @@ export function patchedDockerCompose(
   }
 
   // Patch metabase_setup if exists
-  const metabaseSetup = services["metabase_setup"];
+  const metabaseSetup = services.metabase_setup;
   if (metabaseSetup) {
     metabaseSetup.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
@@ -70,7 +70,7 @@ export function patchedDockerCompose(
   }
 
   // Patch business
-  const business = services["business"];
+  const business = services.business;
   if (business) {
     business.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
@@ -80,7 +80,7 @@ export function patchedDockerCompose(
   }
 
   // Patch business_sidekiq
-  const businessSidekiq = services["business_sidekiq"];
+  const businessSidekiq = services.business_sidekiq;
   if (businessSidekiq) {
     businessSidekiq.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
@@ -90,7 +90,7 @@ export function patchedDockerCompose(
   }
 
   // Patch trader if exists
-  const trader = services["trader"];
+  const trader = services.trader;
   if (trader) {
     trader.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
@@ -99,7 +99,7 @@ export function patchedDockerCompose(
   }
 
   // Patch core
-  const core = services["core"];
+  const core = services.core;
   if (core) {
     console.log({ core });
     let environment = core.environment;
@@ -115,7 +115,7 @@ export function patchedDockerCompose(
   }
 
   // Patch settings
-  const settings = services["settings"];
+  const settings = services.settings;
   if (settings) {
     settings.depends_on = Object.fromEntries([
       makeDependency("postgres", "service_healthy"),
@@ -123,7 +123,7 @@ export function patchedDockerCompose(
   }
 
   // Expose mongo port to the host
-  const mongo = services["mongo"];
+  const mongo = services.mongo;
   if (mongo) {
     mongo.ports = ["27017:27017"];
   }

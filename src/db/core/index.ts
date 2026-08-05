@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { Db, sqlProjection } from "..";
 import type { Pool } from "pg";
+import { z } from "zod";
 import type { Project } from "@/project";
+import { Db, sqlProjection } from "..";
 import { EntrySchema } from "./entry";
 
 export const CoreStatusSchema = z.union([

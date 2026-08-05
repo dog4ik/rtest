@@ -1,15 +1,15 @@
-import * as playwright from "playwright";
-import * as config from "@/config";
-import { initState } from "@/state";
+import type * as playwright from "playwright";
 import { test as base } from "vitest";
-import { Context } from "./context";
+import * as config from "@/config";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { MockProviderParams } from "@/mock_server/api";
+import type { ProviderInstance } from "@/mock_server/instance";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { IronpayPayment } from "@/provider_mocks/ironpay";
-import type { ProviderInstance } from "@/mock_server/instance";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
+import { initState } from "@/state";
+import { Context } from "./context";
 
 const state = initState(config.CONFIG);
 
@@ -70,12 +70,14 @@ export const test = base
     },
   })
   .extend<BrowserContext>({
+    // biome-ignore lint/correctness/noEmptyPattern: vitest parses the destructuring pattern to resolve fixture dependencies, `{}` declares none
     browser: async ({}, use) => {
       let browser = (await state).browser;
       let context = await browser.newContext();
       await use(context);
       await context.close();
     },
+    // biome-ignore lint/correctness/noEmptyPattern: vitest parses the destructuring pattern to resolve fixture dependencies, `{}` declares none
     chrome: async ({}, use) => {
       await use((await state).browser);
     },

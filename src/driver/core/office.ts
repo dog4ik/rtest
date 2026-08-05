@@ -1,7 +1,7 @@
-import { err_bad_status } from "@/fetch_utils";
 import { PROJECT } from "@/config";
-import type { Requisite } from "../trader";
+import { err_bad_status } from "@/fetch_utils";
 import { authorize_client, type Credentials } from "..";
+import type { Requisite } from "../trader";
 
 export type CreateMerchant = {
   phone?: string;
@@ -49,13 +49,13 @@ export type CreateSmsParser = {
   bank_id: string;
 };
 
-const DateFormatter = new Intl.DateTimeFormat("en-CA", {
+const _DateFormatter = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
 
-const TimeFormatter = new Intl.DateTimeFormat("en-GB", {
+const _TimeFormatter = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
@@ -66,7 +66,7 @@ export class CoreOfficeDriver {
   base_url: string;
   constructor(base_url: string) {
     this.cookies = "";
-    this.base_url = base_url + "/office";
+    this.base_url = `${base_url}/office`;
   }
 
   private async action(path: string, payload: {}, method?: string) {
@@ -95,26 +95,8 @@ export class CoreOfficeDriver {
     }
   }
 
-  private async form_action(path: string, body: FormData, method?: string) {
-    let res = await fetch(this.base_url + path, {
-      method: method ?? "POST",
-      redirect: "manual",
-      body,
-      headers: {
-        cookie: this.cookies ?? "",
-      },
-    }).then(err_bad_status);
-    let cookie = res.headers.get("set-cookie");
-    if (cookie !== null) {
-      this.cookies = cookie;
-    }
-  }
-
   async keycloak_login(credentials: Credentials) {
-    this.cookies = await authorize_client(
-      credentials,
-      this.base_url,
-    );
+    this.cookies = await authorize_client(credentials, this.base_url);
   }
 
   async login(credentials: Credentials) {

@@ -1,9 +1,9 @@
-import * as common from "@/common";
-import { traderSetttings } from "@/driver/trader";
-import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { traderSetttings } from "@/driver/trader";
+import { test } from "@/test_context";
 
 const TRADER_DELAY = 5_000;
 
@@ -63,6 +63,5 @@ describe
         await delay(TRADER_DELAY);
         await trader.finalizeTransaction(res.token, "approved");
         await notification;
-      }),
-    );
+      }));
   });

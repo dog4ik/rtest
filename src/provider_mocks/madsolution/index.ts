@@ -1,12 +1,12 @@
-import * as common from "@/common";
-import { z } from "zod";
 import { assert } from "vitest";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import { err_bad_status } from "@/fetch_utils";
-import { CurlBuilder } from "@/story/curl";
-import type { PrimeBusinessStatus } from "@/db/business";
-import type { P2PSuite } from "@/suite_interfaces";
+import { z } from "zod";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import { CurlBuilder } from "@/story/curl";
+import type { P2PSuite } from "@/suite_interfaces";
 
 const METHOD_SCHEMA = z.enum(["CARDNUM", "PHONE", "SBP", "QR_PAYMENT"]);
 
@@ -97,7 +97,7 @@ function trafficType(type: MadsolutionMethod) {
 }
 
 function cardInfo(method: MadsolutionMethod) {
-  if (method == "CARDNUM") {
+  if (method === "CARDNUM") {
     return {
       bank: null,
       cardNumber: common.visaCard,
@@ -255,7 +255,7 @@ export class MadsolutionPayment {
     }
 
     return {
-      id: this.dispute_data!.dispute_id,
+      id: this.dispute_data?.dispute_id,
       orderId: this.gateway_id,
       status: appealStatusObject(status),
       createdAtUtc: "2025-12-16T12:00:39.8636369Z",
@@ -306,7 +306,7 @@ export class MadsolutionPayment {
     return {
       Event: "APPEAL_APPROVED",
       Appeal: {
-        OriginalOrderAmount: this.request_data!.amount,
+        OriginalOrderAmount: this.request_data?.amount,
         ModifiedOrderAmount: new_amount ?? null,
         Id: this.dispute_data.dispute_id,
         OrderId: this.gateway_id,

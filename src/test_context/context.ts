@@ -1,4 +1,7 @@
+import type * as vitest from "vitest";
 import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { FeedStatus, FeedType } from "@/driver/admin";
 import type {
   CreateAgentOptions,
   CreateMerchantOptions,
@@ -6,7 +9,6 @@ import type {
   CreateTraderOptions,
 } from "@/driver/core";
 import type { CreateRuleJson } from "@/driver/flexy_commission";
-import type { FeedStatus, FeedType } from "@/driver/admin";
 import { extendMerchant } from "@/entities/merchant";
 import { extendTrader } from "@/entities/trader";
 import { RoutingBuilder } from "@/flexy_guard_builder";
@@ -16,8 +18,6 @@ import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
-import * as vitest from "vitest";
-import type { PrimeBusinessStatus } from "@/db/business";
 
 export class Context {
   uuid: string;
@@ -66,11 +66,16 @@ export class Context {
    */
   async create_random_merchant(opts?: CreateMerchantOptions) {
     let now = new Date();
-    let merchantInfo = await this.state.core_harness.create_random_merchant(opts);
+    let merchantInfo =
+      await this.state.core_harness.create_random_merchant(opts);
     let merchant = await this.state.core_db
       .merchantByEmail(merchantInfo.email)
       .then((m) => extendMerchant(this, m));
-    await this.state.business_db.wait_for_settings_update(now, merchant.id, true);
+    await this.state.business_db.wait_for_settings_update(
+      now,
+      merchant.id,
+      true,
+    );
     if (CONFIG.in_project(["reactivepay", "kotulapay"])) {
       await this.state.core_db.set_force_password_change(merchant.id, false);
     }
@@ -95,7 +100,7 @@ export class Context {
   }
 
   async create_random_bank() {
-    let random_name = () => Math.floor(Math.random() * Math.pow(10, 10)).toString();
+    let random_name = () => Math.floor(Math.random() * 10 ** 10).toString();
     let bank_info = {
       en: random_name(),
       ru: random_name(),
@@ -109,9 +114,17 @@ export class Context {
   /**
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
-  async add_flexy_guard_rule(payload: Record<string, any>, comment?: string, priority?: number) {
+  async add_flexy_guard_rule(
+    payload: Record<string, any>,
+    comment?: string,
+    priority?: number,
+  ) {
     this.story.add_chapter("Add flexy guard rule", payload);
-    await this.shared_state().guard_service.add_rule(payload, comment, priority ?? 1);
+    await this.shared_state().guard_service.add_rule(
+      payload,
+      comment,
+      priority ?? 1,
+    );
   }
 
   async add_flexy_commission_as_json(data: CreateRuleJson, comment?: string) {
@@ -137,7 +150,10 @@ export class Context {
    */
   async core_change_status(token: string, status: PrimeBusinessStatus) {
     let feed = await this.get_feed(token);
-    this.story.add_chapter("Change status via core manage", `${token} ${status}`);
+    this.story.add_chapter(
+      "Change status via core manage",
+      `${token} ${status}`,
+    );
     await this.state.core_harness.change_status(feed.id, status);
   }
 
@@ -151,7 +167,10 @@ export class Context {
    *
    * Note that defaultHandler will propagate errors only if the test is wrapped in `track_bg_rejections`
    */
-  mock_server(params: MockProviderParams, defaultHandler?: Handler): ProviderInstance {
+  mock_server(
+    params: MockProviderParams,
+    defaultHandler?: Handler,
+  ): ProviderInstance {
     let instance = new ProviderInstance(
       async (c) => {
         if (defaultHandler !== undefined) {
@@ -163,7 +182,9 @@ export class Context {
             return c.text("Default handler error");
           }
         } else {
-          this.testBackgroundReject(`Unexpected request on test handler: ${params.alias}`);
+          this.testBackgroundReject(
+            `Unexpected request on test handler: ${params.alias}`,
+          );
           c.status(500);
           return c.text("Unexpected request on test handler");
         }

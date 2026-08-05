@@ -1,9 +1,9 @@
-import { connectPool } from "@/db";
-import { CoreDb } from "@/db/core";
-import * as config from "../src/config";
-import { basic_healthcheck } from "@/healthcheck";
-import { BusinessDb } from "@/db/business";
 import { argv } from "node:process";
+import { connectPool } from "@/db";
+import { BusinessDb } from "@/db/business";
+import { CoreDb } from "@/db/core";
+import { basic_healthcheck } from "@/healthcheck";
+import * as config from "../src/config";
 
 let c = config.open("configuration.toml");
 let core_db = new CoreDb(
@@ -15,7 +15,7 @@ let business_db = new BusinessDb(
   c.project,
 );
 let token = argv[2];
-if (!token || token.length != 32) {
+if (token?.length !== 32) {
   throw Error(`Expected valid token argument, got ${token}`);
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { InteractionLog } from "./interaction_logs";
 import type { PrimeBusinessStatus } from "@/db/business";
+import type { InteractionLog } from "./interaction_logs";
 
 export const CustomerSchema = z.object({
   ip: z.string().nullish(),

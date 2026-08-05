@@ -1,10 +1,10 @@
+import { assert } from "vitest";
 import * as common from "@/common";
 import type { Trader } from "@/db/core";
 import type { TraderMethodToggle } from "@/driver/core";
-import { TraderDriver, type Bank } from "@/driver/trader";
+import { type Bank, TraderDriver } from "@/driver/trader";
 import type { Context } from "@/test_context/context";
-import { assert } from "vitest";
-import { extendedRequisite, type ExtendedRequisite } from "./requisite";
+import { type ExtendedRequisite, extendedRequisite } from "./requisite";
 
 export type ExtendedTrader = ReturnType<typeof extendTrader>;
 
@@ -36,7 +36,9 @@ type TraderSetupOptions = {
 type BooleanRequisiteKeys = "card" | "sbp" | "link" | "account";
 
 type TraderRequisiteResult<T extends Partial<TraderSetupOptions>> = {
-  [K in BooleanRequisiteKeys as T[K] extends true ? K : never]: ExtendedRequisite;
+  [K in BooleanRequisiteKeys as T[K] extends true
+    ? K
+    : never]: ExtendedRequisite;
 } & { device_id: string };
 
 const DEFAULT_SETUP: TraderSetupOptions = {
@@ -53,7 +55,7 @@ async function finalizeTransaction(
   status: "approved" | "declined",
 ) {
   let feed = await this.ctx.get_feed(token);
-  if (feed.type == "PayinRequest") {
+  if (feed.type === "PayinRequest") {
     if (status === "approved") {
       await this.driver.approve_transaction(feed.id);
     } else {
@@ -61,7 +63,7 @@ async function finalizeTransaction(
     }
   }
 
-  if (feed.type == "PayoutRequest") {
+  if (feed.type === "PayoutRequest") {
     if (status === "approved") {
       await this.driver.upload_reciept(feed.id);
     } else {
@@ -76,7 +78,10 @@ async function finalize_dispute(
   dispute_id: number,
   status: "approved" | "declined",
 ) {
-  this.ctx.story.add_chapter("Finalizing trader dispute", `${dispute_id} to ${status}`);
+  this.ctx.story.add_chapter(
+    "Finalizing trader dispute",
+    `${dispute_id} to ${status}`,
+  );
   return this.driver.update_dispute(dispute_id, status);
 }
 
@@ -90,7 +95,7 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
 
   await this.driver.activate_device(device_id);
 
-  let profile_id: undefined | number = undefined;
+  let profile_id: undefined | number;
   let result = {} as Record<string, ExtendedRequisite>;
   let get_profile_id = async () => {
     if (profile_id) {
@@ -113,8 +118,13 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
       card_holder: common.fullName,
       title: "Test card",
     });
-    await this.driver.activate_requisite(requisite.id!);
-    result["card"] = extendedRequisite(this.driver, requisite.id!, await get_profile_id());
+    assert(requisite.id, "card requisite id");
+    await this.driver.activate_requisite(requisite.id);
+    result.card = extendedRequisite(
+      this.driver,
+      requisite.id,
+      await get_profile_id(),
+    );
     await this.enable_trader_method("card_enabled");
   }
 
@@ -125,8 +135,13 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
       requisite_value: common.phoneNumber,
       title: common.fullName,
     });
-    await this.driver.activate_requisite(requisite.id!);
-    result["sbp"] = extendedRequisite(this.driver, requisite.id!, await get_profile_id());
+    assert(requisite.id, "sbp requisite id");
+    await this.driver.activate_requisite(requisite.id);
+    result.sbp = extendedRequisite(
+      this.driver,
+      requisite.id,
+      await get_profile_id(),
+    );
     await this.enable_trader_method("sbp_enabled");
   }
 
@@ -137,8 +152,13 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
       requisite_value: common.accountNumber,
       title: common.fullName,
     });
-    await this.driver.activate_requisite(requisite.id!);
-    result["account"] = extendedRequisite(this.driver, requisite.id!, await get_profile_id());
+    assert(requisite.id, "account requisite id");
+    await this.driver.activate_requisite(requisite.id);
+    result.account = extendedRequisite(
+      this.driver,
+      requisite.id,
+      await get_profile_id(),
+    );
     await this.enable_trader_method("account_enabled");
   }
 
@@ -149,8 +169,13 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
       requisite_value: common.redirectPayUrl,
       title: "Test link",
     });
-    await this.driver.activate_requisite(requisite.id!);
-    result["link"] = extendedRequisite(this.driver, requisite.id!, await get_profile_id());
+    assert(requisite.id, "link requisite id");
+    await this.driver.activate_requisite(requisite.id);
+    result.link = extendedRequisite(
+      this.driver,
+      requisite.id,
+      await get_profile_id(),
+    );
     await this.enable_trader_method("link_enabled");
   }
 
@@ -172,7 +197,11 @@ async function wallets(this: ExtendedTrader) {
     deposit,
     assertEmpty() {
       let assertWallet = (type: BankAccountWalletType) => {
-        assert.strictEqual(this[type].available, 0, `${type} available should be empty`);
+        assert.strictEqual(
+          this[type].available,
+          0,
+          `${type} available should be empty`,
+        );
         assert.strictEqual(this[type].held, 0, `${type} held should be empty`);
       };
       assertWallet("main");
@@ -191,15 +220,15 @@ async function cashin(
   amount: number,
 ) {
   let accounts = await this.bank_accounts();
-  this.ctx.story.add_chapter(`Trader ${this.id} cashin`, `${amount} ${currency} (${wallet_type})`);
+  this.ctx.story.add_chapter(
+    `Trader ${this.id} cashin`,
+    `${amount} ${currency} (${wallet_type})`,
+  );
+  let account = accounts.find((a) => a.kind === wallet_type);
+  assert(account, `${wallet_type} bank account`);
   await this.ctx
     .shared_state()
-    .core_harness.cashin(
-      this.id,
-      currency,
-      amount,
-      accounts.find((a) => a.kind == wallet_type)!.id!,
-    );
+    .core_harness.cashin(this.id, currency, amount, account.id);
 }
 
 async function cashout(
@@ -209,17 +238,22 @@ async function cashout(
   amount: number,
 ) {
   let accounts = await this.bank_accounts();
-  this.ctx.story.add_chapter(`Trader ${this.id} cashout`, `${amount} ${currency} (${wallet_type})`);
+  this.ctx.story.add_chapter(
+    `Trader ${this.id} cashout`,
+    `${amount} ${currency} (${wallet_type})`,
+  );
+  let account = accounts.find((a) => a.kind === wallet_type);
+  assert(account, `${wallet_type} bank account`);
   await this.ctx
     .shared_state()
-    .core_harness.cashout(
-      this.id,
-      currency,
-      amount,
-      accounts.find((a) => a.kind == wallet_type)!.id!,
-    );
+    .core_harness.cashout(this.id, currency, amount, account.id);
 }
 
-async function enable_trader_method(this: ExtendedTrader, method: keyof TraderMethodToggle) {
-  await this.ctx.shared_state().core_harness.enable_trader_method(this.id, method, true);
+async function enable_trader_method(
+  this: ExtendedTrader,
+  method: keyof TraderMethodToggle,
+) {
+  await this.ctx
+    .shared_state()
+    .core_harness.enable_trader_method(this.id, method, true);
 }

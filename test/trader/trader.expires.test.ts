@@ -1,9 +1,9 @@
+import { delay } from "@std/async";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import { traderNoConvertSettings } from "@/driver/trader";
 import { test } from "@/test_context";
-import { delay } from "@std/async";
-import { assert, describe } from "vitest";
 
 describe
   .runIf(CONFIG.in_project("a2"))
@@ -39,6 +39,5 @@ describe
         await Promise.race([notification, delay(150 * 1_000)]);
         await trader.finalizeTransaction(res.token, "approved");
         await notification;
-      }),
-    );
+      }));
   });

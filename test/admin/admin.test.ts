@@ -1,13 +1,13 @@
-import * as default_provider from "@/provider_mocks/default";
-import * as common from "@/common";
-import * as assets from "@/assets";
-import { traderNoConvertSettings } from "@/driver/trader";
-import { test } from "@/test_context";
-import { assert, describe } from "vitest";
 import { delay } from "@std/async";
-import type { Context } from "@/test_context/context";
-import type { ExtendedMerchant } from "@/entities/merchant";
+import { assert, describe } from "vitest";
+import * as assets from "@/assets";
+import * as common from "@/common";
 import type { CreateTraderOptions } from "@/driver/core";
+import { traderNoConvertSettings } from "@/driver/trader";
+import type { ExtendedMerchant } from "@/entities/merchant";
+import * as default_provider from "@/provider_mocks/default";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const AMOUNT = 100_000;
 const AMOUNT_RUB = AMOUNT / 100;
@@ -69,8 +69,7 @@ describe.concurrent("admin payin state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -105,53 +104,50 @@ describe.concurrent("admin payin state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance is zero",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, response, feed } = await setupApproved(ctx);
+  test.concurrent("accepted -> declined: no change — merchant balance is zero", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, response, feed } = await setupApproved(ctx);
 
-        // Drain all funds credited by the payin
-        await merchant.cashout("RUB", NET_RUB);
+      // Drain all funds credited by the payin
+      await merchant.cashout("RUB", NET_RUB);
 
-        assert.strictEqual(
-          feed.status,
-          1,
-          "feed: accepted before reversal attempt",
-        );
+      assert.strictEqual(
+        feed.status,
+        1,
+        "feed: accepted before reversal attempt",
+      );
 
-        await delay(2_000);
-        await ctx.admin_change_status("payin_request", feed.id, 2);
+      await delay(2_000);
+      await ctx.admin_change_status("payin_request", feed.id, 2);
 
-        await ctx.healthcheck(response.token, { expect: { status: 1 } });
-      }),
-  );
+      await ctx.healthcheck(response.token, { expect: { status: 1 } });
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance missing commission amount",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, response, feed } = await setupApproved(ctx);
+  test.concurrent("accepted -> declined: no change — merchant balance missing commission amount", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, response, feed } = await setupApproved(ctx);
 
-        // Cashout exactly COMMISSION_RUB, leaving NET_RUB - COMMISSION_RUB.
-        // Reversal needs NET_RUB, so it will be short by COMMISSION_RUB.
-        await merchant.cashout("RUB", COMMISSION_RUB);
+      // Cashout exactly COMMISSION_RUB, leaving NET_RUB - COMMISSION_RUB.
+      // Reversal needs NET_RUB, so it will be short by COMMISSION_RUB.
+      await merchant.cashout("RUB", COMMISSION_RUB);
 
-        assert.strictEqual(
-          feed.status,
-          1,
-          "feed: accepted before reversal attempt",
-        );
+      assert.strictEqual(
+        feed.status,
+        1,
+        "feed: accepted before reversal attempt",
+      );
 
-        await delay(2_000);
-        await ctx.admin_change_status("payin_request", feed.id, 2);
+      await delay(2_000);
+      await ctx.admin_change_status("payin_request", feed.id, 2);
 
-        await ctx.healthcheck(response.token, { expect: { status: 1 } });
-      }),
-  );
+      await ctx.healthcheck(response.token, { expect: { status: 1 } });
+    }));
 
   test.concurrent("accepted -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -168,8 +164,7 @@ describe.concurrent("admin payin state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -198,8 +193,7 @@ describe.concurrent("admin payin state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 });
 
 describe.concurrent("admin payout state changes", () => {
@@ -270,8 +264,7 @@ describe.concurrent("admin payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -304,53 +297,50 @@ describe.concurrent("admin payout state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "declined -> accepted: no change — merchant balance is zero",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, response, feed } = await setupDeclined(ctx);
+  test.concurrent("declined -> accepted: no change — merchant balance is zero", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, response, feed } = await setupDeclined(ctx);
 
-        // Drain all released funds — merchant now has zero balance
-        await merchant.cashout("RUB", MERCHANT_CASHIN_RUB);
+      // Drain all released funds — merchant now has zero balance
+      await merchant.cashout("RUB", MERCHANT_CASHIN_RUB);
 
-        assert.strictEqual(
-          feed.status,
-          2,
-          "feed: declined before acceptance attempt",
-        );
+      assert.strictEqual(
+        feed.status,
+        2,
+        "feed: declined before acceptance attempt",
+      );
 
-        await delay(2_000);
-        await ctx.admin_change_status("payout_request", feed.id, 1);
+      await delay(2_000);
+      await ctx.admin_change_status("payout_request", feed.id, 1);
 
-        await ctx.healthcheck(response.token, { expect: { status: 2 } });
-      }),
-  );
+      await ctx.healthcheck(response.token, { expect: { status: 2 } });
+    }));
 
-  test.concurrent(
-    "declined -> accepted: no change — merchant balance missing commission amount",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, response, feed } = await setupDeclined(ctx);
+  test.concurrent("declined -> accepted: no change — merchant balance missing commission amount", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, response, feed } = await setupDeclined(ctx);
 
-        // Cashout COMMISSION_RUB, leaving AMOUNT_RUB.
-        // Acceptance needs AMOUNT_RUB + COMMISSION_RUB, so it will be short by COMMISSION_RUB.
-        await merchant.cashout("RUB", COMMISSION_RUB);
+      // Cashout COMMISSION_RUB, leaving AMOUNT_RUB.
+      // Acceptance needs AMOUNT_RUB + COMMISSION_RUB, so it will be short by COMMISSION_RUB.
+      await merchant.cashout("RUB", COMMISSION_RUB);
 
-        assert.strictEqual(
-          feed.status,
-          2,
-          "feed: declined before acceptance attempt",
-        );
+      assert.strictEqual(
+        feed.status,
+        2,
+        "feed: declined before acceptance attempt",
+      );
 
-        await delay(2_000);
-        await ctx.admin_change_status("payout_request", feed.id, 1);
+      await delay(2_000);
+      await ctx.admin_change_status("payout_request", feed.id, 1);
 
-        await ctx.healthcheck(response.token, { expect: { status: 2 } });
-      }),
-  );
+      await ctx.healthcheck(response.token, { expect: { status: 2 } });
+    }));
 
   test.concurrent("accepted -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -377,8 +367,7 @@ describe.concurrent("admin payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -395,8 +384,7 @@ describe.concurrent("admin payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 });
 
 const TRADER_OPTS: CreateTraderOptions = { usdt: false, payout_hold_period: 0 };
@@ -466,8 +454,7 @@ describe.concurrent("admin trader payin state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -508,34 +495,31 @@ describe.concurrent("admin trader payin state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance is zero",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, res, feed } = await setupApproved(ctx);
-        await merchant.cashout("RUB", NET_RUB);
+  test.concurrent("accepted -> declined: no change — merchant balance is zero", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, res, feed } = await setupApproved(ctx);
+      await merchant.cashout("RUB", NET_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("payin_request", feed.id, 2);
-        await ctx.healthcheck(res.token, { expect: { status: 1 } });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("payin_request", feed.id, 2);
+      await ctx.healthcheck(res.token, { expect: { status: 1 } });
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance missing commission amount",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, res, feed } = await setupApproved(ctx);
-        await merchant.cashout("RUB", COMMISSION_RUB);
+  test.concurrent("accepted -> declined: no change — merchant balance missing commission amount", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, res, feed } = await setupApproved(ctx);
+      await merchant.cashout("RUB", COMMISSION_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("payin_request", feed.id, 2);
-        await ctx.healthcheck(res.token, { expect: { status: 1 } });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("payin_request", feed.id, 2);
+      await ctx.healthcheck(res.token, { expect: { status: 1 } });
+    }));
 
   test.concurrent("accepted -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -552,8 +536,7 @@ describe.concurrent("admin trader payin state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -588,8 +571,7 @@ describe.concurrent("admin trader payin state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 });
 
 describe.concurrent("admin trader payout state changes", () => {
@@ -685,8 +667,7 @@ describe.concurrent("admin trader payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -709,34 +690,31 @@ describe.concurrent("admin trader payout state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "declined -> accepted: no change — merchant balance is zero",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, payout, feed } = await setupDeclined(ctx);
-        await merchant.cashout("RUB", MERCHANT_CASHIN_RUB);
+  test.concurrent("declined -> accepted: no change — merchant balance is zero", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, payout, feed } = await setupDeclined(ctx);
+      await merchant.cashout("RUB", MERCHANT_CASHIN_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("payout_request", feed.id, 1);
-        await ctx.healthcheck(payout.token, { expect: { status: 2 } });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("payout_request", feed.id, 1);
+      await ctx.healthcheck(payout.token, { expect: { status: 2 } });
+    }));
 
-  test.concurrent(
-    "declined -> accepted: no change — merchant balance missing commission amount",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, payout, feed } = await setupDeclined(ctx);
-        await merchant.cashout("RUB", COMMISSION_RUB);
+  test.concurrent("declined -> accepted: no change — merchant balance missing commission amount", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, payout, feed } = await setupDeclined(ctx);
+      await merchant.cashout("RUB", COMMISSION_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("payout_request", feed.id, 1);
-        await ctx.healthcheck(payout.token, { expect: { status: 2 } });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("payout_request", feed.id, 1);
+      await ctx.healthcheck(payout.token, { expect: { status: 2 } });
+    }));
 
   test.concurrent("accepted -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -753,8 +731,7 @@ describe.concurrent("admin trader payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
@@ -771,8 +748,7 @@ describe.concurrent("admin trader payout state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 });
 
 describe.concurrent("admin dispute state changes", () => {
@@ -813,12 +789,14 @@ describe.concurrent("admin dispute state changes", () => {
     });
 
     let [dispute] = await ctx.get_disputes(res.token);
-    return { merchant, trader, dispute };
+    assert.isNotNull(dispute.api_payment_token, "dispute api payment token");
+    let payment_token = dispute.api_payment_token;
+    return { merchant, trader, dispute, payment_token };
   }
 
   // Accepts the dispute via admin and returns the updated dispute feed.
   async function setupAcceptedDispute(ctx: Context) {
-    let { merchant, dispute } = await setupDispute(ctx);
+    let { merchant, dispute, payment_token } = await setupDispute(ctx);
     let accepted_notification = merchant.queue_notification((n) => {
       assert.strictEqual(n.type, "dispute");
       assert.strictEqual(n.status, "approved");
@@ -826,12 +804,12 @@ describe.concurrent("admin dispute state changes", () => {
     await delay(2_000);
     await ctx.admin_change_status("dispute_request", dispute.id, 1);
     await accepted_notification;
-    return { merchant, dispute };
+    return { merchant, dispute, payment_token };
   }
 
   test.concurrent("pending -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { merchant, dispute } = await setupDispute(ctx);
+      let { merchant, dispute, payment_token } = await setupDispute(ctx);
 
       let approved_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "dispute");
@@ -842,7 +820,7 @@ describe.concurrent("admin dispute state changes", () => {
       await ctx.admin_change_status("dispute_request", dispute.id, 1);
       await approved_notification;
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 1,
           target_amount: AMOUNT_RUB,
@@ -850,12 +828,11 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("pending -> declined", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { merchant, dispute } = await setupDispute(ctx);
+      let { merchant, dispute, payment_token } = await setupDispute(ctx);
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "dispute");
@@ -866,7 +843,7 @@ describe.concurrent("admin dispute state changes", () => {
       await ctx.admin_change_status("dispute_request", dispute.id, 2);
       await declined_notification;
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 2,
           target_amount: AMOUNT_RUB,
@@ -874,12 +851,12 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("accepted -> declined", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { merchant, dispute } = await setupAcceptedDispute(ctx);
+      let { merchant, dispute, payment_token } =
+        await setupAcceptedDispute(ctx);
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "dispute");
@@ -890,7 +867,7 @@ describe.concurrent("admin dispute state changes", () => {
       await ctx.admin_change_status("dispute_request", dispute.id, 2);
       await declined_notification;
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 2,
           target_amount: AMOUNT_RUB,
@@ -898,12 +875,11 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> accepted", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { merchant, dispute } = await setupDispute(ctx);
+      let { merchant, dispute, payment_token } = await setupDispute(ctx);
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "dispute");
@@ -922,7 +898,7 @@ describe.concurrent("admin dispute state changes", () => {
       await ctx.admin_change_status("dispute_request", dispute.id, 1);
       await approved_notification;
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 1,
           target_amount: AMOUNT_RUB,
@@ -930,47 +906,46 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: PROVIDER_COMMISSION_RUB,
         },
       });
-    }),
-  );
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance is zero",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, dispute } = await setupAcceptedDispute(ctx);
-        await merchant.cashout("RUB", NET_RUB);
+  test.concurrent("accepted -> declined: no change — merchant balance is zero", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, dispute, payment_token } =
+        await setupAcceptedDispute(ctx);
+      await merchant.cashout("RUB", NET_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("dispute_request", dispute.id, 2);
-        await ctx.healthcheck(dispute.api_payment_token!, {
-          expect: { status: 1 },
-        });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("dispute_request", dispute.id, 2);
+      await ctx.healthcheck(payment_token, {
+        expect: { status: 1 },
+      });
+    }));
 
-  test.concurrent(
-    "accepted -> declined: no change — merchant balance missing commission amount",
-    ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let { merchant, dispute } = await setupAcceptedDispute(ctx);
-        await merchant.cashout("RUB", COMMISSION_RUB);
+  test.concurrent("accepted -> declined: no change — merchant balance missing commission amount", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let { merchant, dispute, payment_token } =
+        await setupAcceptedDispute(ctx);
+      await merchant.cashout("RUB", COMMISSION_RUB);
 
-        await delay(2_000);
-        await ctx.admin_change_status("dispute_request", dispute.id, 2);
-        await ctx.healthcheck(dispute.api_payment_token!, {
-          expect: { status: 1 },
-        });
-      }),
-  );
+      await delay(2_000);
+      await ctx.admin_change_status("dispute_request", dispute.id, 2);
+      await ctx.healthcheck(payment_token, {
+        expect: { status: 1 },
+      });
+    }));
 
   test.concurrent("accepted -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { dispute } = await setupAcceptedDispute(ctx);
+      let { dispute, payment_token } = await setupAcceptedDispute(ctx);
 
       await delay(2_000);
       await ctx.admin_change_status("dispute_request", dispute.id, 0);
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 0,
           target_amount: AMOUNT_RUB,
@@ -978,12 +953,11 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 
   test.concurrent("declined -> pending", ({ ctx }) =>
     ctx.track_bg_rejections(async () => {
-      let { merchant, dispute } = await setupDispute(ctx);
+      let { merchant, dispute, payment_token } = await setupDispute(ctx);
 
       let declined_notification = merchant.queue_notification((n) => {
         assert.strictEqual(n.type, "dispute");
@@ -996,7 +970,7 @@ describe.concurrent("admin dispute state changes", () => {
       await delay(2_000);
       await ctx.admin_change_status("dispute_request", dispute.id, 0);
 
-      await ctx.healthcheck(dispute.api_payment_token!, {
+      await ctx.healthcheck(payment_token, {
         expect: {
           status: 0,
           target_amount: AMOUNT_RUB,
@@ -1004,6 +978,5 @@ describe.concurrent("admin dispute state changes", () => {
           commission_provider_amount: 0,
         },
       });
-    }),
-  );
+    }));
 });

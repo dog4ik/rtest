@@ -1,22 +1,22 @@
+import { delay } from "@std/async";
 import { assert } from "vitest";
 import * as common from "@/common";
 import { businessOfCoreStatus } from "@/db/business";
-import { CoreDb, type CoreStatus, type Feed } from "@/db/core";
+import type { CoreDb, CoreStatus, Feed } from "@/db/core";
 import type { Entry } from "@/db/core/entry";
 import type { SharedState } from "@/state";
 import {
+  type BalanceValidation,
   EntryValidator,
-  BalanceValidation,
-  TraderBalanceValidation,
   expected_trader_state,
+  type TraderBalanceValidation,
 } from "./entries";
-import { delay } from "@std/async";
 
 export class Match<T> {
   constructor(
     public expected: T,
     public got: T,
-  ) { }
+  ) {}
 
   toString(): string {
     if (this.expected !== this.got) {
@@ -44,14 +44,14 @@ class HealthcheckResult {
     public amount: Match<number>,
     public wallet_state: WalletState,
     public disputes?: WalletState[],
-  ) { }
+  ) {}
 
   static is_valid_wallet_state(state: WalletState) {
     return (
       state.mid.valid() &&
       state.system.valid() &&
-      (state.agent == undefined || state.agent.valid()) &&
-      (state.trader == undefined || state.trader.valid())
+      (state.agent === undefined || state.agent.valid()) &&
+      (state.trader === undefined || state.trader.valid())
     );
   }
 
@@ -60,8 +60,7 @@ class HealthcheckResult {
       !this.status.eq() ||
       !this.amount.eq() ||
       !HealthcheckResult.is_valid_wallet_state(this.wallet_state) ||
-      (this.disputes &&
-        this.disputes.some((d) => !HealthcheckResult.is_valid_wallet_state(d)))
+      this.disputes?.some((d) => !HealthcheckResult.is_valid_wallet_state(d))
     ) {
       assert.fail(this.toString());
     }
@@ -101,7 +100,10 @@ class HealthcheckResult {
         lines.push(dispute.mid.toString());
 
         lines.push(`Dispute trader entries:`);
-        lines.push(dispute.trader!.toString());
+        lines.push(
+          dispute.trader?.toString() ??
+            `Failed to validate dispute trader entries: missing trader_id`,
+        );
       }
     }
 
@@ -129,7 +131,7 @@ function check_sensitive_data(s: string | null, msg: string) {
 }
 
 function feed_profile(feed: Feed) {
-  if (feed.type == "RefundRequest") {
+  if (feed.type === "RefundRequest") {
     return feed.from_profile_id;
   }
 }
@@ -193,7 +195,7 @@ export async function basic_healthcheck(
   let mid_id = business.business_account_profileID ?? feed_profile(core);
   assert(mid_id, "Failed to figure out mid id to perform healthcheck");
   let disputes_validations: WalletState[] = [];
-  if (core.trader_id && core.type == "PayinRequest") {
+  if (core.trader_id && core.type === "PayinRequest") {
     assert(
       core.api_payment_token,
       "trader payin should have api_payment_token",

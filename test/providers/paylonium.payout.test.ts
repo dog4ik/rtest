@@ -1,16 +1,16 @@
+import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { PayloniumPayout, payoutSuite } from "@/provider_mocks/paylonium";
-import {
-  statusFinalizationSuite,
-  payoutPendingSuite,
-  dataFlowTest,
-} from "@/suite_interfaces";
-import { defaultSettings } from "@/settings_builder";
-import { test } from "@/test_context";
 import type { HttpContext } from "@/mock_server/api";
-import { delay } from "@std/async";
+import { PayloniumPayout, payoutSuite } from "@/provider_mocks/paylonium";
+import { defaultSettings } from "@/settings_builder";
+import {
+  dataFlowTest,
+  payoutPendingSuite,
+  statusFinalizationSuite,
+} from "@/suite_interfaces";
+import { test } from "@/test_context";
 
 const CURRENCY = "RUB";
 
@@ -89,7 +89,7 @@ describe
           service: 26,
           bank_list: BANK_CODES,
         });
-        settings.gateways["skip_card_payout_validation"] = true;
+        settings.gateways.skip_card_payout_validation = true;
         return settings;
       },
       request() {
@@ -119,7 +119,7 @@ describe
           "account should be phone number",
         );
         assert.strictEqual(
-          last_payment.attrs["payee_bank_code"],
+          last_payment.attrs.payee_bank_code,
           String(SBERBANK_CODE),
           "payee_bank_code should match bank mapping",
         );

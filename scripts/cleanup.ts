@@ -1,6 +1,6 @@
+import readline from "node:readline";
 import { connectPool } from "@/db";
 import * as config from "../src/config";
-import readline from "node:readline";
 
 function confirm(question: string): Promise<boolean> {
   let rl = readline.createInterface({
@@ -34,7 +34,7 @@ async function main() {
 
     console.log(`\nFound ${profiles.length} profile(s) to delete:\n`);
     console.log("  ID\t| Email");
-    console.log("  " + "-".repeat(50));
+    console.log(`  ${"-".repeat(50)}`);
     for (let p of profiles) {
       console.log(`  ${p.id}\t| ${p.email}`);
     }

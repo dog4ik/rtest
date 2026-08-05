@@ -1,11 +1,11 @@
-import * as common from "@/common";
-import { TRADER_DELAY, traderNoConvertSettings } from "@/driver/trader";
-import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
-import type { ExtendedMerchant } from "@/entities/merchant";
-import type { Context } from "@/test_context/context";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { TRADER_DELAY, traderNoConvertSettings } from "@/driver/trader";
+import type { ExtendedMerchant } from "@/entities/merchant";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 describe
   .runIf(CONFIG.in_project(["reactivepay", "a2"]))
@@ -57,8 +57,14 @@ describe
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
         await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-        assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        assert.deepEqual(
+          await rubWallet(merchant),
+          { available: 1100, held: 0 },
+          "after cashin",
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let notification = merchant.queue_notification((cb) => {
           assert.strictEqual(cb.status, "declined");
@@ -97,12 +103,20 @@ describe
         );
       }));
 
-    test.concurrent("pending payout finalize to approved with commission", ({ ctx }) =>
+    test.concurrent("pending payout finalize to approved with commission", ({
+      ctx,
+    }) =>
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
         await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-        assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        assert.deepEqual(
+          await rubWallet(merchant),
+          { available: 1100, held: 0 },
+          "after cashin",
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let payout = await merchant
           .create_payout(payoutRequest())
@@ -163,12 +177,20 @@ describe
         );
       }));
 
-    test.concurrent("pending payout finalize to declined with commission", ({ ctx }) =>
+    test.concurrent("pending payout finalize to declined with commission", ({
+      ctx,
+    }) =>
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
         await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-        assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        assert.deepEqual(
+          await rubWallet(merchant),
+          { available: 1100, held: 0 },
+          "after cashin",
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let payout = await merchant
           .create_payout(payoutRequest())
@@ -227,7 +249,9 @@ describe
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
         await merchant.cashin("RUB", AMOUNT_RUB); // only base amount, no commission
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let error = await merchant
           .create_payout(payoutRequest())
@@ -245,7 +269,9 @@ describe
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
         // No cashin at all
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let error = await merchant
           .create_payout(payoutRequest())
@@ -254,11 +280,18 @@ describe
         error.assert_message("amount_not_enough_money");
       }));
 
-    test.todo("concurrent payout requests don't overdraft merchant balance", ({ ctx }) =>
+    test.todo("concurrent payout requests don't overdraft merchant balance", ({
+      ctx,
+    }) =>
       ctx.track_bg_rejections(async () => {
         let { trader, merchant } = await setup(ctx);
-        await merchant.cashin("RUB", common.amount / 100 + (common.amount / 100) * 0.1);
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        await merchant.cashin(
+          "RUB",
+          common.amount / 100 + (common.amount / 100) * 0.1,
+        );
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         let [init1, init2] = await Promise.all([
           merchant.create_payout(payoutRequest(common.amount)),

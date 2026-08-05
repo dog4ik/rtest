@@ -1,9 +1,9 @@
-import type { Handler, MockProviderParams } from "@/mock_server/api";
-import * as common from "@/common";
 import { assert } from "vitest";
 import { z } from "zod";
-import type { PrimeBusinessStatus } from "@/db/business";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
 
 type TbankStatus =
   | "NEW"
@@ -91,7 +91,7 @@ const GetStatusParamsSchema = z.object({
 });
 
 function randomNumId() {
-  return Math.floor(Math.random() * Math.pow(10, 10)).toString();
+  return Math.floor(Math.random() * 10 ** 10).toString();
 }
 
 export class TbankPayout {
@@ -396,7 +396,7 @@ export class TbankPayout {
       filter_fn: async (req) => {
         try {
           let body = await req.json();
-          return body.TerminalKey == secret;
+          return body.TerminalKey === secret;
         } catch {
           return false;
         }

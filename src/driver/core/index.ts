@@ -1,10 +1,10 @@
-import { authorize_client, type Credentials } from "..";
-import * as common from "@/common";
 import { randomUUID } from "node:crypto";
-import { err_bad_status } from "@/fetch_utils";
+import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
-import type { Requisite } from "../trader";
 import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
+import { authorize_client, type Credentials } from "..";
+import type { Requisite } from "../trader";
 
 export type CreateAgentOptions = {
   merchant_id?: number;
@@ -51,8 +51,8 @@ export type CreateTrader = {
   convert_to_usdt: boolean;
   payout_hold_priod: number;
   min_deposit?: number;
-  min_limit: number;
-  max_limit: number;
+  min_limit?: number;
+  max_limit?: number;
 };
 
 export type TraderMethodToggle = {
@@ -96,11 +96,15 @@ export class CoreDriver {
   docker_compose_path: string;
   constructor(base_url: string, docker_compose_path?: string) {
     this.cookies = "";
-    this.base_url = base_url + "/manage";
+    this.base_url = `${base_url}/manage`;
     this.docker_compose_path = docker_compose_path ?? "";
   }
 
-  private async action(path: string, payload: {} | URLSearchParams, method?: string) {
+  private async action(
+    path: string,
+    payload: {} | URLSearchParams,
+    method?: string,
+  ) {
     let body: URLSearchParams;
     if (payload instanceof URLSearchParams) {
       body = payload;
@@ -126,7 +130,8 @@ export class CoreDriver {
       body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         cookie: this.cookies ?? "",
       },
     }).then(err_bad_status);
@@ -189,13 +194,20 @@ export class CoreDriver {
       "api_v1_profile[contact_person_name]": "",
       "api_v1_profile[contact_person_position]": "",
       "api_v1_profile[web_site]": undefined,
-      "api_v1_profile[merchant_settlement_info_attributes][account_number]": "stheseh",
-      "api_v1_profile[merchant_settlement_info_attributes][account_name]": "shshesh",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]": "nhsensh",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]": "ntshesnhesnth",
-      "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "sthesnthesnh",
-      "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "tnshesh",
-      "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "hesthesh",
+      "api_v1_profile[merchant_settlement_info_attributes][account_number]":
+        "stheseh",
+      "api_v1_profile[merchant_settlement_info_attributes][account_name]":
+        "shshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
+        "nhsensh",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
+        "ntshesnhesnth",
+      "api_v1_profile[merchant_settlement_info_attributes][swift_code]":
+        "sthesnthesnh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_name]":
+        "tnshesh",
+      "api_v1_profile[merchant_settlement_info_attributes][bank_address]":
+        "hesthesh",
       "api_v1_profile[merchant_settlement_info_attributes][country]": "shesnth",
       "api_v1_profile[merchant_settlement_info_attributes][iban]": "shesth",
     };
@@ -245,9 +257,11 @@ export class CoreDriver {
       payout_hold_priod: opts?.payout_hold_period ?? 0,
       telegram: uuid,
       currency: opts?.currency ?? "RUB",
-      min_deposit: CONFIG.in_project(["reactivepay"]) ? undefined : (opts?.min_deposit ?? 0),
-      min_limit: opts?.min_limit ?? undefined,
-      max_limit: opts?.max_limit ?? undefined,
+      min_deposit: CONFIG.in_project(["reactivepay"])
+        ? undefined
+        : (opts?.min_deposit ?? 0),
+      min_limit: opts?.min_limit,
+      max_limit: opts?.max_limit,
     };
     await this.create_trader(params);
     return params;
@@ -282,13 +296,24 @@ export class CoreDriver {
     return params;
   }
 
-  async enable_trader_methods(trader_id: number, toggle: Partial<TraderMethodToggle>) {
+  async enable_trader_methods(
+    trader_id: number,
+    toggle: Partial<TraderMethodToggle>,
+  ) {
     for (let [key, value] of Object.entries(toggle)) {
-      await this.enable_trader_method(trader_id, key as keyof TraderMethodToggle, value);
+      await this.enable_trader_method(
+        trader_id,
+        key as keyof TraderMethodToggle,
+        value,
+      );
     }
   }
 
-  async enable_trader_method(trader_id: number, key: keyof TraderMethodToggle, force: boolean) {
+  async enable_trader_method(
+    trader_id: number,
+    key: keyof TraderMethodToggle,
+    force: boolean,
+  ) {
     await this.action(`/traders/${trader_id}`, { [key]: force }, "PUT");
   }
 
@@ -305,7 +330,15 @@ export class CoreDriver {
     await this.action(`/traders/${trader_id}`, data);
   }
 
-  async add_bank({ system_name, ru, en }: { system_name: string; ru: string; en: string }) {
+  async add_bank({
+    system_name,
+    ru,
+    en,
+  }: {
+    system_name: string;
+    ru: string;
+    en: string;
+  }) {
     let data = {
       utf8: "✓",
       "bank[names][en]": en,
@@ -351,7 +384,12 @@ export class CoreDriver {
     await this.action("/sms_parsers", data);
   }
 
-  async cashin(mid: number, currency: string, amount: number, to_account_id?: number) {
+  async cashin(
+    mid: number,
+    currency: string,
+    amount: number,
+    to_account_id?: number,
+  ) {
     let now = new Date();
     let params = {
       utf8: "",
@@ -369,7 +407,12 @@ export class CoreDriver {
     await this.action("/transfers?direction=in", params);
   }
 
-  async cashout(mid: number, currency: string, amount: number, bank_account_id?: number) {
+  async cashout(
+    mid: number,
+    currency: string,
+    amount: number,
+    bank_account_id?: number,
+  ) {
     let now = new Date();
     let form = new FormData();
     form.append("utf8", "✓");
@@ -446,8 +489,10 @@ export class CoreDriver {
       commit: "Save",
       "api_v1_profile[merchant_settlement_info_attributes][account_number]": "",
       "api_v1_profile[merchant_settlement_info_attributes][account_name]": "",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]": "",
-      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]": "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_name]":
+        "",
+      "api_v1_profile[merchant_settlement_info_attributes][beneficiary_address]":
+        "",
       "api_v1_profile[merchant_settlement_info_attributes][swift_code]": "",
       "api_v1_profile[merchant_settlement_info_attributes][bank_name]": "",
       "api_v1_profile[merchant_settlement_info_attributes][bank_address]": "",

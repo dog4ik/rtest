@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { InteractionLog } from "./interaction_logs";
 import type { PrimeBusinessStatus } from "@/db/business";
+import type { InteractionLog } from "./interaction_logs";
 
 export const BankAccountSchema = z.object({
   requisite_type: z.string(),
@@ -63,7 +63,12 @@ export type ConnectPayinRequest = z.infer<typeof PayinRequestSchema>;
 
 export type RedirectRequest = {
   url?: string;
-  type: "post" | "get_with_processing" | "redirect_html" | "post_iframes" | "get";
+  type:
+    | "post"
+    | "get_with_processing"
+    | "redirect_html"
+    | "post_iframes"
+    | "get";
   html?: string;
   params?: Record<string, any>;
   iframes?: {

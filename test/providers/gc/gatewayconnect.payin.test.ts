@@ -1,34 +1,36 @@
+import { delay } from "@std/async";
+import type * as playwright from "playwright";
+import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { Bank, Requisite } from "@/driver/trader";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
+import { CheckoutCardForm } from "@/pages/checkout_card_form";
+import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 import {
-  GatewayConnectTransaction,
+  type GatewayConnectTransaction,
+  type GcRequisiteType,
   payinSuite,
   SETTINGS_INTERNAL_SECRET_KEY,
-  type GcRequisiteType,
 } from "@/provider_mocks/gateway_connect";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
   defaultSuite,
+  type P2PSuite,
   payformDataFlowTest,
   providersSuite,
   statusFinalizationSuite,
-  type P2PSuite,
 } from "@/suite_interfaces";
-import * as common from "@/common";
-import { assert } from "vitest";
-import { CONFIG } from "@/config";
-import { describe } from "vitest";
 import { test } from "@/test_context";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
-import { EightpayTpayQrForm } from "@/pages/8pay_tpayform";
-import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
-import type { Bank, Requisite } from "@/driver/trader";
-import { CheckoutCardForm } from "@/pages/checkout_card_form";
-import type * as playwright from "playwright";
-import { delay } from "@std/async";
 
 async function assertPostToGoogle(
   page: playwright.Page,
-  { inIframe = false, params }: { inIframe?: boolean; params?: Record<string, string> } = {},
+  {
+    inIframe = false,
+    params,
+  }: { inIframe?: boolean; params?: Record<string, string> } = {},
 ) {
   let post = (await page.requests()).find(
     (req) =>
@@ -48,7 +50,11 @@ async function assertPostToGoogle(
     // postDataJSON() parses into a key/value object.
     let body = post.postDataJSON() as Record<string, unknown> | null;
     for (let [key, value] of Object.entries(params)) {
-      assert.strictEqual(body?.[key], value, `POST form field "${key}" should equal "${value}"`);
+      assert.strictEqual(
+        body?.[key],
+        value,
+        `POST form field "${key}" should equal "${value}"`,
+      );
     }
   }
 }
@@ -153,7 +159,11 @@ test
         },
         {
           skip_interaction_log_card_check: true,
-          expect: { status: 1, target_amount: new_amount / 100, commission_amount: 54.321 },
+          expect: {
+            status: 1,
+            target_amount: new_amount / 100,
+            commission_amount: 54.321,
+          },
         },
       );
 
@@ -252,49 +262,57 @@ dataFlowTest("link", {
   },
 });
 
-describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay specific tests", () => {
-  function bankWithCountrySuite(): P2PSuite<GatewayConnectTransaction> {
-    let suite = payinSuite();
-    return providersSuite("RUB", {
-      ...suite,
-      create_handler() {
-        return this.gw.requisites_payin_handler("pending", "card", {
-          bank: "oktobank",
+describe
+  .runIf(CONFIG.in_project("8pay"))
+  .concurrent("8pay specific tests", () => {
+    function bankWithCountrySuite(): P2PSuite<GatewayConnectTransaction> {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler() {
+          return this.gw.requisites_payin_handler("pending", "card", {
+            bank: "oktobank",
+          });
+        },
+        settings: (s) => ({
+          ...suite.settings(s),
+          wrapped_to_json_response: true,
+          show_country_in_bank_name: true,
+        }),
+        request: () => ({
+          ...common.p2pPaymentRequest("RUB", "card"),
+        }),
+      }) as P2PSuite<GatewayConnectTransaction>;
+    }
+
+    dataFlowTest("show_country_in_bank_name setting", {
+      ...bankWithCountrySuite(),
+      async check_merchant_response({ processing_response }) {
+        let requisites = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(
+          requisites?.support_bank_native?.Octobank,
+          "Октобанк (Узбекистан)",
+        );
+      },
+    });
+
+    dataFlowTest("payment_form_url response field", {
+      ...requisitesP2PSuite("card"),
+      create_handler(s) {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.requisites_payin_handler(s, "card", {
+          payment_form_url: common.redirectPayUrl,
         });
       },
-      settings: (s) => ({
-        ...suite.settings(s),
-        wrapped_to_json_response: true,
-        show_country_in_bank_name: true,
-      }),
-      request: () => ({
-        ...common.p2pPaymentRequest("RUB", "card"),
-      }),
-    }) as P2PSuite<GatewayConnectTransaction>;
-  }
-
-  dataFlowTest("show_country_in_bank_name setting", {
-    ...bankWithCountrySuite(),
-    async check_merchant_response({ processing_response }) {
-      let requisites = await processing_response?.as_8pay_requisite();
-      assert.strictEqual(requisites?.support_bank_native?.["Octobank"], "Октобанк (Узбекистан)");
-    },
+      async check_merchant_response({ processing_response }) {
+        let requisites = (await processing_response?.as_raw_json()) as Record<
+          string,
+          any
+        >;
+        assert.strictEqual(requisites.payment_form_url, common.redirectPayUrl);
+      },
+    });
   });
-
-  dataFlowTest("payment_form_url response field", {
-    ...requisitesP2PSuite("card"),
-    create_handler(s) {
-      let gw = this.gw as GatewayConnectTransaction;
-      return gw.requisites_payin_handler(s, "card", {
-        payment_form_url: common.redirectPayUrl,
-      });
-    },
-    async check_merchant_response({ processing_response }) {
-      let requisites = (await processing_response?.as_raw_json()) as Record<string, any>;
-      assert.strictEqual(requisites.payment_form_url, common.redirectPayUrl);
-    },
-  });
-});
 
 describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
   let formRequisitesP2PSuite = (requisite: GcRequisiteType) => {
@@ -384,7 +402,10 @@ describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
 });
 
 describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay form", () => {
-  let formRequisitesP2PSuite = (requisite: GcRequisiteType, custom_payform?: string) => {
+  let formRequisitesP2PSuite = (
+    requisite: GcRequisiteType,
+    custom_payform?: string,
+  ) => {
     const MAP: Record<GcRequisiteType, Requisite> = {
       card: "card",
       deeplink: "link",
@@ -468,114 +489,121 @@ dataFlowTest(
   { skip_if: !CONFIG.in_project(["reactivepay", "spinpay"]) },
 );
 
-describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay method setting", () => {
-  payformDataFlowTest("card method setting", {
-    ...methodPayformSuite("card", "card"),
-    check_pf_page: async (page) => {
-      let form = new EightpayRequisitesPage(page);
-      await form.validateRequisites({
-        amount: common.amount,
-        bank: common.bankName,
-        name: common.fullName,
-        number: common.visaCard,
-        type: "card",
-      });
-    },
-  });
-
-  payformDataFlowTest("tpay method setting", {
-    ...methodPayformSuite("tpay", "tpay"),
-    check_pf_page: async (page) => {
-      let form = new EightpayTpayQrForm(page, "android");
-      await form.validateRequisites({
-        amount: common.amount,
-        bank: common.bankName,
-        name: common.fullName,
-        number: common.phoneNumber,
-      });
-    },
-  });
-
-  payformDataFlowTest("link method setting", {
-    ...methodPayformSuite("link", "sbp_aquiring"),
-    check_pf_page: async (page) => {
-      let form = new EightpayRequisitesPage(page);
-      await form.validate_qr();
-    },
-  });
-
-  dataFlowTest("card method setting", {
-    ...methodH2HSuite("card", "card"),
-    async check_merchant_response({ processing_response, create_response }) {
-      let req = await processing_response?.as_8pay_requisite();
-      assert.strictEqual(req?.pan, common.visaCard);
-      assert.strictEqual(req?.name_seller, common.fullName);
-      assert.strictEqual(req?.id, create_response.token);
-    },
-  });
-
-  dataFlowTest("sbp method setting", {
-    ...methodH2HSuite("sbp", "sbp"),
-    async check_merchant_response({ processing_response, create_response }) {
-      let req = await processing_response?.as_8pay_requisite();
-      assert.strictEqual(req?.pan, common.phoneNumber);
-      assert.strictEqual(req?.name_seller, common.fullName);
-      assert.strictEqual(req?.id, create_response.token);
-    },
-  });
-
-  dataFlowTest("link method setting", {
-    ...methodH2HSuite("link", "sbp_aquiring"),
-    async check_merchant_response({ processing_response, create_response }) {
-      let json = (await processing_response?.as_raw_json()) as any;
-      assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
-      assert.strictEqual(json.deeplink, common.redirectPayUrl);
-      assert.strictEqual(json.name_seller, common.fullName);
-      assert.strictEqual(json.id, create_response.token);
-    },
-  });
-
-  dataFlowTest("tpay method setting", {
-    ...methodH2HSuite("tpay", "tpay"),
-    async check_merchant_response({ processing_response, create_response }) {
-      let json = (await processing_response?.as_raw_json()) as any;
-      assert.isNotEmpty(json.link?.deeplink);
-      assert.isNotEmpty(json.deeplink);
-      assert.strictEqual(json.name_seller, common.fullName);
-      assert.strictEqual(json.id, create_response.token);
-    },
-  });
-
-  function methodPriorityH2HSuite(
-    requisite_type: GcRequisiteType,
-    extra_return_param: "card" | "sbp" | "sbp_aquiring" | "tpay" | (string & {}),
-  ) {
-    let suite = payinSuite();
-    return providersSuite("RUB", {
-      ...suite,
-      create_handler() {
-        return this.gw.requisites_payin_handler("pending", requisite_type);
+describe
+  .runIf(CONFIG.in_project("8pay"))
+  .concurrent("8pay method setting", () => {
+    payformDataFlowTest("card method setting", {
+      ...methodPayformSuite("card", "card"),
+      check_pf_page: async (page) => {
+        let form = new EightpayRequisitesPage(page);
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.visaCard,
+          type: "card",
+        });
       },
-      request: () => common.p2pPaymentRequest("RUB", extra_return_param),
-      settings: (s) => ({
-        ...suite.settings(s),
-        wrapped_to_json_response: true,
-        use_setting_method_priority: true,
-        method: requisite_type,
-      }),
     });
-  }
 
-  dataFlowTest("unknown extra_return_param with method priority setting", {
-    ...methodPriorityH2HSuite("card", "UnrecognizedExtraReturnParam"),
-    async check_merchant_response({ processing_response, create_response }) {
-      let req = await processing_response?.as_8pay_requisite();
-      assert.strictEqual(req?.pan, common.visaCard);
-      assert.strictEqual(req?.name_seller, common.fullName);
-      assert.strictEqual(req?.id, create_response.token);
-    },
+    payformDataFlowTest("tpay method setting", {
+      ...methodPayformSuite("tpay", "tpay"),
+      check_pf_page: async (page) => {
+        let form = new EightpayTpayQrForm(page, "android");
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.phoneNumber,
+        });
+      },
+    });
+
+    payformDataFlowTest("link method setting", {
+      ...methodPayformSuite("link", "sbp_aquiring"),
+      check_pf_page: async (page) => {
+        let form = new EightpayRequisitesPage(page);
+        await form.validate_qr();
+      },
+    });
+
+    dataFlowTest("card method setting", {
+      ...methodH2HSuite("card", "card"),
+      async check_merchant_response({ processing_response, create_response }) {
+        let req = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(req?.pan, common.visaCard);
+        assert.strictEqual(req?.name_seller, common.fullName);
+        assert.strictEqual(req?.id, create_response.token);
+      },
+    });
+
+    dataFlowTest("sbp method setting", {
+      ...methodH2HSuite("sbp", "sbp"),
+      async check_merchant_response({ processing_response, create_response }) {
+        let req = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(req?.pan, common.phoneNumber);
+        assert.strictEqual(req?.name_seller, common.fullName);
+        assert.strictEqual(req?.id, create_response.token);
+      },
+    });
+
+    dataFlowTest("link method setting", {
+      ...methodH2HSuite("link", "sbp_aquiring"),
+      async check_merchant_response({ processing_response, create_response }) {
+        let json = (await processing_response?.as_raw_json()) as any;
+        assert.strictEqual(json.link?.deeplink, common.redirectPayUrl);
+        assert.strictEqual(json.deeplink, common.redirectPayUrl);
+        assert.strictEqual(json.name_seller, common.fullName);
+        assert.strictEqual(json.id, create_response.token);
+      },
+    });
+
+    dataFlowTest("tpay method setting", {
+      ...methodH2HSuite("tpay", "tpay"),
+      async check_merchant_response({ processing_response, create_response }) {
+        let json = (await processing_response?.as_raw_json()) as any;
+        assert.isNotEmpty(json.link?.deeplink);
+        assert.isNotEmpty(json.deeplink);
+        assert.strictEqual(json.name_seller, common.fullName);
+        assert.strictEqual(json.id, create_response.token);
+      },
+    });
+
+    function methodPriorityH2HSuite(
+      requisite_type: GcRequisiteType,
+      extra_return_param:
+        | "card"
+        | "sbp"
+        | "sbp_aquiring"
+        | "tpay"
+        | (string & {}),
+    ) {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler() {
+          return this.gw.requisites_payin_handler("pending", requisite_type);
+        },
+        request: () => common.p2pPaymentRequest("RUB", extra_return_param),
+        settings: (s) => ({
+          ...suite.settings(s),
+          wrapped_to_json_response: true,
+          use_setting_method_priority: true,
+          method: requisite_type,
+        }),
+      });
+    }
+
+    dataFlowTest("unknown extra_return_param with method priority setting", {
+      ...methodPriorityH2HSuite("card", "UnrecognizedExtraReturnParam"),
+      async check_merchant_response({ processing_response, create_response }) {
+        let req = await processing_response?.as_8pay_requisite();
+        assert.strictEqual(req?.pan, common.visaCard);
+        assert.strictEqual(req?.name_seller, common.fullName);
+        assert.strictEqual(req?.id, create_response.token);
+      },
+    });
   });
-});
 
 function payformLinkRedirectSuite() {
   let suite = payinSuite();
@@ -601,7 +629,9 @@ payformDataFlowTest(
   { skip_if: !CONFIG.in_project("8pay") },
 );
 
-function ecomRedirectPayinSuite(card_in_request = true): P2PSuite<GatewayConnectTransaction> {
+function ecomRedirectPayinSuite(
+  card_in_request = true,
+): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite();
   return defaultSuite("RUB", {
     ...suite,
@@ -640,7 +670,7 @@ dataFlowTest("ecom post redirect 3ds", {
   create_handler() {
     let gw = this.gw as GatewayConnectTransaction;
     return gw.redirect_payin_handler("pending", {
-      params: { TermUrl: common.redirectPayUrl + "/TermUrl" },
+      params: { TermUrl: `${common.redirectPayUrl}/TermUrl` },
       url: common.redirectPayUrl,
       type: "post",
     });
@@ -690,7 +720,9 @@ describe.runIf(CONFIG.in_project(["reactivepay"])).skip("rp 1xbet", () => {
     request_bank: Bank | {};
     locale?: string;
   };
-  function customPayformSuite(config: SuiteConfig): P2PSuite<GatewayConnectTransaction> {
+  function customPayformSuite(
+    config: SuiteConfig,
+  ): P2PSuite<GatewayConnectTransaction> {
     let suite = payinSuite();
     return providersSuite("RUB", {
       ...suite,
@@ -703,7 +735,10 @@ describe.runIf(CONFIG.in_project(["reactivepay"])).skip("rp 1xbet", () => {
       },
       request: () => ({
         ...suite.request(),
-        bank_account: { requisite_type: config.request_requisite, bank_name: config.request_bank },
+        bank_account: {
+          requisite_type: config.request_requisite,
+          bank_name: config.request_bank,
+        },
         ...(config.locale ? { locale: config.locale } : {}),
       }),
       settings: (s) => ({
@@ -754,132 +789,136 @@ describe.runIf(CONFIG.in_project(["reactivepay"])).skip("rp 1xbet", () => {
       request_bank: "sber",
       locale: "ru",
     }),
-    check_pf_page(page) {},
+    check_pf_page(_page) {},
   });
 });
 
-describe.runIf(CONFIG.in_project("spinpay")).concurrent("spinpay locale", () => {
-  function localeCardSuite(locale?: string): P2PSuite<GatewayConnectTransaction> {
-    let suite = payinSuite();
-    return providersSuite("RUB", {
-      ...suite,
-      create_handler(s) {
-        return this.gw.requisites_payin_handler(s, "card");
-      },
-      request: () => ({
-        ...suite.request(),
-        bank_account: { requisite_type: "card" },
-        ...(locale ? { locale } : {}),
-      }),
-      settings: (s) => ({
-        ...suite.settings(s),
-        wrapped_to_json_response: true,
-      }),
-    }) as P2PSuite<GatewayConnectTransaction>;
-  }
+describe
+  .runIf(CONFIG.in_project("spinpay"))
+  .concurrent("spinpay locale", () => {
+    function localeCardSuite(
+      locale?: string,
+    ): P2PSuite<GatewayConnectTransaction> {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler(s) {
+          return this.gw.requisites_payin_handler(s, "card");
+        },
+        request: () => ({
+          ...suite.request(),
+          bank_account: { requisite_type: "card" },
+          ...(locale ? { locale } : {}),
+        }),
+        settings: (s) => ({
+          ...suite.settings(s),
+          wrapped_to_json_response: true,
+        }),
+      }) as P2PSuite<GatewayConnectTransaction>;
+    }
 
-  payformDataFlowTest(
-    "ru browser locale shows russian",
-    {
-      ...localeCardSuite(),
-      browser_context(browser) {
-        return browser.newContext({ locale: "ru-RU" });
+    payformDataFlowTest(
+      "ru browser locale shows russian",
+      {
+        ...localeCardSuite(),
+        browser_context(browser) {
+          return browser.newContext({ locale: "ru-RU" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("ru");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("ru");
-      },
-    },
-    { browser_url_target: "selectorUrl", skip_if: true },
-  );
+      { browser_url_target: "selectorUrl", skip_if: true },
+    );
 
-  payformDataFlowTest(
-    "en browser locale shows english",
-    {
-      ...localeCardSuite(),
-      browser_context(browser) {
-        return browser.newContext({ locale: "en-US" });
+    payformDataFlowTest(
+      "en browser locale shows english",
+      {
+        ...localeCardSuite(),
+        browser_context(browser) {
+          return browser.newContext({ locale: "en-US" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("en");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("en");
-      },
-    },
-    { browser_url_target: "selectorUrl" },
-  );
+      { browser_url_target: "selectorUrl" },
+    );
 
-  payformDataFlowTest(
-    "merchant locale ru overrides browser en",
-    {
-      ...localeCardSuite("ru"),
-      browser_context(browser) {
-        return browser.newContext({ locale: "en-US" });
+    payformDataFlowTest(
+      "merchant locale ru overrides browser en",
+      {
+        ...localeCardSuite("ru"),
+        browser_context(browser) {
+          return browser.newContext({ locale: "en-US" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("ru");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("ru");
-      },
-    },
-    { browser_url_target: "selectorUrl" },
-  );
+      { browser_url_target: "selectorUrl" },
+    );
 
-  payformDataFlowTest(
-    "merchant locale en overrides browser ru",
-    {
-      ...localeCardSuite("en"),
-      browser_context(browser) {
-        return browser.newContext({ locale: "ru-RU" });
+    payformDataFlowTest(
+      "merchant locale en overrides browser ru",
+      {
+        ...localeCardSuite("en"),
+        browser_context(browser) {
+          return browser.newContext({ locale: "ru-RU" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("en");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("en");
-      },
-    },
-    { browser_url_target: "selectorUrl" },
-  );
+      { browser_url_target: "selectorUrl" },
+    );
 
-  payformDataFlowTest(
-    "merchant locale en overrides browser kz",
-    {
-      ...localeCardSuite("en"),
-      browser_context(browser) {
-        return browser.newContext({ locale: "kk-KZ" });
+    payformDataFlowTest(
+      "merchant locale en overrides browser kz",
+      {
+        ...localeCardSuite("en"),
+        browser_context(browser) {
+          return browser.newContext({ locale: "kk-KZ" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("en");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("en");
-      },
-    },
-    { browser_url_target: "selectorUrl" },
-  );
+      { browser_url_target: "selectorUrl" },
+    );
 
-  payformDataFlowTest(
-    "kk-KZ browser locale shows russian",
-    {
-      ...localeCardSuite(),
-      browser_context(browser) {
-        return browser.newContext({ locale: "kk-KZ" });
+    payformDataFlowTest(
+      "kk-KZ browser locale shows russian",
+      {
+        ...localeCardSuite(),
+        browser_context(browser) {
+          return browser.newContext({ locale: "kk-KZ" });
+        },
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("ru");
+        },
       },
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("ru");
-      },
-    },
-    { browser_url_target: "selectorUrl" },
-  );
+      { browser_url_target: "selectorUrl" },
+    );
 
-  payformDataFlowTest(
-    "merchant locale kk shows russian",
-    {
-      ...localeCardSuite("kk"),
-      check_pf_page: async (page) => {
-        let form = new SpinpayRequisitesPage(page);
-        await form.validateLanguage("ru");
+    payformDataFlowTest(
+      "merchant locale kk shows russian",
+      {
+        ...localeCardSuite("kk"),
+        check_pf_page: async (page) => {
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("ru");
+        },
       },
-    },
-    { browser_url_target: "selectorUrl", skip_if: true },
-  );
-});
+      { browser_url_target: "selectorUrl", skip_if: true },
+    );
+  });
 
 describe.concurrent("providers redirect_request", () => {
   payformDataFlowTest(
@@ -888,7 +927,10 @@ describe.concurrent("providers redirect_request", () => {
       ...externalRedirectSuite(),
       create_handler() {
         let gw = this.gw as GatewayConnectTransaction;
-        return gw.redirect_payin_handler("pending", { type: "get", url: common.redirectPayUrl });
+        return gw.redirect_payin_handler("pending", {
+          type: "get",
+          url: common.redirectPayUrl,
+        });
       },
       check_pf_page(page) {
         let url = new URL(page.url());
@@ -925,11 +967,18 @@ describe.concurrent("default redirect_request", () => {
       ...ecomRedirectPayinSuite(true),
       create_handler() {
         let gw = this.gw as GatewayConnectTransaction;
-        return gw.redirect_payin_handler("pending", { type: "get", url: common.redirectPayUrl });
+        return gw.redirect_payin_handler("pending", {
+          type: "get",
+          url: common.redirectPayUrl,
+        });
       },
       check_pf_page(p) {
         let url = new URL(p.url());
-        assert.strictEqual(String(url), "https://www.google.com/", "merchant should get redirect");
+        assert.strictEqual(
+          String(url),
+          "https://www.google.com/",
+          "merchant should get redirect",
+        );
       },
     },
     { browser_url_target: "processingUrl" },
@@ -948,7 +997,11 @@ describe.concurrent("default redirect_request", () => {
       },
       check_pf_page(p) {
         let url = new URL(p.url());
-        assert.strictEqual(String(url), "https://www.google.com/", "merchant should get redirect");
+        assert.strictEqual(
+          String(url),
+          "https://www.google.com/",
+          "merchant should get redirect",
+        );
       },
     },
     { browser_url_target: "processingUrl" },
@@ -1012,7 +1065,11 @@ describe.concurrent("default post redirect_request", () => {
       },
       async check_pf_page(p) {
         let url = new URL(p.url());
-        assert.strictEqual(String(url), "https://google.com/", "merchant should get redirect");
+        assert.strictEqual(
+          String(url),
+          "https://google.com/",
+          "merchant should get redirect",
+        );
         await assertPostToGoogle(p, { params: POST_PARAMS });
       },
     },
@@ -1096,7 +1153,10 @@ describe.concurrent("default post redirect_request", () => {
       async check_pf_page(p) {
         let marker = p.locator("[data-testid=redirect-html]");
         await marker.waitFor();
-        assert.strictEqual(await marker.textContent(), "provider redirect html");
+        assert.strictEqual(
+          await marker.textContent(),
+          "provider redirect html",
+        );
       },
     },
     { browser_url_target: "processingUrl" },
@@ -1118,7 +1178,10 @@ describe.concurrent("default post redirect_request", () => {
         await checkout_page.submit_card_object(common.cardObject());
         let marker = p.locator("[data-testid=redirect-html]");
         await marker.waitFor();
-        assert.strictEqual(await marker.textContent(), "provider redirect html");
+        assert.strictEqual(
+          await marker.textContent(),
+          "provider redirect html",
+        );
       },
     },
     { browser_url_target: "processingUrl" },
@@ -1134,7 +1197,9 @@ describe.concurrent("commission healthcheck payins", () => {
   async function rubWallet(merchant: {
     wallets(
       c: string,
-    ): Promise<Array<{ available: number; held: number; currency: string | null }>>;
+    ): Promise<
+      Array<{ available: number; held: number; currency: string | null }>
+    >;
   }) {
     let ws = await merchant.wallets("RUB");
     let w = ws.find((w) => w.currency === "RUB");
@@ -1211,7 +1276,9 @@ describe.concurrent("commission healthcheck payins", () => {
       );
     }));
 
-  test.concurrent("pending payin finalize to approved with commission", ({ ctx }) =>
+  test.concurrent("pending payin finalize to approved with commission", ({
+    ctx,
+  }) =>
     ctx.track_bg_rejections(async () => {
       let suite = commissionH2HSuite();
       let merchant = await ctx.create_random_merchant();
@@ -1219,7 +1286,9 @@ describe.concurrent("commission healthcheck payins", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let response = await merchant.create_payment(suite.request());
       let token = response.token;
@@ -1249,7 +1318,9 @@ describe.concurrent("commission healthcheck payins", () => {
       );
     }));
 
-  test.concurrent("pending payin finalize to declined with commission", ({ ctx }) =>
+  test.concurrent("pending payin finalize to declined with commission", ({
+    ctx,
+  }) =>
     ctx.track_bg_rejections(async () => {
       let suite = commissionH2HSuite();
       let merchant = await ctx.create_random_merchant();
@@ -1257,7 +1328,9 @@ describe.concurrent("commission healthcheck payins", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let response = await merchant.create_payment(suite.request());
       let token = response.token;
@@ -1303,7 +1376,9 @@ describe.concurrent("gateway connect refund", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let status_request = provider.queue(suite.gw.status_handler("approved"));
 
@@ -1322,9 +1397,10 @@ describe.concurrent("gateway connect refund", () => {
       );
 
       provider.queue(suite.gw.refund_handler("approved"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved", {
-        skip_interaction_log_card_check: true,
-      });
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("approved", {
+          skip_interaction_log_card_check: true,
+        });
 
       await delay(500);
       await merchant.create_refund({ token, amount: common.amount });
@@ -1341,7 +1417,9 @@ describe.concurrent("gateway connect refund", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let status_request = provider.queue(suite.gw.status_handler("approved"));
 
@@ -1360,9 +1438,10 @@ describe.concurrent("gateway connect refund", () => {
       );
 
       provider.queue(suite.gw.refund_handler("approved"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("approved", {
-        skip_interaction_log_card_check: true,
-      });
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("approved", {
+          skip_interaction_log_card_check: true,
+        });
       await delay(500);
 
       await merchant.create_refund({ token, amount: common.amount });
@@ -1381,7 +1460,9 @@ describe.concurrent("gateway connect refund", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let status_request = provider.queue(suite.gw.status_handler("approved"));
 
@@ -1401,9 +1482,10 @@ describe.concurrent("gateway connect refund", () => {
       await notification;
 
       provider.queue(suite.gw.refund_handler("pending"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("declined", {
-        skip_interaction_log_card_check: true,
-      });
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("declined", {
+          skip_interaction_log_card_check: true,
+        });
 
       await delay(500);
       await merchant.create_refund({ token, amount: common.amount });
@@ -1419,7 +1501,9 @@ describe.concurrent("gateway connect refund", () => {
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payin_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
 
       let status_request = provider.queue(suite.gw.status_handler("approved"));
 
@@ -1439,9 +1523,10 @@ describe.concurrent("gateway connect refund", () => {
       await notification;
 
       provider.queue(suite.gw.refund_handler("pending"));
-      let merchant_refund_notification = merchant.queue_refund_or_pay_notifictation("declined", {
-        skip_interaction_log_card_check: true,
-      });
+      let merchant_refund_notification =
+        merchant.queue_refund_or_pay_notifictation("declined", {
+          skip_interaction_log_card_check: true,
+        });
 
       await delay(500);
       await merchant.create_refund({ token, amount: common.amount });
@@ -1511,7 +1596,7 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
             "15-": 3600,
           },
         };
-        settings["api_key"] = "0266e225-4225-4ed1-94f7-1b612d15e948";
+        settings.api_key = "0266e225-4225-4ed1-94f7-1b612d15e948";
 
         return settings;
       },
@@ -1542,12 +1627,16 @@ test.skip("test gateway connect payin2", ({ ctx }) =>
     await merchant.set_settings(suite.settings(ctx.uuid));
     let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
     let provider_request = provider.queue(
-      suite.gw.requisites_payin_handler("pending", "account", { amount: new_amount }),
+      suite.gw.requisites_payin_handler("pending", "account", {
+        amount: new_amount,
+      }),
     );
 
-    let status_request = provider.queue(suite.gw.status_handler("approved", new_amount));
+    let status_request = provider.queue(
+      suite.gw.status_handler("approved", new_amount),
+    );
 
-    let response = await merchant
+    let _response = await merchant
       .create_payment(common.p2pPaymentRequest("INR", "account"))
       .then((r) => r.followFirstProcessingUrl())
       .then((r) => r.as_trader_requisites());
@@ -1595,7 +1684,7 @@ test.skip("test gateway connect payin", ({ ctx }) =>
       }),
     );
 
-    let response = await merchant.create_payment(suite.request());
+    let _response = await merchant.create_payment(suite.request());
 
     await provider_request;
 
@@ -1642,7 +1731,7 @@ test.skip("test gateway connect payout", ({ ctx }) =>
       }),
     );
 
-    let response = await merchant.create_payout({
+    let _response = await merchant.create_payout({
       ...common.payoutRequest("RUB"),
       card: { pan: common.visaCard },
     });

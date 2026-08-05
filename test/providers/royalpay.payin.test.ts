@@ -1,17 +1,16 @@
-import { defaultSettings } from "@/settings_builder";
-import { test } from "@/test_context";
-import { RoyalpayPayment } from "@/provider_mocks/royalpay";
-import {
-  callbackFinalizationSuite,
-  statusFinalizationSuite,
-  type Callback,
-  type Status,
-} from "@/suite_interfaces";
-import { payinSuite } from "@/provider_mocks/royalpay";
-import type { Context } from "@/test_context/context";
-import { assert, describe } from "vitest";
 import { delay } from "@std/async";
+import { assert, describe } from "vitest";
 import { CONFIG } from "@/config";
+import { payinSuite, RoyalpayPayment } from "@/provider_mocks/royalpay";
+import { defaultSettings } from "@/settings_builder";
+import {
+  type Callback,
+  callbackFinalizationSuite,
+  type Status,
+  statusFinalizationSuite,
+} from "@/suite_interfaces";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "EUR";
 
@@ -66,6 +65,5 @@ describe
         });
 
         await refund_notifications;
-      }),
-    );
+      }));
   });

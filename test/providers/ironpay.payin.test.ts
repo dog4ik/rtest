@@ -1,18 +1,21 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { IronpayMethodMap, IronpayPayment } from "@/provider_mocks/ironpay";
-import { payinSuite } from "@/provider_mocks/ironpay";
+import { CONFIG, PROJECT } from "@/config";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import {
+  IronpayMethodMap,
+  IronpayPayment,
+  payinSuite,
+} from "@/provider_mocks/ironpay";
+import { providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
+  type P2PSuite,
   payformDataFlowTest,
   statusFinalizationSuite,
-  type P2PSuite,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 
@@ -55,7 +58,7 @@ describe
           }),
         );
         let ironpay = ctx.mock_server(IronpayPayment.mock_params(ctx.uuid));
-        if (PROJECT == "spinpay") {
+        if (PROJECT === "spinpay") {
           ironpay.queue(IronpayPayment.login_handler(ctx.uuid));
         }
         ironpay.queue(IronpayPayment.no_requisites_handler());
@@ -163,7 +166,7 @@ describe
         });
       });
 
-    describe.runIf(PROJECT == "8pay").concurrent("ironpay 8pay", () => {
+    describe.runIf(PROJECT === "8pay").concurrent("ironpay 8pay", () => {
       dataFlowTest("sbp extra_return_param", {
         ...ironpaySuite(),
         request() {

@@ -1,10 +1,10 @@
-import { z } from "zod";
-import type { Pool } from "pg";
-import { Db, sqlProjection } from ".";
-import type { Project } from "@/project";
-import { CoreStatusMap, type CoreStatus } from "./core";
 import { delay } from "@std/async";
+import type { Pool } from "pg";
+import { z } from "zod";
 import { PROJECT } from "@/config";
+import type { Project } from "@/project";
+import { Db, sqlProjection } from ".";
+import { type CoreStatus, CoreStatusMap } from "./core";
 
 export const OperationTypeSchema = z.enum([
   "pay",
@@ -29,7 +29,7 @@ export const BusinessStatusSchema = z
 export function businessOfCoreStatus(status: BusinessStatus): CoreStatus {
   if ((["pending", "init"] as BusinessStatus[]).includes(status)) {
     return CoreStatusMap.init;
-  } else if (status == "approved") {
+  } else if (status === "approved") {
     return CoreStatusMap.approved;
   } else if ((["declined", "expired"] as BusinessStatus[]).includes(status)) {
     return CoreStatusMap.declined;
@@ -89,14 +89,14 @@ export const BusinessMerchantSettingsSchema = z.object({
   created_at: z.date(),
   updated_at: z.date(),
 });
-const BusinessMerchantSettings = sqlProjection(
+const _BusinessMerchantSettings = sqlProjection(
   "merchant_settings",
   BusinessMerchantSettingsSchema,
 );
 
 export type BusinessPayment = z.infer<typeof BusinessPaymentSchema>;
 
-function extendedBusinessPayment(payment: BusinessPayment) {
+function _extendedBusinessPayment(payment: BusinessPayment) {
   return {
     ...payment,
     async feed() {

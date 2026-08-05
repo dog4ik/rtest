@@ -1,6 +1,13 @@
+import { delay } from "@std/async";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { ManypayPayout, ManypayStatusMap } from "@/provider_mocks/manypay";
-import { payoutSuite } from "@/provider_mocks/manypay";
+import { CONFIG } from "@/config";
+import {
+  ManypayPayout,
+  ManypayStatusMap,
+  payoutSuite,
+} from "@/provider_mocks/manypay";
+import { defaultSettings, providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   concurrentCallbackSuite,
@@ -8,11 +15,7 @@ import {
   statusFinalizationSuite,
   type TestCaseOptions,
 } from "@/suite_interfaces";
-import { defaultSettings, providers } from "@/settings_builder";
-import { CONFIG } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { delay } from "@std/async";
 
 const CURRENCY = "RUB";
 
@@ -20,7 +23,7 @@ function manypaySuite() {
   return payoutSuite(CURRENCY);
 }
 
-const OPTS: TestCaseOptions = { skip_if: !CONFIG.extra_mapping?.["manypay"] };
+const OPTS: TestCaseOptions = { skip_if: !CONFIG.extra_mapping?.manypay };
 
 callbackFinalizationSuite(manypaySuite, OPTS);
 statusFinalizationSuite(manypaySuite, OPTS);
@@ -289,7 +292,7 @@ dataFlowTest(
 );
 
 test
-  .runIf(CONFIG.extra_mapping?.["manypay"])
+  .runIf(CONFIG.extra_mapping?.manypay)
   .concurrent("concurrent status and callback", ({ ctx, merchant }) =>
     ctx.track_bg_rejections(async () => {
       await merchant.cashin(CURRENCY, common.amount / 100);
@@ -330,7 +333,7 @@ test
   );
 
 describe
-  .runIf(CONFIG.extra_mapping?.["manypay"])
+  .runIf(CONFIG.extra_mapping?.manypay)
   .concurrent("concurrent calbacks", () => {
     concurrentCallbackSuite(manypaySuite);
   });

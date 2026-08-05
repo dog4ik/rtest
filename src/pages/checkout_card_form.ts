@@ -1,6 +1,6 @@
-import type { CardObject } from "@/common";
-import * as playwright from "playwright";
+import type * as playwright from "playwright";
 import { expect } from "playwright/test";
+import type { CardObject } from "@/common";
 
 export class CheckoutCardForm {
   constructor(private p: playwright.Page) {}

@@ -1,12 +1,11 @@
-import * as common from "@/common";
 import * as assets from "@/assets";
-import { CoreStatusMap } from "@/db/core";
+import * as common from "@/common";
 import type { Requisite } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
-import type { PlaygroundEnv } from "./setup";
-import { chance, pick, randAmount, randDelay } from "./random";
 import { counters, log } from "./log";
+import { chance, pick, randAmount, randDelay } from "./random";
+import type { PlaygroundEnv } from "./setup";
 
 type Status = "approved" | "declined";
 
@@ -70,10 +69,6 @@ export async function runJob(env: PlaygroundEnv, job: Job) {
   }
 }
 
-function expectedStatus(status: Status) {
-  return status === "approved" ? CoreStatusMap.approved : CoreStatusMap.declined;
-}
-
 function assignedTrader(env: PlaygroundEnv, trader_id: number | null) {
   let trader = env.traders.find((t) => t.id === trader_id);
   if (!trader) {
@@ -82,48 +77,37 @@ function assignedTrader(env: PlaygroundEnv, trader_id: number | null) {
   return trader as ExtendedTrader;
 }
 
-async function healthcheck(
-  env: PlaygroundEnv,
-  job: Job,
-  token: string,
-  expected: number,
-  label: string,
-) {
-  return;
-  await randDelay();
-  try {
-    await env.ctx.healthcheck(token, { expect: { status: expected as any } });
-    counters.healthchecksPassed++;
-    log("healthcheck_pass", `#${job.id} ${label} OK token=${token} status=${expected}`);
-  } catch (e: any) {
-    counters.healthchecksFailed++;
-    log("healthcheck_fail", `#${job.id} ${label} FAILED token=${token}`, e?.message ?? e);
-  }
-}
-
 async function runPayin(env: PlaygroundEnv, job: Job) {
   let requisite = job.requisite ?? "card";
 
   await randDelay();
-  let res;
-  try {
-    res = await job.merchant
-      .create_payment({
-        ...common.traderPaymentRequest("RUB", requisite),
-        amount: job.amount,
-        order_number: jobIntent(job),
-      })
-      .then((r) => r.followFirstProcessingUrl())
-      .then((r) => r.as_trader_requisites());
-  } catch (e: any) {
-    counters.failed++;
-    log("create_fail", `#${job.id} create failed (collision ok)`, e?.message ?? e);
+  let res = await job.merchant
+    .create_payment({
+      ...common.traderPaymentRequest("RUB", requisite),
+      amount: job.amount,
+      order_number: jobIntent(job),
+    })
+    .then((r) => r.followFirstProcessingUrl())
+    .then((r) => r.as_trader_requisites())
+    .catch((e: any) => {
+      counters.failed++;
+      log(
+        "create_fail",
+        `#${job.id} create failed (collision ok)`,
+        e?.message ?? e,
+      );
+      return null;
+    });
+  if (res === null) {
     return;
   }
 
   let token = res.token;
   counters.created++;
-  log("payin", `#${job.id} created token=${token} req=${requisite} amount=${job.amount}`);
+  log(
+    "payin",
+    `#${job.id} created token=${token} req=${requisite} amount=${job.amount}`,
+  );
 
   if (job.expired) {
     counters.expired++;
@@ -140,10 +124,8 @@ async function runPayin(env: PlaygroundEnv, job: Job) {
   else counters.declined++;
   log("payin", `#${job.id} finalized ${job.status} by trader=${trader.id}`);
 
-  await healthcheck(env, job, token, expectedStatus(job.status), "payin");
-
   if (job.status === "declined" && job.dispute) {
-    await runDispute(env, job, token, trader);
+    await runDispute(env, job, token, trader, job.dispute);
   }
 }
 
@@ -152,8 +134,8 @@ async function runDispute(
   job: Job,
   token: string,
   trader: ExtendedTrader,
+  dispute: { status: Status },
 ) {
-  let dispute = job.dispute!;
   await randDelay();
   await job.merchant.create_dispute({
     token,
@@ -173,34 +155,40 @@ async function runDispute(
   await randDelay();
   await trader.finalize_dispute(disputes[0].dispute_id, dispute.status);
   counters.disputed++;
-  log("dispute", `#${job.id} finalized ${dispute.status} by trader=${trader.id}`);
-
-  await healthcheck(env, job, token, expectedStatus(dispute.status), "dispute");
+  log(
+    "dispute",
+    `#${job.id} finalized ${dispute.status} by trader=${trader.id}`,
+  );
 }
 
 async function runPayout(env: PlaygroundEnv, job: Job) {
   await randDelay();
-  let res;
-  try {
-    res = await job.merchant
-      .create_payout({
-        ...common.payoutRequest("RUB"),
-        amount: job.amount,
-        order_number: jobIntent(job),
-        bank_account: { requisite_type: "card" as const },
-        customer: {
-          email: common.email,
-          ip: common.ip,
-          first_name: common.firstName,
-          last_name: common.lastName,
-        },
-        card: { pan: common.visaCard },
-      })
-      .then((r) => r.followFirstProcessingUrl())
-      .then((r) => r.as_payout_response());
-  } catch (e: any) {
-    counters.failed++;
-    log("payout_fail", `#${job.id} create failed (collision ok)`, e?.message ?? e);
+  let res = await job.merchant
+    .create_payout({
+      ...common.payoutRequest("RUB"),
+      amount: job.amount,
+      order_number: jobIntent(job),
+      bank_account: { requisite_type: "card" as const },
+      customer: {
+        email: common.email,
+        ip: common.ip,
+        first_name: common.firstName,
+        last_name: common.lastName,
+      },
+      card: { pan: common.visaCard },
+    })
+    .then((r) => r.followFirstProcessingUrl())
+    .then((r) => r.as_payout_response())
+    .catch((e: any) => {
+      counters.failed++;
+      log(
+        "payout_fail",
+        `#${job.id} create failed (collision ok)`,
+        e?.message ?? e,
+      );
+      return null;
+    });
+  if (res === null) {
     return;
   }
 

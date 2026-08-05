@@ -1,10 +1,10 @@
+import { assert } from "vitest";
 import * as common from "@/common";
+import { CONFIG, PROJECT } from "@/config";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert } from "vitest";
 
 const CURRENCY = "RUB";
 

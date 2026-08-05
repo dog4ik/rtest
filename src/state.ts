@@ -1,28 +1,28 @@
 import fs from "node:fs/promises";
 import {
+  type Config,
   postgresConnection,
   projectCredentials,
   projectUrls,
-  type Config,
 } from "@/config";
 import { connectPool } from "@/db";
 import { BusinessDb } from "@/db/business";
 import { CoreDb } from "@/db/core";
-import { CoreDriver } from "./driver/core";
-import { SettingsDriver } from "./driver/settings";
 import { SettingsDb } from "./db/settings";
+import { AdminDriver } from "./driver/admin";
+import { CoreDriver } from "./driver/core";
+import { FlexyCommission } from "./driver/flexy_commission";
+import { FlexyGuardHarness } from "./driver/flexy_guard";
+import { SettingsDriver } from "./driver/settings";
 import { MockServerState } from "./mock_server";
 import { readProductionRb } from "./patch/production_file";
 import { ProjectDir } from "./patch/project_dir";
-import { createBrowser } from "./test_context/browser";
-import { FlexyCommission } from "./driver/flexy_commission";
-import { FlexyGuardHarness } from "./driver/flexy_guard";
-import { AdminDriver } from "./driver/admin";
 import { GC_MAPPING_KEY, GC_MOCK_PORT } from "./provider_mocks/gateway_connect";
 import {
   REACTIVEPAY_MAPPING_KEY,
   REACTIVEPAY_MOCK_PORT,
 } from "./provider_mocks/reactivepay";
+import { createBrowser } from "./test_context/browser";
 
 export type SharedState = Awaited<ReturnType<typeof initState>>;
 
@@ -32,10 +32,7 @@ export async function initState(config: Config) {
   let urls = projectUrls(config);
   let business_url = urls.business;
   let project_dir = new ProjectDir(config);
-  let core_harness = new CoreDriver(
-    urls.core,
-    project_dir.dockerComposePath(),
-  );
+  let core_harness = new CoreDriver(urls.core, project_dir.dockerComposePath());
 
   let credentials = projectCredentials(config);
 
@@ -70,9 +67,6 @@ export async function initState(config: Config) {
       settings_service.login(),
       commission_service.login(credentials.flexy_commission_credentials),
       guard_service.login(credentials.flexy_guard_credentials),
-      config.project === "eactivepay"
-        ? admin_service.login(credentials.admin_credentials)
-        : Promise.resolve(),
     ],
   );
 

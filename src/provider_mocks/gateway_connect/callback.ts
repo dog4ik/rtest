@@ -1,5 +1,5 @@
-import * as jose from "jose";
 import crypto from "node:crypto";
+import * as jose from "jose";
 
 type SecureBlock = {
   encrypted_data: string;

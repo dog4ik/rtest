@@ -1,10 +1,10 @@
-import * as common from "@/common";
-import { CONFIG } from "@/config";
-import { traderNoConvertSettings } from "@/driver/trader";
-import { businessOfCoreStatus } from "@/db/business";
-import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import { businessOfCoreStatus } from "@/db/business";
+import { traderNoConvertSettings } from "@/driver/trader";
+import { test } from "@/test_context";
 
 /**
  * Reproduces a trader-gateway defect where core hands out more requisites than it
@@ -46,7 +46,9 @@ describe
         });
         await trader.setup({ card: true, bank: "sberbank" });
         await trader.cashin("main", "RUB", TRADER_BALANCE_RUB);
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
 
         // fire all payins concurrently so they all clear the reservation-free
         // balance filter before any of them holds funds in core
@@ -71,12 +73,19 @@ describe
         );
 
         let assigned = tokens.filter((t): t is string => Boolean(t));
-        console.log(`[divergence] assigned requisites: ${assigned.length}/${CONCURRENCY}`);
-        assert(assigned.length > 0, "at least one payin should get a requisite");
+        console.log(
+          `[divergence] assigned requisites: ${assigned.length}/${CONCURRENCY}`,
+        );
+        assert(
+          assigned.length > 0,
+          "at least one payin should get a requisite",
+        );
 
         await delay(TRADER_DELAY);
         await Promise.all(
-          assigned.map((token) => trader.finalizeTransaction(token, "approved").catch(() => {})),
+          assigned.map((token) =>
+            trader.finalizeTransaction(token, "approved").catch(() => {}),
+          ),
         );
         await delay(SETTLE_DELAY);
 
@@ -101,7 +110,9 @@ describe
         // business and core must never disagree on a payin's outcome
         let diverged = rows.filter((r) => r.core !== r.expectedCore);
         assert.deepStrictEqual(
-          diverged.map((r) => `${r.token} business=${r.business} core=${r.core}`),
+          diverged.map(
+            (r) => `${r.token} business=${r.business} core=${r.core}`,
+          ),
           [],
           "business/core status divergence",
         );
@@ -111,7 +122,9 @@ describe
         // stranded at pending instead of being declined.
         let stranded = rows.filter((r) => r.business === "pending");
         assert.deepStrictEqual(
-          stranded.map((r) => `${r.token} business=${r.business} core=${r.core}`),
+          stranded.map(
+            (r) => `${r.token} business=${r.business} core=${r.core}`,
+          ),
           [],
           `payins left stranded (assigned a requisite but never resolved); ` +
             `trader funded for 1 but ${assigned.length} requisites were handed out`,

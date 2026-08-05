@@ -1,6 +1,6 @@
+import { delay } from "@std/async";
 import { CONFIG } from "@/config";
 import { test } from "@/test_context";
-import { delay } from "@std/async";
 
 test.fails("test should fail after it finishes", async ({ ctx, skip }) => {
   skip(!CONFIG.debug);

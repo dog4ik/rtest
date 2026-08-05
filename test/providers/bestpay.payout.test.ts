@@ -1,16 +1,16 @@
-import * as common from "@/common";
 import { assert, describe } from "vitest";
-import { providers } from "@/settings_builder";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
 import { BestpayPayout, type OperationStatus } from "@/provider_mocks/bestpay";
+import { providers } from "@/settings_builder";
 import {
+  type Callback,
   callbackFinalizationSuite,
   dataFlowTest,
-  statusFinalizationSuite,
-  type Callback,
   type Status,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import type { PrimeBusinessStatus } from "@/db/business";
-import { CONFIG } from "@/config";
 
 const CURRENCY = "BDT";
 

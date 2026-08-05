@@ -1,74 +1,72 @@
-import * as default_provider from "@/provider_mocks/default";
-import * as common from "@/common";
-import { assert, describe } from "vitest";
-import { test } from "@/test_context";
-import { BrusnikaPayment } from "@/provider_mocks/brusnika";
-import { providers } from "@/settings_builder";
 import { delay } from "@std/async";
+import { assert, describe } from "vitest";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { BrusnikaPayment } from "@/provider_mocks/brusnika";
+import * as default_provider from "@/provider_mocks/default";
+import { providers } from "@/settings_builder";
+import { test } from "@/test_context";
 
 const CURRENCY = "RUB";
 let AMOUNT = 1000_00;
 
 describe.concurrent("basic commission", () => {
   for (let success of [true, false]) {
-    test.concurrent(
-      `payout(${success ? "approve" : "decline"}) with commission`,
-      async ({ ctx }) => {
-        let merchant = await ctx.create_random_merchant();
-        let amount_with_commission = AMOUNT / 100 + (AMOUNT / 100) * 0.1;
-        await merchant.cashin(CURRENCY, amount_with_commission);
-        await merchant.set_settings(default_provider.fullSettings(CURRENCY));
-        await merchant.set_commission({
-          operation: "PayoutRequest",
-          currency: CURRENCY,
-          status: "1",
-        });
-        await merchant.create_payout(
-          default_provider.request(CURRENCY, AMOUNT, "payout", success),
-        );
-        let wallet = (await merchant.wallets())[0];
-        assert.strictEqual(
-          wallet.currency,
-          CURRENCY,
-          "created wallet should be in RUB",
-        );
-        assert.strictEqual(
-          wallet.available,
-          success ? 0 : amount_with_commission,
-          "merchant wallet amount",
-        );
-        assert.strictEqual(wallet.held, 0);
-      },
-    );
+    test.concurrent(`payout(${success ? "approve" : "decline"}) with commission`, async ({
+      ctx,
+    }) => {
+      let merchant = await ctx.create_random_merchant();
+      let amount_with_commission = AMOUNT / 100 + (AMOUNT / 100) * 0.1;
+      await merchant.cashin(CURRENCY, amount_with_commission);
+      await merchant.set_settings(default_provider.fullSettings(CURRENCY));
+      await merchant.set_commission({
+        operation: "PayoutRequest",
+        currency: CURRENCY,
+        status: "1",
+      });
+      await merchant.create_payout(
+        default_provider.request(CURRENCY, AMOUNT, "payout", success),
+      );
+      let wallet = (await merchant.wallets())[0];
+      assert.strictEqual(
+        wallet.currency,
+        CURRENCY,
+        "created wallet should be in RUB",
+      );
+      assert.strictEqual(
+        wallet.available,
+        success ? 0 : amount_with_commission,
+        "merchant wallet amount",
+      );
+      assert.strictEqual(wallet.held, 0);
+    });
 
-    test.concurrent(
-      `payin(${success ? "approve" : "decline"}) with commission`,
-      async ({ ctx }) => {
-        let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(default_provider.fullSettings(CURRENCY));
-        await merchant.set_commission({
-          operation: "PayinRequest",
-          currency: CURRENCY,
-          status: "1",
-        });
-        await merchant.create_payment(
-          default_provider.request(CURRENCY, AMOUNT, "pay", success),
-        );
-        let wallet = (await merchant.wallets())[0];
-        assert.strictEqual(
-          wallet.currency,
-          CURRENCY,
-          "created wallet should be in RUB",
-        );
-        assert.strictEqual(
-          wallet.available,
-          success ? AMOUNT / 100 - (AMOUNT / 100) * 0.1 : 0,
-          "merchant wallet amount",
-        );
-        assert.strictEqual(wallet.held, 0);
-      },
-    );
+    test.concurrent(`payin(${success ? "approve" : "decline"}) with commission`, async ({
+      ctx,
+    }) => {
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(default_provider.fullSettings(CURRENCY));
+      await merchant.set_commission({
+        operation: "PayinRequest",
+        currency: CURRENCY,
+        status: "1",
+      });
+      await merchant.create_payment(
+        default_provider.request(CURRENCY, AMOUNT, "pay", success),
+      );
+      let wallet = (await merchant.wallets())[0];
+      assert.strictEqual(
+        wallet.currency,
+        CURRENCY,
+        "created wallet should be in RUB",
+      );
+      assert.strictEqual(
+        wallet.available,
+        success ? AMOUNT / 100 - (AMOUNT / 100) * 0.1 : 0,
+        "merchant wallet amount",
+      );
+      assert.strictEqual(wallet.held, 0);
+    });
   }
 });
 
@@ -161,7 +159,7 @@ test
 test.concurrent("refund commission with convert_to", async ({ ctx }) => {
   let merchant = await ctx.create_random_merchant();
   let settings = default_provider.fullSettings("EUR") as Record<string, any>;
-  settings["convert_to"] = "EUR";
+  settings.convert_to = "EUR";
   await merchant.set_settings(settings);
   let commission_amount = (common.amount / 100) * 0.1;
   let cashin_amount = 150;
@@ -218,7 +216,7 @@ test.concurrent("refund commission with convert_to", async ({ ctx }) => {
 test.concurrent("commission with convert_to", async ({ ctx }) => {
   let merchant = await ctx.create_random_merchant();
   let settings = default_provider.fullSettings("EUR") as Record<string, any>;
-  settings["convert_to"] = "EUR";
+  settings.convert_to = "EUR";
   await merchant.set_settings(settings);
   let commission_amount = (common.amount / 100) * 0.1;
   ctx.annotate(`Commission amount: ${commission_amount}`);
@@ -244,13 +242,15 @@ test.concurrent("commission with convert_to", async ({ ctx }) => {
   assert.notStrictEqual(feed.target_currency_rate, 1);
   assert.notStrictEqual(feed.target_currency_rate, 0);
 
+  assert.isNotNull(feed.commission_amount, "feed commission amount");
   assert.approximately(
-    feed.commission_amount!,
+    feed.commission_amount,
     commission_amount / feed.target_currency_rate,
     0.01,
   );
+  assert.isNotNull(feed.target_amount, "feed target amount");
   assert.approximately(
-    feed.target_amount!,
+    feed.target_amount,
     common.amount / 100 / feed.target_currency_rate,
     0.01,
   );

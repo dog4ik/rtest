@@ -1,15 +1,15 @@
+import { delay } from "@std/async";
 import * as vitest from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { defaultSettings } from "@/settings_builder";
 import {
   DalapayTransaction,
   OperationStatusMap,
 } from "@/provider_mocks/dalapay";
-import type { Context } from "@/test_context/context";
+import { defaultSettings } from "@/settings_builder";
 import { CALLBACK_DELAY } from "@/suite_interfaces";
-import { delay } from "@std/async";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "CDF";
 
@@ -17,7 +17,7 @@ async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
   let merchant = await ctx.create_random_merchant();
   let settings = defaultSettings(CURRENCY, DalapayTransaction.settings(uuid));
-  settings.gateways["skip_card_payout_validation"] = true;
+  settings.gateways.skip_card_payout_validation = true;
   await merchant.set_settings(settings);
   await merchant.cashin(CURRENCY, common.amount / 100);
   let dalapay = ctx.mock_server(DalapayTransaction.mock_params(uuid));

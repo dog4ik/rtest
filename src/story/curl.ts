@@ -1,5 +1,5 @@
-import type { OperationType } from "@/db/business";
 import { CONFIG } from "@/config";
+import type { OperationType } from "@/db/business";
 
 export function constructCurlRequest(
   request: Record<string, unknown>,

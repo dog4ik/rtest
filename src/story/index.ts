@@ -1,4 +1,5 @@
 import type { TaskMeta } from "vitest";
+
 type ContentType = string | Record<string, any>;
 export type Chapter = {
   name: string;
@@ -19,7 +20,7 @@ export class Story {
     for (let i = 0; i < this.chapters.length; ++i) {
       let chapter = this.chapters[i];
       let key = `${i + 1}. ${chapter.name}`;
-      if (typeof chapter.content == "string") {
+      if (typeof chapter.content === "string") {
         meta[key] = chapter.content;
       } else {
         meta[key] = JSON.stringify(chapter.content, null, 2);

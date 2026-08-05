@@ -1,4 +1,8 @@
-import { payinSuite, payoutSuite } from "@/provider_mocks/gateway_connect";
+import { delay } from "@std/async";
+import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import { payoutSuite } from "@/provider_mocks/gateway_connect";
 import {
   callbackFinalizationSuite,
   defaultSuite,
@@ -7,10 +11,6 @@ import {
   statusFinalizationSuite,
 } from "@/suite_interfaces";
 import { test } from "@/test_context";
-import * as common from "@/common";
-import { assert, describe } from "vitest";
-import { CONFIG } from "@/config";
-import { delay } from "@std/async";
 
 let p2pSuite = () => providersSuite("RUB", payoutSuite());
 let ecomSuite = () => {
@@ -54,33 +54,35 @@ test.concurrent("gatewayconnect payout no balance for comission", ({ ctx }) =>
 
 test
   .runIf(CONFIG.in_project(["reactivepay"]))
-  .todo("concurrent payout requests don't overdraft merchant balance", ({ ctx, merchant }) =>
-    ctx.track_bg_rejections(async () => {
-      let suite = providersSuite("RUB", payoutSuite("RUB"));
-      let gateway = ctx.mock_server(suite.mock_options(ctx.uuid));
-      await merchant.set_settings(suite.settings(ctx.uuid));
-      await merchant.cashin("RUB", common.amount / 100);
+  .todo(
+    "concurrent payout requests don't overdraft merchant balance",
+    ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let suite = providersSuite("RUB", payoutSuite("RUB"));
+        let gateway = ctx.mock_server(suite.mock_options(ctx.uuid));
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        await merchant.cashin("RUB", common.amount / 100);
 
-      let pending = gateway.queue(suite.gw.basic_payout_handler("pending"));
-      let unreachable = gateway.queue((_) => {
-        assert.fail("gateway should not be reached twice");
-      });
+        let pending = gateway.queue(suite.gw.basic_payout_handler("pending"));
+        let unreachable = gateway.queue((_) => {
+          assert.fail("gateway should not be reached twice");
+        });
 
-      let [init1, init2] = await Promise.all([
-        merchant.create_payout(suite.request()),
-        merchant.create_payout(suite.request()),
-      ]);
+        let [init1, init2] = await Promise.all([
+          merchant.create_payout(suite.request()),
+          merchant.create_payout(suite.request()),
+        ]);
 
-      let [res1, res2] = await Promise.all([
-        init1.followFirstProcessingUrl(),
-        init2.followFirstProcessingUrl(),
-      ]);
+        let [res1, res2] = await Promise.all([
+          init1.followFirstProcessingUrl(),
+          init2.followFirstProcessingUrl(),
+        ]);
 
-      await res1.as_raw_json();
-      await res2.as_raw_json();
-      await pending;
-      await Promise.race([unreachable, delay(1000)]);
-    }),
+        await res1.as_raw_json();
+        await res2.as_raw_json();
+        await pending;
+        await Promise.race([unreachable, delay(1000)]);
+      }),
   );
 
 describe.concurrent("commission healthcheck payouts", () => {
@@ -103,7 +105,9 @@ describe.concurrent("commission healthcheck payouts", () => {
   async function rubWallet(merchant: {
     wallets(
       c: string,
-    ): Promise<Array<{ available: number; held: number; currency: string | null }>>;
+    ): Promise<
+      Array<{ available: number; held: number; currency: string | null }>
+    >;
   }) {
     let ws = await merchant.wallets("RUB");
     let w = ws.find((w) => w.currency === "RUB");
@@ -116,7 +120,11 @@ describe.concurrent("commission healthcheck payouts", () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "PayoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 1100, held: 0 },
+        "after cashin",
+      );
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
@@ -136,17 +144,25 @@ describe.concurrent("commission healthcheck payouts", () => {
       );
     }));
 
-  test.concurrent("pending payout finalize to approved with commission", ({ ctx }) =>
+  test.concurrent("pending payout finalize to approved with commission", ({
+    ctx,
+  }) =>
     ctx.track_bg_rejections(async () => {
       let suite = commissionPayoutSuite();
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "PayoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 1100, held: 0 },
+        "after cashin",
+      );
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payout_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payout_handler("pending"),
+      );
 
       let payout = await merchant
         .create_payout(suite.request())
@@ -183,17 +199,25 @@ describe.concurrent("commission healthcheck payouts", () => {
       );
     }));
 
-  test.concurrent("pending payout finalize to declined with commission", ({ ctx }) =>
+  test.concurrent("pending payout finalize to declined with commission", ({
+    ctx,
+  }) =>
     ctx.track_bg_rejections(async () => {
       let suite = commissionPayoutSuite();
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "PayoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 1100, held: 0 },
+        "after cashin",
+      );
       await merchant.set_settings(suite.settings(ctx.uuid));
       let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
 
-      let provider_request = provider.queue(suite.gw.basic_payout_handler("pending"));
+      let provider_request = provider.queue(
+        suite.gw.basic_payout_handler("pending"),
+      );
 
       let payout = await merchant
         .create_payout(suite.request())
@@ -242,14 +266,20 @@ describe.concurrent("commission healthcheck payouts", () => {
 
       // Gateway should never be reached
       provider.queue(async () => {
-        assert.fail("Gateway should not be reached when balance is insufficient for commission");
+        assert.fail(
+          "Gateway should not be reached when balance is insufficient for commission",
+        );
       });
 
       if (CONFIG.in_project(["reactivepay", "kotulapay"])) {
         let init = await merchant.create_payout(suite.request());
         await init.followFirstProcessingUrl().then((res) => res.as_error());
         let feed = await ctx.get_feed(init.token);
-        assert.strictEqual(feed.status, 2, "feed should be declined when payout got no balance");
+        assert.strictEqual(
+          feed.status,
+          2,
+          "feed should be declined when payout got no balance",
+        );
         assert.deepEqual(
           await rubWallet(merchant),
           { available: AMOUNT_RUB, held: 0 },

@@ -1,13 +1,13 @@
-import { CONFIG } from "@/config";
-import { test } from "@/test_context";
-import { describe, assert } from "vitest";
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { BrusnikaPayment } from "@/provider_mocks/brusnika";
-import { SettingsBuilder } from "@/settings_builder";
-import type { Context } from "@/test_context/context";
-import type { ProviderInstance } from "@/mock_server/instance";
+import { CONFIG } from "@/config";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Handler } from "@/mock_server/api";
+import type { ProviderInstance } from "@/mock_server/instance";
+import { BrusnikaPayment } from "@/provider_mocks/brusnika";
+import { SettingsBuilder } from "@/settings_builder";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const CURRENCY = "RUB";
 
@@ -97,7 +97,8 @@ class RandomizerTester {
       .then((p) => p.followFirstProcessingUrl());
     await provider_done;
     // request_data is populated by create_handler once the gateway is called
-    this.observed_amounts.push(payment.request_data!.amount * 100);
+    assert(payment.request_data, "gateway request data");
+    this.observed_amounts.push(payment.request_data.amount * 100);
     await payment.send_callback("success");
     await notification;
   }
@@ -166,44 +167,42 @@ describe
     // random_retries:3 is capped to 2 by the list size.
     // Sequence: original -> original+a -> original+b -> final decline.
     // A repeated amount means a retry fired without actually changing the amount.
-    test.concurrent(
-      "all retries declined - unique amount on each gateway request",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 200],
-            random_retries: 3,
-            random_step: 100,
-          });
+    test.concurrent("all retries declined - unique amount on each gateway request", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 200],
+          random_retries: 3,
+          random_step: 100,
+        });
 
-          // 1 initial + 2 retries (list has 2 elements) = 3 gateway calls.
-          tester.queue_declines(3);
+        // 1 initial + 2 retries (list has 2 elements) = 3 gateway calls.
+        tester.queue_declines(3);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(3);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(3);
+      }));
 
     // First gateway call declined, randomizer retries with a different amount
     // which is approved. The two amounts must differ.
-    test.concurrent(
-      "approved on retry - retry amount differs from initial attempt",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 200],
-            random_retries: 3,
-            random_step: 100,
-          });
+    test.concurrent("approved on retry - retry amount differs from initial attempt", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 200],
+          random_retries: 3,
+          random_step: 100,
+        });
 
-          tester.queue_decline();
-          await tester.queue_and_pay_approve();
+        tester.queue_decline();
+        await tester.queue_and_pay_approve();
 
-          tester.assert_state(2);
-        }),
-    );
+        tester.assert_state(2);
+      }));
   });
 
 describe
@@ -212,44 +211,42 @@ describe
     // range [100, 300] step 100 -> list = [100, 200, 300] (3 elements).
     // random_retries:3 matches list size exactly -> all 3 retries fire, each with
     // a unique amount. Total gateway calls: 1 initial + 3 retries = 4.
-    test.concurrent(
-      "range fills retries exactly - 3 retries all get unique amounts",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 300],
-            random_retries: 3,
-            random_step: 100,
-          });
+    test.concurrent("range fills retries exactly - 3 retries all get unique amounts", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 300],
+          random_retries: 3,
+          random_step: 100,
+        });
 
-          tester.queue_declines(4);
+        tester.queue_declines(4);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(4);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(4);
+      }));
 
     // range [100, 150] step 100 -> list = [100] (only 1 element fits).
     // random_retries:5 is capped to 1 by the list size.
     // Total gateway calls: 1 initial + 1 retry = 2.
-    test.concurrent(
-      "retries capped by list size when step is too large for range",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 150],
-            random_retries: 5,
-            random_step: 100,
-          });
+    test.concurrent("retries capped by list size when step is too large for range", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 150],
+          random_retries: 5,
+          random_step: 100,
+        });
 
-          tester.queue_declines(2);
+        tester.queue_declines(2);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(2);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(2);
+      }));
 
     // range [200, 100]: start > end -> step produces an empty list.
     // No valid retry amounts exist, so no retries should be attempted.
@@ -267,133 +264,126 @@ describe
 
         await tester.pay_expecting_decline();
         tester.assert_state(1);
-      }),
-    );
+      }));
 
     // range [100, 200] step 50 -> list = [100, 150, 200] (3 elements).
     // random_retries:3 matches list size -> all 3 retries fire.
     // A smaller step produces more distinct candidate amounts from the same range.
-    test.concurrent(
-      "fine-grained step produces 3 unique retry amounts within same range",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 200],
-            random_retries: 3,
-            random_step: 50,
-          });
+    test.concurrent("fine-grained step produces 3 unique retry amounts within same range", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 200],
+          random_retries: 3,
+          random_step: 50,
+        });
 
-          tester.queue_declines(4);
+        tester.queue_declines(4);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(4);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(4);
+      }));
 
     // range [100, 300] step 100 -> list = [100, 200, 300] (3 elements).
     // random_retries:2 is less than list size -> only 2 elements are taken.
     // Total gateway calls: 1 initial + 2 retries = 3.
-    test.concurrent(
-      "random_retries caps list when it is smaller than available steps",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 300],
-            random_retries: 2,
-            random_step: 100,
-          });
+    test.concurrent("random_retries caps list when it is smaller than available steps", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 300],
+          random_retries: 2,
+          random_step: 100,
+        });
 
-          tester.queue_declines(3);
+        tester.queue_declines(3);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(3);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(3);
+      }));
 
     // random_retries:0 means no retries are configured at all.
     // The initial request is made, it is declined, and the payment finalises
     // immediately without the randomizer touching the amount.
-    test.concurrent(
-      "zero retries - declines immediately without attempting any retry",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 200],
-            random_retries: 0,
-            random_step: 100,
-          });
+    test.concurrent("zero retries - declines immediately without attempting any retry", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 200],
+          random_retries: 0,
+          random_step: 100,
+        });
 
-          tester.queue_declines(1);
+        tester.queue_declines(1);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(1);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(1);
+      }));
 
     // random_retries:0 means no retries are configured at all.
     // The initial request is made, it is approved, and the payment finalises
     // immediately without the randomizer touching the amount.
-    test.concurrent(
-      "zero retries - approves immediately without attempting any retry",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 200],
-            random_retries: 0,
-            random_step: 100,
-          });
+    test.concurrent("zero retries - approves immediately without attempting any retry", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 200],
+          random_retries: 0,
+          random_step: 100,
+        });
 
-          await tester.queue_and_pay_approve();
-          tester.assert_state(1);
-        }),
-    );
+        await tester.queue_and_pay_approve();
+        tester.assert_state(1);
+      }));
 
     // range [100, 100]: start == end -> only one value in the list.
     // random_retries:3 is capped to 1 by list size.
     // Total gateway calls: 1 initial + 1 retry = 2.
-    test.concurrent(
-      "single-value range - only one retry possible regardless of retries setting",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 100],
-            random_retries: 3,
-            random_step: 100,
-          });
+    test.concurrent("single-value range - only one retry possible regardless of retries setting", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 100],
+          random_retries: 3,
+          random_step: 100,
+        });
 
-          tester.queue_declines(2);
+        tester.queue_declines(2);
 
-          await tester.pay_expecting_decline();
-          tester.assert_state(2);
-        }),
-    );
+        await tester.pay_expecting_decline();
+        tester.assert_state(2);
+      }));
 
     // range [100, 300] step 100 -> 3 retry candidates.
     // First 2 are declined, 3rd is approved. All 3 gateway amounts must be
     // unique - the approve fires with a distinct amount, not the original.
-    test.concurrent(
-      "approved after 2 declines - all 3 gateway amounts are unique",
-      ({ ctx }) =>
-        ctx.track_bg_rejections(async () => {
-          let tester = new RandomizerTester(ctx);
-          await tester.init({
-            random_range: [100, 300],
-            random_retries: 3,
-            random_step: 100,
-          });
+    test.concurrent("approved after 2 declines - all 3 gateway amounts are unique", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new RandomizerTester(ctx);
+        await tester.init({
+          random_range: [100, 300],
+          random_retries: 3,
+          random_step: 100,
+        });
 
-          tester.queue_decline();
-          tester.queue_decline();
-          await tester.queue_and_pay_approve();
+        tester.queue_decline();
+        tester.queue_decline();
+        await tester.queue_and_pay_approve();
 
-          tester.assert_state(3);
-        }),
-    );
+        tester.assert_state(3);
+      }));
 
     /// Common case with declined
     test.concurrent("common use case declined", ({ ctx }) =>
@@ -409,8 +399,7 @@ describe
         await tester.pay_expecting_decline();
 
         tester.assert_state(6);
-      }),
-    );
+      }));
 
     /// Common case with declined
     test.concurrent("common use case approved", ({ ctx }) =>
@@ -426,8 +415,7 @@ describe
         await tester.queue_and_pay_approve();
 
         tester.assert_state(6);
-      }),
-    );
+      }));
 
     /// Common case early approve
     test.concurrent("common use case early approved", ({ ctx }) =>
@@ -443,6 +431,5 @@ describe
         await tester.queue_and_pay_approve();
 
         tester.assert_state(3);
-      }),
-    );
+      }));
   });

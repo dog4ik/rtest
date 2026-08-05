@@ -1,6 +1,6 @@
 import type { HttpRequest } from "@/mock_server/api";
 
-export const WEBHOOK_TOKEN = "+MWRinGhkXlYEBtJCp2aC0xKylZBoNJsx+KV\/X07KDA=";
+export const WEBHOOK_TOKEN = "+MWRinGhkXlYEBtJCp2aC0xKylZBoNJsx+KV/X07KDA=";
 
 export type BrusnikaPaymentStatus =
   | "created"

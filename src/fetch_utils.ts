@@ -1,6 +1,5 @@
-import { z } from "zod";
-import {} from "@std/async";
 import { assert } from "vitest";
+import type { z } from "zod";
 
 export function err_bad_status(response: Response) {
   if (response.status >= 500 && response.status < 600) {

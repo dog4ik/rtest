@@ -1,19 +1,18 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { ArgosPayment } from "@/provider_mocks/argos";
-import { payinSuite } from "@/provider_mocks/argos";
+import { CONFIG, PROJECT } from "@/config";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { ArgosPayment, payinSuite } from "@/provider_mocks/argos";
+import { providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
-  payformDataFlowTest,
-  statusFinalizationSuite,
-  providersSuite,
   maskedSuite,
+  payformDataFlowTest,
+  providersSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 
 const CURRENCY = "RUB";
 

@@ -1,9 +1,9 @@
-import { CoreOfficeDriver } from "@/driver/core/office";
-import * as common from "@/common";
-import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { CoreOfficeDriver } from "@/driver/core/office";
+import { test } from "@/test_context";
 
 const SETTLEMENT_DELAY = 1_000;
 
@@ -23,8 +23,12 @@ describe.concurrent("settlement basics", () => {
     let settlements = await merchant.settlements();
     let wallet = wallets[0];
     assert.strictEqual(wallet.available, 0, "settlement should hold the funds");
-    assert.strictEqual(wallet.held, 100, "hold should have the settelment amount");
-    assert(wallets.length == 1, "only one wallet must be created");
+    assert.strictEqual(
+      wallet.held,
+      100,
+      "hold should have the settelment amount",
+    );
+    assert(wallets.length === 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
     await core.confirm_settlement(settlements[0].id, "approved");
     await delay(1_000);
@@ -49,8 +53,12 @@ describe.concurrent("settlement basics", () => {
     let settlements = await merchant.settlements();
     let wallet = wallets[0];
     assert.strictEqual(wallet.available, 0, "settlement should hold the funds");
-    assert.strictEqual(wallet.held, 100, "hold should have the settelment amount");
-    assert(wallets.length == 1, "only one wallet must be created");
+    assert.strictEqual(
+      wallet.held,
+      100,
+      "hold should have the settelment amount",
+    );
+    assert(wallets.length === 1, "only one wallet must be created");
     let core = ctx.shared_state().core_harness;
     await core.confirm_settlement(settlements[0].id, "declined");
     await delay(1_000);
@@ -84,7 +92,9 @@ describe.concurrent("commission healthcheck settlements", () => {
   async function rubWallet(merchant: {
     wallets(
       c: string,
-    ): Promise<Array<{ available: number; held: number; currency: string | null }>>;
+    ): Promise<
+      Array<{ available: number; held: number; currency: string | null }>
+    >;
   }) {
     let ws = await merchant.wallets("RUB");
     let w = ws.find((w) => w.currency === "RUB");
@@ -105,7 +115,11 @@ describe.concurrent("commission healthcheck settlements", () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "CashoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 1100, held: 0 },
+        "after cashin",
+      );
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
       await office.create_settlment("RUB", AMOUNT_RUB);
@@ -144,7 +158,11 @@ describe.concurrent("commission healthcheck settlements", () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "CashoutRequest" });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
-      assert.deepEqual(await rubWallet(merchant), { available: 1100, held: 0 }, "after cashin");
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 1100, held: 0 },
+        "after cashin",
+      );
       let office = await loginOffice(merchant);
       await delay(SETTLEMENT_DELAY);
       await office.create_settlment("RUB", AMOUNT_RUB);
@@ -178,7 +196,9 @@ describe.concurrent("commission healthcheck settlements", () => {
       );
     }));
 
-  test.concurrent("settlement not created when no balance for commission", ({ ctx }) =>
+  test.concurrent("settlement not created when no balance for commission", ({
+    ctx,
+  }) =>
     ctx.track_bg_rejections(async () => {
       let merchant = await ctx.create_random_merchant();
       await merchant.set_commission({ operation: "CashoutRequest" });
@@ -194,7 +214,10 @@ describe.concurrent("commission healthcheck settlements", () => {
       await delay(SETTLEMENT_DELAY);
 
       let settlements = await merchant.settlements("RUB");
-      assert.isEmpty(settlements, "settlement should not be created without commission balance");
+      assert.isEmpty(
+        settlements,
+        "settlement should not be created without commission balance",
+      );
       assert.deepEqual(
         await rubWallet(merchant),
         { available: AMOUNT_RUB, held: 0 },

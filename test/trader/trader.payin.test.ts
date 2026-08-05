@@ -1,11 +1,11 @@
-import * as common from "@/common";
-import { traderNoConvertSettings, traderSetttings } from "@/driver/trader";
-import { test } from "@/test_context";
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
-import type { ExtendedMerchant } from "@/entities/merchant";
-import type { Context } from "@/test_context/context";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
+import { traderNoConvertSettings } from "@/driver/trader";
+import type { ExtendedMerchant } from "@/entities/merchant";
+import { test } from "@/test_context";
+import type { Context } from "@/test_context/context";
 
 const TRADER_DELAY = 5_000;
 
@@ -70,7 +70,11 @@ describe
           0.01,
           "merchant wallet: received net amount after commission",
         );
-        assert.strictEqual((await rubWallet(merchant)).held, 0, "merchant wallet: nothing held");
+        assert.strictEqual(
+          (await rubWallet(merchant)).held,
+          0,
+          "merchant wallet: nothing held",
+        );
 
         let traderWallets = await trader.wallets();
         assert.approximately(
@@ -79,14 +83,22 @@ describe
           0.01,
           "trader main: fully paid out (net + commission)",
         );
-        assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
+        assert.strictEqual(
+          traderWallets.main.held,
+          0,
+          "trader main: nothing held",
+        );
         assert.approximately(
           traderWallets.income.available,
           PROVIDER_COMMISSION_RUB,
           0.01,
           "trader profit: received provider commission",
         );
-        assert.strictEqual(traderWallets.income.held, 0, "trader profit: nothing held");
+        assert.strictEqual(
+          traderWallets.income.held,
+          0,
+          "trader profit: nothing held",
+        );
       }));
 
     test.concurrent("declined payin with commission", ({ ctx }) =>
@@ -123,7 +135,11 @@ describe
           0.01,
           "trader main: fully returned after decline",
         );
-        assert.strictEqual(traderWallets.main.held, 0, "trader main: nothing held");
+        assert.strictEqual(
+          traderWallets.main.held,
+          0,
+          "trader main: nothing held",
+        );
         assert.deepEqual(
           {
             available: traderWallets.income.available,
@@ -172,7 +188,11 @@ test
       });
 
       await Promise.all(results);
-      assert.strictEqual(got_requisites, 1, "merchant should get only one requisite");
+      assert.strictEqual(
+        got_requisites,
+        1,
+        "merchant should get only one requisite",
+      );
     }),
   );
 
@@ -191,7 +211,9 @@ describe
         await trader2.setup({ card: true, bank: "tbank" });
         await trader2.cashin("main", "RUB", common.amount);
         await trader1.cashin("main", "RUB", 10);
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader1.id, trader2.id]));
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader1.id, trader2.id]),
+        );
         let res = await merchant
           .create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
@@ -215,7 +237,9 @@ describe
         await trader1.cashin("main", "RUB", common.amount);
         await trader2.cashin("main", "RUB", common.amount);
         await trader1.enable_trader_method("card_enabled");
-        await merchant.set_settings(traderNoConvertSettings("RUB", [trader1.id, trader2.id]));
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader1.id, trader2.id]),
+        );
         let res = await merchant
           .create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
@@ -227,40 +251,41 @@ describe
       }));
   });
 
-describe.runIf(CONFIG.in_project(["reactivepay"])).concurrent("test inr payform", () => {
-  test.skip("trader insufficient balance", ({ ctx, merchant }) =>
-    ctx.track_bg_rejections(async () => {
-      let trader1 = await ctx.create_random_trader({
-        usdt: false,
-        currency: "INR",
-      });
-      await trader1.setup({ account: true, bank: "sberbank" });
-      await trader1.cashin("main", "INR", 9999999999999);
-      let settings = traderNoConvertSettings("INR", [trader1.id]) as Record<
-        string,
-        any
-      >;
-      let trader_settings = settings.gateways.trader;
-      trader_settings["random_range"] = [100, 200];
-      trader_settings["random_retries"] = 1;
-      trader_settings["random_step"] = 100;
-      trader_settings["custom_payform"] = "upi";
-      settings.gateways["skip_processing_url"] = true;
-      await merchant.set_settings(settings);
-      await merchant.create_payment({
-        ...common.traderPaymentRequest("INR", "account"),
-        redirect_success_url: "https://google.com/success",
-        redirect_fail_url: "https://google.com/fail",
-      });
+describe
+  .runIf(CONFIG.in_project(["reactivepay"]))
+  .concurrent("test inr payform", () => {
+    test.skip("trader insufficient balance", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader1 = await ctx.create_random_trader({
+          usdt: false,
+          currency: "INR",
+        });
+        await trader1.setup({ account: true, bank: "sberbank" });
+        await trader1.cashin("main", "INR", 9999999999999);
+        let settings = traderNoConvertSettings("INR", [trader1.id]) as Record<
+          string,
+          any
+        >;
+        let trader_settings = settings.gateways.trader;
+        trader_settings.random_range = [100, 200];
+        trader_settings.random_retries = 1;
+        trader_settings.random_step = 100;
+        trader_settings.custom_payform = "upi";
+        settings.gateways.skip_processing_url = true;
+        await merchant.set_settings(settings);
+        await merchant.create_payment({
+          ...common.traderPaymentRequest("INR", "account"),
+          redirect_success_url: "https://google.com/success",
+          redirect_fail_url: "https://google.com/fail",
+        });
 
-      await merchant.create_payment({
-        ...common.traderPaymentRequest("INR", "account"),
-        redirect_success_url: "https://google.com/success",
-        redirect_fail_url: "https://google.com/fail",
-      });
+        await merchant.create_payment({
+          ...common.traderPaymentRequest("INR", "account"),
+          redirect_success_url: "https://google.com/success",
+          redirect_fail_url: "https://google.com/fail",
+        });
 
-      // await delay(15_000)
-      // await trader1.finalizeTransaction(create.token, "approved");
-
-    }));
-});
+        // await delay(15_000)
+        // await trader1.finalizeTransaction(create.token, "approved");
+      }));
+  });

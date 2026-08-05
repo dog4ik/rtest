@@ -1,20 +1,19 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
-import { BrusnikaPayment } from "@/provider_mocks/brusnika";
-import { payinSuite } from "@/provider_mocks/brusnika";
+import { CONFIG, PROJECT } from "@/config";
+import { EightpayRequisitesPage } from "@/pages/8pay_payform";
+import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
+import { BrusnikaPayment, payinSuite } from "@/provider_mocks/brusnika";
+import { providers } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
-  payformDataFlowTest,
-  statusFinalizationSuite,
-  providersSuite,
   maskedSuite,
+  payformDataFlowTest,
+  providersSuite,
+  statusFinalizationSuite,
 } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
-import { CONFIG, PROJECT } from "@/config";
 import { test } from "@/test_context";
-import { assert, describe } from "vitest";
-import { EightpayRequisitesPage } from "@/pages/8pay_payform";
-import { SpinpayRequisitesPage } from "@/pages/spinpay_payform";
 
 const CURRENCY = "RUB";
 

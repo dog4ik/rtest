@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
-import { BusinessStatusSchema } from "@/db/business";
 import * as vitest from "vitest";
 import { z } from "zod";
+import { BusinessStatusSchema } from "@/db/business";
 
 export const NOTIFICATION_SCHEMA = z.object({
   token: z.string(),

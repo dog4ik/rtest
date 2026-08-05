@@ -1,11 +1,14 @@
-import { callbackFinalizationSuite } from "@/suite_interfaces";
-import { payinSuite, ReactivepayTransaction } from "@/provider_mocks/reactivepay";
-import { CONFIG } from "@/config";
-import { assert, describe } from "vitest";
-import { test } from "@/test_context";
-import * as common from "@/common";
-import { defaultSettings, providers } from "@/settings_builder";
 import { delay } from "@std/async";
+import { assert, describe } from "vitest";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
+import {
+  payinSuite,
+  ReactivepayTransaction,
+} from "@/provider_mocks/reactivepay";
+import { defaultSettings, providers } from "@/settings_builder";
+import { callbackFinalizationSuite } from "@/suite_interfaces";
+import { test } from "@/test_context";
 
 const CURRENCY = "USD";
 
@@ -20,8 +23,12 @@ describe
       await ctx.track_bg_rejections(async () => {
         let gw = new ReactivepayTransaction("reactivepay");
         let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(defaultSettings(CURRENCY, gw.settings(ctx.uuid)));
-        let provider = ctx.mock_server(ReactivepayTransaction.mock_params(ctx.uuid));
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, gw.settings(ctx.uuid)),
+        );
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
 
         provider.queue(gw.h2h_create_handler("declined")).then(async () => {
           await gw.send_callback("declined", ctx.uuid);
@@ -47,8 +54,12 @@ describe
       await ctx.track_bg_rejections(async () => {
         let gw = new ReactivepayTransaction("reactivepay");
         let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(defaultSettings(CURRENCY, gw.settings(ctx.uuid)));
-        let provider = ctx.mock_server(ReactivepayTransaction.mock_params(ctx.uuid));
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, gw.settings(ctx.uuid)),
+        );
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
 
         provider.queue(gw.h2h_create_handler("approved"));
 
@@ -67,8 +78,12 @@ describe
       await ctx.track_bg_rejections(async () => {
         let gw = new ReactivepayTransaction("reactivepay");
         let merchant = await ctx.create_random_merchant();
-        await merchant.set_settings(defaultSettings(CURRENCY, gw.settings(ctx.uuid)));
-        let provider = ctx.mock_server(ReactivepayTransaction.mock_params(ctx.uuid));
+        await merchant.set_settings(
+          defaultSettings(CURRENCY, gw.settings(ctx.uuid)),
+        );
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
 
         provider.queue(gw.h2h_create_handler("declined"));
 
@@ -92,14 +107,18 @@ describe
         let gw = new ReactivepayTransaction("reactivepayp2p");
         let merchant = await ctx.create_random_merchant();
         await merchant.set_settings(providers(CURRENCY, gw.settings(ctx.uuid)));
-        let provider = ctx.mock_server(ReactivepayTransaction.mock_params(ctx.uuid));
+        let provider = ctx.mock_server(
+          ReactivepayTransaction.mock_params(ctx.uuid),
+        );
 
         provider.queue(gw.p2p_create_handler());
 
-        provider.queue(gw.processing_requisite_handler("pending", "card")).then(async () => {
-          await delay(5_000);
-          await gw.send_callback("approved", ctx.uuid);
-        });
+        provider
+          .queue(gw.processing_requisite_handler("pending", "card"))
+          .then(async () => {
+            await delay(5_000);
+            await gw.send_callback("approved", ctx.uuid);
+          });
 
         let notification = merchant.queue_notification((callback) => {
           assert.strictEqual(callback.status, "approved");

@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { Db, sqlProjection } from ".";
-import type { Project } from "@/project";
 import type { Pool } from "pg";
+import { z } from "zod";
+import type { Project } from "@/project";
+import { Db, sqlProjection } from ".";
 
 export const MidSettingsSchema = z.object({
   id: z.int(),

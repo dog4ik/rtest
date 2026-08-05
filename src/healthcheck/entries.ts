@@ -1,7 +1,6 @@
-import { EntryCodes, type Entry } from "@/db/core/entry";
+import { type CoreStatus, CoreStatusMap, type FeedType } from "@/db/core";
+import { type Entry, EntryCodes } from "@/db/core/entry";
 import { Match } from ".";
-import { CoreStatusMap, type CoreStatus, type FeedType } from "@/db/core";
-import { hash } from "crypto";
 
 /**
  * Target wallet id, basically wallet id for the entity we calculate amount changes.
@@ -164,9 +163,9 @@ export class EntryValidator {
       let available_match =
         status === CoreStatusMap.init || status === CoreStatusMap.approved
           ? new Match(
-            -target_amount - commission_amount,
-            this.current_available,
-          )
+              -target_amount - commission_amount,
+              this.current_available,
+            )
           : new Match(0, this.current_available);
 
       let hold_match =
@@ -289,7 +288,7 @@ export class EntryValidator {
     status: CoreStatus,
   ): BalanceValidation {
     console.log({ wallet_id: this.wallet_id }, "Validating agent entries");
-    if (status == CoreStatusMap.approved) {
+    if (status === CoreStatusMap.approved) {
       let available = new Match(commission_amount, this.current_available);
       let held = new Match(0, this.current_hold);
       return new BalanceValidation(available, held);
@@ -299,7 +298,6 @@ export class EntryValidator {
       return new BalanceValidation(available, held);
     }
   }
-
 }
 
 /**
@@ -363,8 +361,7 @@ export function expected_trader_state(
       status === CoreStatusMap.approved || status === CoreStatusMap.init
         ? -target_amount
         : 0;
-    let main_expected_hold =
-      status === CoreStatusMap.init ? target_amount : 0;
+    let main_expected_hold = status === CoreStatusMap.init ? target_amount : 0;
     let income_expected_available =
       status === CoreStatusMap.approved ? comission_amount : 0;
     return exact(
@@ -395,7 +392,11 @@ export function expected_trader_state(
           new Match(0, income_hold),
         ),
         new BalanceValidation(
-          new RangeMatch(-(target_amount + comission_amount), 0, deposit_available),
+          new RangeMatch(
+            -(target_amount + comission_amount),
+            0,
+            deposit_available,
+          ),
           new Match(0, deposit_hold),
         ),
         new Match(0, sum_available),
@@ -459,7 +460,7 @@ export class TraderBalanceValidation {
     public readonly deposit: BalanceValidation,
     public readonly sum_available: Match<number>,
     public readonly sum_held: Match<number>,
-  ) { }
+  ) {}
 
   valid() {
     return (
@@ -496,7 +497,7 @@ export class RangeMatch {
     public min: number,
     public max: number,
     public got: number,
-  ) { }
+  ) {}
 
   toString(): string {
     if (!this.eq()) {
@@ -516,7 +517,7 @@ export class BalanceValidation {
   constructor(
     public readonly available_match: NumberMatch,
     public readonly hold_match: NumberMatch,
-  ) { }
+  ) {}
 
   toString() {
     return (

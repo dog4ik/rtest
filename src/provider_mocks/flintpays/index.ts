@@ -1,15 +1,15 @@
+import * as vitest from "vitest";
 import { z } from "zod";
 import * as common from "@/common";
-import * as vitest from "vitest";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
 import type {
   Handler,
   HttpContext,
   MockProviderParams,
 } from "@/mock_server/api";
-import { err_bad_status } from "@/fetch_utils";
-import type { P2PSuite } from "@/suite_interfaces";
-import type { PrimeBusinessStatus } from "@/db/business";
 import { providers } from "@/settings_builder";
+import type { P2PSuite } from "@/suite_interfaces";
 
 export type FlintpayStatus = "created" | "confirmed" | "rejected";
 
@@ -54,10 +54,9 @@ export class FlintpayOperation {
   private requestData():
     | z.infer<typeof PAYOUT_REQUEST_SCHEMA>
     | z.infer<typeof PAYIN_REQUEST_SCHEMA> {
-    if (!this.payout_request_data && !this.payin_request_data) {
-      vitest.assert.fail("request data should be defined");
-    }
-    return this.payout_request_data ?? this.payin_request_data!;
+    let data = this.payout_request_data ?? this.payin_request_data;
+    vitest.assert(data, "request data should be defined");
+    return data;
   }
 
   status_response(status: FlintpayStatus) {
@@ -200,12 +199,12 @@ export class FlintpayOperation {
       alias: "flint_pays",
       filter_fn: async (req) => {
         // status request
-        if (req.method == "GET") {
+        if (req.method === "GET") {
           return req.query("merchant") === key;
         }
         try {
           let json = await req.json();
-          return json["merchant"] === key;
+          return json.merchant === key;
         } catch {
           return false;
         }

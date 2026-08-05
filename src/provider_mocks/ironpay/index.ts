@@ -1,13 +1,12 @@
-import { z } from "zod";
 import crypto from "node:crypto";
-import * as common from "@/common";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { assert } from "vitest";
-import { err_bad_status } from "@/fetch_utils";
-import type { PrimeBusinessStatus } from "@/db/business";
-import type { P2PSuite } from "@/suite_interfaces";
-import { providers } from "@/settings_builder";
+import { z } from "zod";
+import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
+import type { PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import type { P2PSuite } from "@/suite_interfaces";
 
 export type IronpayStatus = "Pending" | "Canceled" | "Approved";
 
@@ -201,7 +200,7 @@ export class IronpayPayment {
   }
 
   static no_requisites_handler(): Handler {
-    return (c) => c.json(this.no_requisites_response(), 422);
+    return (c) => c.json(IronpayPayment.no_requisites_response(), 422);
   }
 
   static settings(secret: string) {

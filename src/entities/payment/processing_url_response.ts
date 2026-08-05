@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { assert } from "vitest";
-import { ErrorResponse } from "./error_response";
-import type { Context } from "@/test_context/context";
+import { z } from "zod";
 import { CONFIG } from "@/config";
+import type { Context } from "@/test_context/context";
+import { ErrorResponse } from "./error_response";
 
 // Legacy 8pay format schema
 // export const EightpayRequesiteSchema = z.object({
@@ -97,7 +97,7 @@ export class ProcessingUrlResponse {
   constructor(
     private ctx: Context,
     private response: Response,
-  ) { }
+  ) {}
 
   private async consume_json_body() {
     let contentType = this.response.headers.get("content-type");
@@ -176,7 +176,7 @@ export class ProcessingUrlResponse {
       assert.strictEqual(res.pan, number);
     } else {
       let res = await this.as_trader_requisites();
-      let resBank: string | undefined = undefined;
+      let resBank: string | undefined;
       if (type === "sbp") {
         resBank = res.sbp?.bank;
         assert.strictEqual(res.sbp?.name, name);

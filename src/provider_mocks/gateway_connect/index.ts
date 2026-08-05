@@ -1,23 +1,27 @@
-import { z } from "zod";
+import { delay } from "@std/async";
+import * as collections from "@std/collections";
 import { assert } from "vitest";
+import { z } from "zod";
+import * as common from "@/common";
+import { CONFIG } from "@/config";
 import type { BusinessStatus, PrimeBusinessStatus } from "@/db/business";
+import { err_bad_status } from "@/fetch_utils";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { MAPPING_START_PORT } from "@/patch/production_file";
-import * as collections from "@std/collections";
-import * as common from "@/common";
-import { PayinRequestSchema, type ConnectPayinResponse, type RedirectRequest } from "./payin";
-import { type GwConnectError } from "./error";
-import { StatusRequestSchema, type ConnectStatusResponse } from "./status";
+import { CurlBuilder } from "@/story/curl";
 import type { P2PSuite } from "@/suite_interfaces";
 import { createJwt } from "./callback";
-import { err_bad_status } from "@/fetch_utils";
+import type { GwConnectError } from "./error";
 import { InteractionLogs } from "./interaction_logs";
-import { delay } from "@std/async";
-import type { GCSettingsType } from "./settings";
+import {
+  type ConnectPayinResponse,
+  PayinRequestSchema,
+  type RedirectRequest,
+} from "./payin";
 import { PayoutRequestSchema } from "./payout";
-import { CONFIG } from "@/config";
 import { RefundRequestSchema } from "./refund";
-import { CurlBuilder } from "@/story/curl";
+import type { GCSettingsType } from "./settings";
+import { type ConnectStatusResponse, StatusRequestSchema } from "./status";
 
 export type GcRequisiteType =
   | "sbp"
@@ -101,7 +105,11 @@ export function commonSettings(alias: string, secret: string) {
             ],
             processing_url: true,
             charge_page_url: true,
-            settings: [SETTINGS_INTERNAL_SECRET_KEY, "wrapped_to_json_response", "method"],
+            settings: [
+              SETTINGS_INTERNAL_SECRET_KEY,
+              "wrapped_to_json_response",
+              "method",
+            ],
           },
         },
         status: {
@@ -172,14 +180,20 @@ export class GatewayConnectTransaction {
 
   settings(secret: string) {
     let resolved_secret = this.resolved_secret_value(secret);
-    return collections.deepMerge(this.gw_settings, commonSettings(this.alias, resolved_secret), {
-      arrays: "merge",
-    });
+    return collections.deepMerge(
+      this.gw_settings,
+      commonSettings(this.alias, resolved_secret),
+      {
+        arrays: "merge",
+      },
+    );
   }
 
   basic_payin_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
 
       let logs = await this.build_interaction_logs("pay", status);
 
@@ -251,10 +265,12 @@ export class GatewayConnectTransaction {
     },
   ): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
       let logs = await this.build_interaction_logs("pay", status);
 
-      let requisites: Record<string, any> | undefined = undefined;
+      let requisites: Record<string, any> | undefined;
       if (status === "pending") {
         if (CONFIG.in_project(["spinpay", "reactivepay"])) {
           requisites = {
@@ -264,15 +280,17 @@ export class GatewayConnectTransaction {
             deeplink: requisite_data?.deeplink,
           };
           if (requisite_type === "card") {
-            requisites["card"] = common.visaCard;
+            requisites.card = common.visaCard;
           } else if (requisite_type === "sbp") {
-            requisites["pan"] = common.phoneNumber;
+            requisites.pan = common.phoneNumber;
           } else if (requisite_type === "link") {
-            requisites["link"] = { url: common.redirectPayUrl };
+            requisites.link = { url: common.redirectPayUrl };
           } else if (requisite_type === "account") {
-            requisites["number"] = common.accountNumber;
+            requisites.number = common.accountNumber;
           } else {
-            assert.fail(`Spinpay/RP unimplemented requisite type: ${requisite_type}`);
+            assert.fail(
+              `Spinpay/RP unimplemented requisite type: ${requisite_type}`,
+            );
           }
         } else {
           requisites = {
@@ -280,29 +298,30 @@ export class GatewayConnectTransaction {
             bank_name: requisite_data?.bank ?? common.bankName,
           };
           if (requisite_type === "card") {
-            requisites["card"] = common.visaCard;
+            requisites.card = common.visaCard;
           } else if (requisite_type === "sbp") {
-            requisites["phone"] = common.phoneNumber;
+            requisites.phone = common.phoneNumber;
           } else if (requisite_type === "tpay") {
-            requisites["phone"] = `+${common.phoneNumber}`;
-            requisites["deeplink"] = true;
+            requisites.phone = `+${common.phoneNumber}`;
+            requisites.deeplink = true;
           } else if (requisite_type === "deeplink") {
-            requisites["link"] = common.redirectPayUrl;
+            requisites.link = common.redirectPayUrl;
             // requisites["deeplink"] = true;
           } else if (requisite_type === "link") {
-            requisites["link"] = common.redirectPayUrl;
+            requisites.link = common.redirectPayUrl;
             // Не знаю зачем, Чигин отправляет deeplink: true, даже если интеграция не deeplink.
             // Отсавлю так чтобы его интеграция не померла.
             // requisites["deeplink"] = true;
-            requisites["phone"] = common.visaCard;
+            requisites.phone = common.visaCard;
           } else if (requisite_type === "tpay_qr_data") {
-            requisites["qr_data"] = common.redirectPayUrl;
-            requisites["deeplink"] = true;
+            requisites.qr_data = common.redirectPayUrl;
+            requisites.deeplink = true;
           }
         }
       }
 
-      let is_wrapped = this.payin_request.settings["wrapped_to_json_response"] ?? false;
+      let is_wrapped =
+        this.payin_request.settings.wrapped_to_json_response ?? false;
 
       return c.json({
         status,
@@ -330,7 +349,9 @@ export class GatewayConnectTransaction {
 
   basic_payout_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.payout_request = PayoutRequestSchema(z.object({})).parse(await c.req.json());
+      this.payout_request = PayoutRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
 
       let logs = await this.build_interaction_logs("payout", status);
 
@@ -352,7 +373,9 @@ export class GatewayConnectTransaction {
     card_enrolled?: boolean,
   ): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
 
       let logs = await this.build_interaction_logs("pay", status);
 
@@ -372,7 +395,9 @@ export class GatewayConnectTransaction {
 
   refund_handler(status: PrimeBusinessStatus): Handler {
     return async (c) => {
-      this.refund_request = RefundRequestSchema(z.object({})).parse(await c.req.json());
+      this.refund_request = RefundRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
 
       let logs = await this.build_interaction_logs("refund", status);
 
@@ -389,11 +414,19 @@ export class GatewayConnectTransaction {
 
   status_handler(status: BusinessStatus, amount?: number): Handler {
     return async (c) => {
-      this.status_request = StatusRequestSchema(z.object({})).parse(await c.req.json());
+      this.status_request = StatusRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
       let request_data = this.request_data();
-      assert(request_data, "request data should be defined when status handler is fired");
+      assert(
+        request_data,
+        "request data should be defined when status handler is fired",
+      );
 
-      let logs = await this.build_interaction_logs("status", status as PrimeBusinessStatus);
+      let logs = await this.build_interaction_logs(
+        "status",
+        status as PrimeBusinessStatus,
+      );
 
       return c.json({
         status,
@@ -443,7 +476,9 @@ export class GatewayConnectTransaction {
 
   error_handler(message?: string): Handler {
     return async (c) => {
-      this.payin_request = PayinRequestSchema(z.object({})).parse(await c.req.json());
+      this.payin_request = PayinRequestSchema(z.object({})).parse(
+        await c.req.json(),
+      );
 
       return c.json({
         result: false,
@@ -485,7 +520,9 @@ export function payinSuite(
   };
 }
 
-export function payoutSuite(currency = "RUB"): P2PSuite<GatewayConnectTransaction> {
+export function payoutSuite(
+  currency = "RUB",
+): P2PSuite<GatewayConnectTransaction> {
   let gw = new GatewayConnectTransaction("manypay", {});
   return {
     type: "payout",

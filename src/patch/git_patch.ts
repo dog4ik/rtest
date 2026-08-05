@@ -1,6 +1,6 @@
+import process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import process from "node:child_process";
 
 export async function applyGitPatch(project_dir: string, patch: string) {
   let patchPath = path.resolve("git_patches", patch);

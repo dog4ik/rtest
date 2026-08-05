@@ -1,6 +1,5 @@
-import { assert } from "vitest";
+import { assert, describe } from "vitest";
 import { test } from "@/test_context";
-import { describe } from "vitest";
 
 describe.concurrent("cashin", () => {
   test.concurrent("merchant balance increases", async ({ ctx }) => {
@@ -8,8 +7,8 @@ describe.concurrent("cashin", () => {
     await merchant.cashin("RUB", 100);
     let wallets = await merchant.wallets();
     let wallet = wallets[0];
-    assert(wallet.available == 100, "cashin amount is now available");
-    assert(wallet.held == 0, "held must be empty");
-    assert(wallets.length == 1, "only one wallet must be created");
+    assert(wallet.available === 100, "cashin amount is now available");
+    assert(wallet.held === 0, "held must be empty");
+    assert(wallets.length === 1, "only one wallet must be created");
   });
 });

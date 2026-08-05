@@ -1,6 +1,6 @@
+import path from "node:path";
 import type { Config } from "@/config";
 import type { Project } from "@/project";
-import path from "node:path";
 
 export class ProjectDir {
   path: string;

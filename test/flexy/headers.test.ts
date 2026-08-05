@@ -1,10 +1,10 @@
-import { test } from "@/test_context";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
-import * as default_provider from "@/provider_mocks/default";
-import type { TestCaseBase } from "@/suite_interfaces";
 import { CONFIG } from "@/config";
 import type { CreateRuleJson } from "@/driver/flexy_commission";
+import * as default_provider from "@/provider_mocks/default";
+import type { TestCaseBase } from "@/suite_interfaces";
+import { test } from "@/test_context";
 
 const CURRENCY = "RUB";
 
@@ -24,39 +24,39 @@ function _testHeader(
   should_match = true,
 ) {
   let descriptor = JSON.stringify(make_headers(0));
-  test.concurrent(
-    `${descriptor} ${should_match ? "hit" : "miss"}`,
-    async ({ ctx, merchant }) =>
-      ctx.track_bg_rejections(async () => {
-        await merchant.set_settings(suite.settings(ctx.uuid));
+  test.concurrent(`${descriptor} ${should_match ? "hit" : "miss"}`, async ({
+    ctx,
+    merchant,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      await merchant.set_settings(suite.settings(ctx.uuid));
 
-        for (let header of make_headers(merchant.id)) {
-          await ctx.add_flexy_guard_rule(
-            {
-              header,
-              body: {
-                card: {
-                  amount: {
-                    value: [-1, 0],
-                  },
+      for (let header of make_headers(merchant.id)) {
+        await ctx.add_flexy_guard_rule(
+          {
+            header,
+            body: {
+              card: {
+                amount: {
+                  value: [-1, 0],
                 },
               },
             },
-            undefined,
-            1,
-          );
-        }
+          },
+          undefined,
+          1,
+        );
+      }
 
-        let request = suite.request();
+      let request = suite.request();
 
-        if (should_match) {
-          await merchant.create_payment_err(request);
-        } else {
-          let res = await merchant.create_payment(request);
-          assert.strictEqual(res.payment.status, "approved");
-        }
-      }),
-  );
+      if (should_match) {
+        await merchant.create_payment_err(request);
+      } else {
+        let res = await merchant.create_payment(request);
+        assert.strictEqual(res.payment.status, "approved");
+      }
+    }));
 }
 
 testHeaderMatch((mid) => [{ mid }], default_provider.payinSuite());
@@ -134,7 +134,7 @@ describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
 
   function suiteWithPhone(suite: TestCaseBase) {
     let request = suite.request();
-    (request as Record<any, any>).customer["phone"] = common.phoneNumber;
+    (request as Record<any, any>).customer.phone = common.phoneNumber;
     return { ...suite, request: () => request };
   }
 
@@ -291,122 +291,122 @@ describe
     }
 
     // Bug fix: rule must fire when request amount is exactly at the range's lower boundary
-    test.concurrent(
-      "range lower boundary triggers rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO = 400000,
-            HI = 600000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
-          await merchant.create_payment_err(
-            suiteWithAmount(default_provider.payinSuite(), LO).request(),
-          );
-        }),
-    );
+    test.concurrent("range lower boundary triggers rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO = 400000,
+          HI = 600000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+        await merchant.create_payment_err(
+          suiteWithAmount(default_provider.payinSuite(), LO).request(),
+        );
+      }));
 
-    test.concurrent(
-      "range upper boundary triggers rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO = 400000,
-            HI = 600000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
-          await merchant.create_payment_err(
-            suiteWithAmount(default_provider.payinSuite(), HI).request(),
-          );
-        }),
-    );
+    test.concurrent("range upper boundary triggers rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO = 400000,
+          HI = 600000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+        await merchant.create_payment_err(
+          suiteWithAmount(default_provider.payinSuite(), HI).request(),
+        );
+      }));
 
-    test.concurrent(
-      "amount one below lower boundary misses rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO = 400000,
-            HI = 600000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), LO - 1).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
+    test.concurrent("amount one below lower boundary misses rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO = 400000,
+          HI = 600000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+        const res = await merchant.create_payment(
+          suiteWithAmount(default_provider.payinSuite(), LO - 1).request(),
+        );
+        assert.strictEqual(res.payment.status, "approved");
+      }));
 
-    test.concurrent(
-      "amount one above upper boundary misses rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO = 400000,
-            HI = 600000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
-          const res = await merchant.create_payment(
-            suiteWithAmount(default_provider.payinSuite(), HI + 1).request(),
-          );
-          assert.strictEqual(res.payment.status, "approved");
-        }),
-    );
+    test.concurrent("amount one above upper boundary misses rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO = 400000,
+          HI = 600000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO}, ${HI}`);
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO, HI));
+        const res = await merchant.create_payment(
+          suiteWithAmount(default_provider.payinSuite(), HI + 1).request(),
+        );
+        assert.strictEqual(res.payment.status, "approved");
+      }));
 
     // Two non-overlapping ranges must each fire their own rule
-    test.concurrent(
-      "two non-overlapping ranges each fire their rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO1 = 3000000,
-            HI1 = 4000000;
-          const LO2 = 4000001,
-            HI2 = 5000000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO1, HI1));
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
-          await merchant.create_payment_err(
-            suiteWithAmount(default_provider.payinSuite(), 3500000).request(),
-          );
-          await merchant.create_payment_err(
-            suiteWithAmount(default_provider.payinSuite(), 4500000).request(),
-          );
-        }),
-    );
+    test.concurrent("two non-overlapping ranges each fire their rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO1 = 3000000,
+          HI1 = 4000000;
+        const LO2 = 4000001,
+          HI2 = 5000000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO1, HI1));
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
+        await merchant.create_payment_err(
+          suiteWithAmount(default_provider.payinSuite(), 3500000).request(),
+        );
+        await merchant.create_payment_err(
+          suiteWithAmount(default_provider.payinSuite(), 4500000).request(),
+        );
+      }));
 
     // Lower boundary of the second (higher) range must trigger its rule, not the first range's
-    test.concurrent(
-      "lower boundary of second range fires its own rule",
-      async ({ ctx, merchant }) =>
-        ctx.track_bg_rejections(async () => {
-          const LO1 = 3000000,
-            HI1 = 4000000;
-          const LO2 = 4000001,
-            HI2 = 5000000;
-          await merchant.set_settings(
-            default_provider.payinSuite().settings(ctx.uuid),
-          );
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
-          await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
-          // Only rule 2 registered for this merchant — lower boundary of range 2 must hit it
-          await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
-          await merchant.create_payment_err(
-            suiteWithAmount(default_provider.payinSuite(), LO2).request(),
-          );
-        }),
-    );
+    test.concurrent("lower boundary of second range fires its own rule", async ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        const LO1 = 3000000,
+          HI1 = 4000000;
+        const LO2 = 4000001,
+          HI2 = 5000000;
+        await merchant.set_settings(
+          default_provider.payinSuite().settings(ctx.uuid),
+        );
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO1}, ${HI1}`);
+        await ctx.add_flexy_guard_range("payin", "amount", `${LO2}, ${HI2}`);
+        // Only rule 2 registered for this merchant — lower boundary of range 2 must hit it
+        await ctx.add_flexy_guard_rule(rangeRule(merchant.id, LO2, HI2));
+        await merchant.create_payment_err(
+          suiteWithAmount(default_provider.payinSuite(), LO2).request(),
+        );
+      }));
   });
 
 const DEFAULT_SOURCE = "default";
@@ -442,22 +442,22 @@ function _testCommission(
   expected_commission_value: number | null,
 ) {
   let descriptor = JSON.stringify(make_rules(0));
-  test.concurrent(
-    `${descriptor} ${expected_commission_value !== null ? "match" : "miss"}`,
-    async ({ ctx, merchant }) =>
-      ctx.track_bg_rejections(async () => {
-        await merchant.set_settings(suite.settings(ctx.uuid));
-        for (let rule of make_rules(merchant.id)) {
-          await ctx.add_flexy_commission_as_json(rule);
-        }
+  test.concurrent(`${descriptor} ${expected_commission_value !== null ? "match" : "miss"}`, async ({
+    ctx,
+    merchant,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      await merchant.set_settings(suite.settings(ctx.uuid));
+      for (let rule of make_rules(merchant.id)) {
+        await ctx.add_flexy_commission_as_json(rule);
+      }
 
-        let res = await merchant.create_payment(suite.request());
-        assert.strictEqual(res.payment.status, "approved");
-        await ctx.healthcheck(res.token, {
-          expect: { commission_value: expected_commission_value ?? 0 },
-        });
-      }),
-  );
+      let res = await merchant.create_payment(suite.request());
+      assert.strictEqual(res.payment.status, "approved");
+      await ctx.healthcheck(res.token, {
+        expect: { commission_value: expected_commission_value ?? 0 },
+      });
+    }));
 }
 
 describe.runIf(CONFIG.flexy_flexy).concurrent("mongo commission header", () => {

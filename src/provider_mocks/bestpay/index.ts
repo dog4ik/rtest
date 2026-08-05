@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
-import { assert } from "vitest";
-import * as sign from "./signature";
 import * as encoding from "@std/encoding";
+import { assert } from "vitest";
 import { z } from "zod";
-import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { err_bad_status } from "@/fetch_utils";
+import type { Handler, MockProviderParams } from "@/mock_server/api";
+import * as sign from "./signature";
 
 export type OperationStatus = "Pending" | "Approved" | "Declined";
 
@@ -120,7 +120,7 @@ export class BestpayPayout {
         MerchantOrderNo: this.request_data.MerchantOrderNo,
         Amount: this.request_data.Amount,
         Fee: 1.0,
-        RequestSuccessTime: new Date().getTime(),
+        RequestSuccessTime: Date.now(),
         PayURL: null,
         Details: {
           ClientIP: "127.0.0.1",
