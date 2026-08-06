@@ -254,7 +254,7 @@ describe
 describe
   .runIf(CONFIG.in_project(["reactivepay"]))
   .concurrent("test inr payform", () => {
-    test.skip("trader insufficient balance", ({ ctx, merchant }) =>
+    test.skip("inr payfrom random amount", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader1 = await ctx.create_random_trader({
           usdt: false,

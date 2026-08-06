@@ -112,7 +112,7 @@ export class Context {
   }
 
   /**
-   * Create new unique merchant. Same as creating new merchant via UI in core/manage.
+   * Create new flexy guard rule
    */
   async add_flexy_guard_rule(
     payload: Record<string, any>,

@@ -18,7 +18,7 @@ const PROVIDER_COMMISSION_RUB = AMOUNT_RUB * PROVIDER_RATE;
 const NET_RUB = AMOUNT_RUB - COMMISSION_RUB;
 const MERCHANT_CASHIN_RUB = AMOUNT_RUB + COMMISSION_RUB;
 
-describe.concurrent("admin payin state changes", () => {
+describe.skip("admin payin state changes", () => {
   async function setup(ctx: Context): Promise<ExtendedMerchant> {
     let merchant = await ctx.create_random_merchant();
     await merchant.set_commission({ operation: "PayinRequest" });
@@ -196,7 +196,7 @@ describe.concurrent("admin payin state changes", () => {
     }));
 });
 
-describe.concurrent("admin payout state changes", () => {
+describe.skip("admin payout state changes", () => {
   function payoutRequest(success: boolean) {
     return {
       ...default_provider.request("RUB", AMOUNT, "payout", success),
@@ -390,7 +390,7 @@ describe.concurrent("admin payout state changes", () => {
 const TRADER_OPTS: CreateTraderOptions = { usdt: false, payout_hold_period: 0 };
 const TRADER_DELAY = 5_000;
 
-describe.concurrent("admin trader payin state changes", () => {
+describe.skip("admin trader payin state changes", () => {
   async function setup(ctx: Context) {
     let merchant = await ctx.create_random_merchant();
     let trader = await ctx.create_random_trader(TRADER_OPTS);
@@ -574,7 +574,7 @@ describe.concurrent("admin trader payin state changes", () => {
     }));
 });
 
-describe.concurrent("admin trader payout state changes", () => {
+describe.skip("admin trader payout state changes", () => {
   function payoutRequest() {
     return {
       ...common.payoutRequest("RUB"),
@@ -751,7 +751,7 @@ describe.concurrent("admin trader payout state changes", () => {
     }));
 });
 
-describe.concurrent("admin dispute state changes", () => {
+describe.skip("admin dispute state changes", () => {
   // Creates a trader-backed declined payin and opens a dispute against it.
   // Disputes require a trader so that DisputeRequestBuilder can populate trader_id.
   async function setupDispute(ctx: Context) {

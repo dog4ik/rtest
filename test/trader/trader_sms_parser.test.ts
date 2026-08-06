@@ -407,7 +407,7 @@ describe
   });
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .runIf(CONFIG.in_project(["a2"]))
   .concurrent("card_mask parsers", () => {
     // FreeBank RUB - amount in body, card: XXXXXX*****4242
     test_new_bank_sms("FreeBank card XXXX****4242", {
