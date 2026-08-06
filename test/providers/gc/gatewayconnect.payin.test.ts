@@ -1276,6 +1276,51 @@ describe.concurrent("commission healthcheck payins", () => {
       );
     }));
 
+  test.concurrent("commission_in_callback setting", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = commissionH2HSuite();
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_commission({ operation: "PayinRequest" });
+      let settings = suite.settings(ctx.uuid);
+      settings.gateways.gateway.commission_in_callback = true;
+      await merchant.set_settings(settings);
+      let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+      let provider_request = provider.queue(
+        suite.gw.basic_payin_handler("pending"),
+      );
+
+      let response = await merchant.create_payment(suite.request());
+      let token = response.token;
+
+      await provider_request;
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: 0, held: 0 },
+        "pending: payin does not hold merchant funds",
+      );
+
+      await ctx.healthcheck(token, { skip_interaction_log_card_check: true });
+
+      let notification = merchant.queue_notification(
+        (cb) => {
+          assert.strictEqual(cb.status, "approved");
+          assert.strictEqual(cb.commission_amount, 100);
+          assert.strictEqual(cb.commission_value, 10);
+          assert.strictEqual(cb.commission_fee, 0);
+        },
+        { skip_interaction_log_card_check: true },
+      );
+
+      await suite.gw.send_callback("approved");
+      await notification;
+      assert.deepEqual(
+        await rubWallet(merchant),
+        { available: AMOUNT_RUB - COMMISSION_RUB, held: 0 },
+        "approved: merchant receives amount minus commission",
+      );
+    }));
+
   test.concurrent("pending payin finalize to approved with commission", ({
     ctx,
   }) =>

@@ -25,6 +25,9 @@ export const NOTIFICATION_SCHEMA = z.object({
     .optional(),
   sanitizedMask: z.string().optional().nullable(),
   walletToken: z.string(),
+  commission_amount: z.number().optional(),
+  commission_value: z.number().optional(),
+  commission_fee: z.number().optional(),
   signature: z.string(),
 });
 
