@@ -3,6 +3,12 @@ import { CONFIG, PROJECT } from "@/config";
 import { err_bad_status } from "@/fetch_utils";
 import { authorize_client, type Credentials } from "..";
 
+export const USE_LEGACY_FLEXY = !CONFIG.in_project([
+  "a2",
+  "reactivepay",
+  "kotulapay",
+]);
+
 export class FlexyGuardHarness {
   base_url: string;
   cookies: string | null;
@@ -56,7 +62,7 @@ export class FlexyGuardHarness {
     priority = 1,
   ) {
     if (
-      CONFIG.flexy_flexy &&
+      !USE_LEGACY_FLEXY &&
       payload.header?.mid &&
       typeof payload.header.mid === "string"
     ) {

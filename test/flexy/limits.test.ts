@@ -60,7 +60,7 @@ class LimitTester {
 
 describe
   .runIf(CONFIG.in_project(["spinpay", "reactivepay", "8pay"]))
-  .concurrent("limits tests", () => {
+  .only("limits tests", () => {
     test.concurrent("daily p2p approve routing", ({
       ctx,
       merchant,
@@ -70,7 +70,6 @@ describe
       ctx.track_bg_rejections(async () => {
         let brusnika_payment = new BrusnikaPayment();
         let brusnika_payment2 = new BrusnikaPayment();
-        let _ironpay_payment = new IronpayPayment();
         let ironpay_payment2 = new IronpayPayment();
         let settings = new SettingsBuilder()
           .withGateway(IronpayPayment.settings(ctx.uuid), "ironpay")
@@ -85,7 +84,7 @@ describe
           body: {
             status: {
               sum: {
-                "1Europe/Moscow#approved#amount": [0, 100],
+                "1Europe/Moscow#approved#amount": [0, 100_00],
               },
             },
           },
@@ -112,7 +111,7 @@ describe
         await merchant
           .create_payment({
             ...common.paymentRequest(CURRENCY),
-            amount: 90,
+            amount: 90_00,
             bank_account: { requisite_type: "sbp" },
           })
           .then((r) => r.followFirstProcessingUrl())
@@ -139,7 +138,7 @@ describe
         await merchant
           .create_payment({
             ...common.paymentRequest(CURRENCY),
-            amount: 90,
+            amount: 90_00,
             bank_account: { requisite_type: "sbp" },
           })
           .then((r) => r.followFirstProcessingUrl())
@@ -159,7 +158,7 @@ describe
         await merchant
           .create_payment({
             ...common.p2pPaymentRequest(CURRENCY, "sbp"),
-            amount: 100,
+            amount: 100_00,
           })
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_trader_requisites());

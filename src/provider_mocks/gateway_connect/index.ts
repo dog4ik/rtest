@@ -445,7 +445,7 @@ export class GatewayConnectTransaction {
     let payload = {
       status,
       reason: status === "declined" ? "Test callback error message" : undefined,
-      currency: "RUB",
+      currency: req_data.payment.gateway_currency,
       logs: [{ request: JSON.stringify({ status }) }],
       amount: amount ?? common.amount,
     };

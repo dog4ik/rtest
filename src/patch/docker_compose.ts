@@ -1,7 +1,39 @@
 import * as yaml from "@std/yaml";
+import type { Config } from "@/config";
+import { RATE_MOCK_PORT } from "@/provider_mocks/rate";
 
 function insertExtraHost(map: Record<string, any>) {
   map.extra_hosts = ["host.docker.internal:host-gateway"];
+}
+
+/**
+ * Environment variables holding the rate service url.
+ */
+const RATE_URL_ENV_NAMES = ["APP_RATE_HOST_URL", "RATE_LINK"];
+
+const RATE_MOCK_URL = `http://host.docker.internal:${RATE_MOCK_PORT}/rate`;
+
+function redirectRateUrls(service: Record<string, any>): boolean {
+  let environment = service.environment;
+  let patched = false;
+
+  if (Array.isArray(environment)) {
+    service.environment = environment.map((entry: string) => {
+      let name = RATE_URL_ENV_NAMES.find((n) => entry.startsWith(`${n}=`));
+      if (name === undefined) return entry;
+      patched = true;
+      return `${name}=${RATE_MOCK_URL}`;
+    });
+  } else if (environment && typeof environment === "object") {
+    for (let name of RATE_URL_ENV_NAMES) {
+      if (name in environment) {
+        environment[name] = RATE_MOCK_URL;
+        patched = true;
+      }
+    }
+  }
+
+  return patched;
 }
 
 function makeDependency(
@@ -13,7 +45,7 @@ function makeDependency(
 
 export function patchedDockerCompose(
   dockerCompose: string,
-  patchVolumes: boolean,
+  { patch_volumes, mock_rate }: Config,
 ): string {
   console.log("raw document", dockerCompose);
   const doc = yaml.parse(dockerCompose) as Record<string, any>;
@@ -33,7 +65,7 @@ export function patchedDockerCompose(
     retries: "5",
   };
 
-  if (patchVolumes) {
+  if (patch_volumes) {
     volumes["postgres-data-test"] = { driver: "local" };
     postgres.volumes = ["postgres-data-test:/var/lib/postgresql/data"];
   }
@@ -41,7 +73,7 @@ export function patchedDockerCompose(
   const mongoSetup = services.mongo;
 
   if (mongoSetup) {
-    if (patchVolumes) {
+    if (patch_volumes) {
       volumes["mongo-data-test"] = { driver: "local" };
       mongoSetup.volumes = ["mongo-data-test:/data/db"];
     }
@@ -50,7 +82,7 @@ export function patchedDockerCompose(
   const minioSetup = services.minio;
 
   if (minioSetup) {
-    if (patchVolumes) {
+    if (patch_volumes) {
       volumes["minio-data-test"] = { driver: "local" };
       volumes["minio-config-test"] = { driver: "local" };
       minioSetup.volumes = [
@@ -126,6 +158,17 @@ export function patchedDockerCompose(
   const mongo = services.mongo;
   if (mongo) {
     mongo.ports = ["27017:27017"];
+  }
+
+  if (mock_rate) {
+    for (const [name, service] of Object.entries(services)) {
+      if (redirectRateUrls(service as Record<string, any>)) {
+        insertExtraHost(service as Record<string, any>);
+        console.log(
+          `Redirected rate service urls of ${name} to ${RATE_MOCK_URL}`,
+        );
+      }
+    }
   }
 
   return yaml.stringify(doc);

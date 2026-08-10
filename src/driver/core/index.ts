@@ -238,8 +238,10 @@ export class CoreDriver {
       "trader[payout_hold_period]": params.payout_hold_priod,
       "trader[required_deposit]": params.min_deposit,
       white_list: "",
-      min_limit: params.min_limit,
-      max_limit: params.max_limit,
+      // Omit rather than send "": `Trader::Common#limit_saving` guards on
+      // `params.key?`, so an empty value writes a 0 limit instead of none.
+      min_limit: params.min_limit?.toString(),
+      max_limit: params.max_limit?.toString(),
       convert_to_usdt: params.convert_to_usdt ? "1" : undefined,
       commit: "Add+new+trader",
     };
@@ -318,12 +320,12 @@ export class CoreDriver {
   }
 
   async add_supported_banks(trader_id: number, bank_list: string[]) {
+    // No white_list/min_limit/max_limit: `Trader::Update` runs the same
+    // `create_limits` as create, and an empty value would zero the trader's
+    // existing limits.
     let data = {
       utf8: "✓",
       _method: "patch",
-      white_list: "",
-      min_limit: "",
-      max_limit: "",
       "bank_ids[]": bank_list,
       commit: "Save",
     };

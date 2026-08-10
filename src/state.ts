@@ -19,6 +19,11 @@ import { readProductionRb } from "./patch/production_file";
 import { ProjectDir } from "./patch/project_dir";
 import { GC_MAPPING_KEY, GC_MOCK_PORT } from "./provider_mocks/gateway_connect";
 import {
+  RATE_MAPPING_KEY,
+  RATE_MOCK_PORT,
+  RateDriver,
+} from "./provider_mocks/rate";
+import {
   REACTIVEPAY_MAPPING_KEY,
   REACTIVEPAY_MOCK_PORT,
 } from "./provider_mocks/reactivepay";
@@ -72,11 +77,22 @@ export async function initState(config: Config) {
 
   mapping.set(GC_MAPPING_KEY, GC_MOCK_PORT);
   mapping.set(REACTIVEPAY_MAPPING_KEY, REACTIVEPAY_MOCK_PORT);
+  mapping.set(RATE_MAPPING_KEY, RATE_MOCK_PORT);
   if (config.extra_mapping !== undefined) {
     for (let [key, val] of Object.entries(config.extra_mapping)) {
       mapping.set(key, val);
     }
   }
+
+  let mock_servers = new MockServerState(mapping);
+
+  // The rate service is global rather than per merchant, so a single instance is
+  // registered once and shared between all tests.
+  let rate_driver = new RateDriver();
+  mock_servers.registerProviderServer(RATE_MAPPING_KEY, {
+    filter: () => true,
+    handler: rate_driver._handler.bind(rate_driver),
+  });
 
   return {
     business_url,
@@ -89,7 +105,8 @@ export async function initState(config: Config) {
     commission_service,
     guard_service,
     admin_service,
-    mock_servers: new MockServerState(mapping),
+    mock_servers,
+    rate_driver,
     browser,
   };
 }

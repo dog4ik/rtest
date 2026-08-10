@@ -115,9 +115,9 @@ statusFinalizationSuite(providersP2PSuite);
 describe
   .runIf(CONFIG.in_project(["8pay", "reactivepay", "spinpay"]))
   .concurrent("gateway amount change", () => {
-    function enableChangeStatusSuite() {
+    function enableChangeStatusSuite(currency?: string) {
       let suite = payinSuite();
-      return providersSuite("RUB", {
+      return providersSuite(currency ?? "RUB", {
         ...suite,
         settings: (secret) => ({
           ...suite.settings(secret),
@@ -176,7 +176,7 @@ describe
         await approved_notification;
       }));
 
-    test.only(
+    test.concurrent(
       "callback with approved with enable_change_final_status after expired",
       { timeout: 120_000 },
       ({ ctx }) =>
@@ -228,6 +228,122 @@ describe
 
           await suite.gw.send_callback("approved", new_amount);
           await approved_notification;
+        }),
+    );
+
+    test.todo("enable_change_final_status with convert_to", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let _suite = payinSuite();
+        let suite = providersSuite(
+          "USD",
+          {
+            ..._suite,
+            settings: (secret) => ({
+              ..._suite.settings(secret),
+              enable_change_final_status: true,
+              enable_update_amount: true,
+            }),
+          },
+          { convert_to: true },
+        );
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_commission({ operation: "PayinRequest" });
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        let new_amount = 54321;
+        let provider = ctx.mock_server(
+          suite.mock_options(ctx.uuid),
+          suite.gw.status_handler("pending"),
+        );
+
+        provider.queue(suite.gw.requisites_payin_handler("pending", "card"));
+
+        await merchant
+          .create_payment(common.p2pPaymentRequest("INR", "card"))
+          .then((res) => res.followFirstProcessingUrl())
+          .then((res) => res.as_trader_requisites());
+
+        let approved_notification = merchant.queue_notification(
+          (cb) => {
+            assert.strictEqual(cb.status, "approved");
+          },
+          {
+            skip_interaction_log_card_check: true,
+            expect: {
+              status: 1,
+              target_amount: new_amount / 100,
+              commission_amount: 54.321,
+            },
+          },
+        );
+        await delay(2000);
+
+        await suite.gw.send_callback("approved", new_amount);
+
+        await approved_notification;
+      }));
+
+    test.concurrent(
+      "racy expired with declined callback",
+      { timeout: 150_000 },
+      ({ ctx }) =>
+        ctx.track_bg_rejections(async () => {
+          let suite = enableChangeStatusSuite("INR");
+          let merchant = await ctx.create_random_merchant();
+          await merchant.set_commission({ operation: "PayinRequest" });
+          let settings = suite.settings(ctx.uuid) as Record<string, any>;
+          settings.gateways.gateway.pay_expired_minutes = 1;
+          await merchant.set_settings(settings);
+          let new_amount = 54321;
+          let provider = ctx.mock_server(
+            suite.mock_options(ctx.uuid),
+            suite.gw.status_handler("pending"),
+          );
+
+          provider.queue(suite.gw.requisites_payin_handler("pending", "card"));
+          let rate = ctx.rate_driver();
+          let rate_request = rate.queue_rate_handler(
+            merchant.id,
+            common.nginx500,
+          );
+
+          await merchant
+            .create_payment(common.p2pPaymentRequest("INR", "card"))
+            .then((res) => res.followFirstProcessingUrl());
+          await delay(100_000);
+          await suite.gw
+            .send_callback("declined", new_amount)
+            .catch(() => undefined);
+          merchant.queue_notification(
+            (cb) => {
+              assert.strictEqual(cb.status, "expired");
+            },
+            {
+              skip_interaction_log_card_check: true,
+              skip_healthcheck: true,
+            },
+          );
+
+          await delay(20_000);
+          let approved_notification = merchant.queue_notification(
+            (cb) => {
+              assert.strictEqual(cb.status, "approved");
+            },
+            {
+              skip_interaction_log_card_check: true,
+              expect: {
+                status: 1,
+                target_amount: new_amount / 100,
+                commission_amount: 54.321,
+              },
+            },
+          );
+
+          await suite.gw
+            .send_callback("approved", new_amount)
+            .catch(() => undefined);
+
+          await approved_notification;
+          await Promise.race([rate_request, delay(5_000)]);
         }),
     );
 
@@ -1573,7 +1689,7 @@ describe.concurrent("commission healthcheck payins", () => {
     }));
 });
 
-describe.only("gateway connect refund", () => {
+describe.concurrent("gateway connect refund", () => {
   function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
     let suite = payinSuite();
     return defaultSuite("RUB", {

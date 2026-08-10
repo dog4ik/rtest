@@ -290,10 +290,18 @@ export class TraderDriver {
   }
 }
 
-export function traderSettings(
-  list: number[],
-  opts?: { pay_expired_minutes?: number },
-) {
+export type RandomizerSettings = {
+  random_range: [number, number];
+  random_step: number;
+  random_retries: number;
+};
+
+export type TraderSettingsOptions = {
+  randomizer?: RandomizerSettings;
+  pay_expired_minutes?: number;
+};
+
+export function traderSettings(list: number[], opts?: TraderSettingsOptions) {
   return {
     USDT: {
       gateways: {
@@ -321,6 +329,7 @@ export function traderSettings(
         pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
+        ...opts?.randomizer,
       },
     },
   };
@@ -329,7 +338,7 @@ export function traderSettings(
 export function traderNoConvertSettings(
   currency: string,
   list: number[],
-  opts?: { pay_expired_minutes?: number },
+  opts?: TraderSettingsOptions,
 ) {
   return {
     [currency]: {
@@ -357,6 +366,7 @@ export function traderNoConvertSettings(
         pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
+        ...opts?.randomizer,
       },
     },
   };

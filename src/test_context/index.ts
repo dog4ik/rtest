@@ -8,6 +8,7 @@ import { BrusnikaPayment } from "@/provider_mocks/brusnika";
 import { IronpayPayment } from "@/provider_mocks/ironpay";
 import { JusanPayment } from "@/provider_mocks/jusan";
 import { MadsolutionPayment } from "@/provider_mocks/madsolution";
+import type { RateInstance } from "@/provider_mocks/rate";
 import { initState } from "@/state";
 import { Context } from "./context";
 
@@ -24,6 +25,10 @@ type BrowserContext = {
 
 type MerchantContext = {
   merchant: ExtendedMerchant;
+};
+
+type RateContext = {
+  rate_driver: RateInstance;
 };
 
 function w(
@@ -86,6 +91,11 @@ export const test = base
     merchant: async ({ ctx }, use) => {
       let merchant = await ctx.create_random_merchant();
       await use(merchant);
+    },
+  })
+  .extend<RateContext>({
+    rate_driver: async ({ ctx }, use) => {
+      await use(ctx.rate_driver());
     },
   })
   .extend<ProvidersContext>(ProvidersMockParams);

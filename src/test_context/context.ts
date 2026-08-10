@@ -16,6 +16,7 @@ import { basic_healthcheck, type HealthcheckOpts } from "@/healthcheck";
 import type { Handler, MockProviderParams } from "@/mock_server/api";
 import { ProviderInstance } from "@/mock_server/instance";
 import type { Project } from "@/project";
+import { RateInstance } from "@/provider_mocks/rate";
 import type { SharedState } from "@/state";
 import { Story } from "@/story";
 
@@ -23,6 +24,7 @@ export class Context {
   uuid: string;
   project: Project;
   story: Story;
+  private rate_instance?: RateInstance;
 
   testBackgroundPromise: Promise<unknown>;
   testBackgroundReject: (reason: unknown) => void;
@@ -198,6 +200,11 @@ export class Context {
       handler: instance._handler.bind(instance),
     });
     return instance;
+  }
+
+  rate_driver(): RateInstance {
+    this.rate_instance ??= new RateInstance(this.state.rate_driver, this.story);
+    return this.rate_instance;
   }
 
   mock_server_url(alias: string) {

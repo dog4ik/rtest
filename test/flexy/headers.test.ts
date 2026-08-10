@@ -2,6 +2,7 @@ import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import type { CreateRuleJson } from "@/driver/flexy_commission";
+import { USE_LEGACY_FLEXY } from "@/driver/flexy_guard";
 import * as default_provider from "@/provider_mocks/default";
 import type { TestCaseBase } from "@/suite_interfaces";
 import { test } from "@/test_context";
@@ -76,7 +77,7 @@ testHeaderMiss(
   default_provider.payinSuite(),
 );
 
-describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
+describe.skipIf(USE_LEGACY_FLEXY).concurrent("mongo expressions", () => {
   testHeaderMatch(
     (mid) => [
       {
@@ -176,94 +177,94 @@ describe.runIf(CONFIG.flexy_flexy).concurrent("mongo expressions", () => {
     ],
     default_provider.payinSuite(),
   );
-});
 
-describe.runIf(CONFIG.flexy_flexy).todo("pipeline error resilience", () => {
-  // $in requires its second argument to be an array; passing a scalar should not crash the service
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { in: "RUB" } }],
-    default_provider.payinSuite(),
-  );
+  describe.todo("pipeline error resilience", () => {
+    // $in requires its second argument to be an array; passing a scalar should not crash the service
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: "RUB" } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { in: 42 } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: 42 } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { in: null } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: null } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { in: {} } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { in: {} } }],
+      default_provider.payinSuite(),
+    );
 
-  // $in (via nin) with non-array values
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { nin: "RUB" } }],
-    default_provider.payinSuite(),
-  );
+    // $in (via nin) with non-array values
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: "RUB" } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { nin: 42 } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: 42 } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { nin: null } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { nin: null } }],
+      default_provider.payinSuite(),
+    );
 
-  // $regexMatch throws on an invalid regex pattern
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { regex: "[unclosed" } }],
-    default_provider.payinSuite(),
-  );
+    // $regexMatch throws on an invalid regex pattern
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "[unclosed" } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { regex: "*noprefix" } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "*noprefix" } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
+      default_provider.payinSuite(),
+    );
 
-  // $regexMatch requires input to be a string; amount is a number in the request
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { regex: "^123" } }],
-    default_provider.payinSuite(),
-  );
+    // $regexMatch requires input to be a string; amount is a number in the request
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { regex: "^123" } }],
+      default_provider.payinSuite(),
+    );
 
-  // $arrayElemAt (used by range) requires an array as first argument
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: "1000,5000" } }],
-    default_provider.payinSuite(),
-  );
+    // $arrayElemAt (used by range) requires an array as first argument
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: "1000,5000" } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: 1000 } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: 1000 } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: {} } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: {} } }],
+      default_provider.payinSuite(),
+    );
 
-  // range with wrong-length arrays: upper/lower bounds resolve to null
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: [] } }],
-    default_provider.payinSuite(),
-  );
+    // range with wrong-length arrays: upper/lower bounds resolve to null
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: [] } }],
+      default_provider.payinSuite(),
+    );
 
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: [1000] } }],
-    default_provider.payinSuite(),
-  );
+    testHeaderMiss(
+      (mid) => [{ mid, amount: { range: [1000] } }],
+      default_provider.payinSuite(),
+    );
+  });
 });
 
 describe
@@ -282,9 +283,9 @@ describe
       return {
         header: {
           mid,
-          amount: CONFIG.flexy_flexy
-            ? { range: [lo, hi] }
-            : [String(lo), String(hi)],
+          amount: USE_LEGACY_FLEXY
+            ? [String(lo), String(hi)]
+            : { range: [lo, hi] },
         },
         body: { card: { amount: { value: [-1, 0] } } },
       };
@@ -460,7 +461,7 @@ function _testCommission(
     }));
 }
 
-describe.runIf(CONFIG.flexy_flexy).concurrent("mongo commission header", () => {
+describe.skipIf(USE_LEGACY_FLEXY).concurrent("mongo commission header", () => {
   testCommissionMatch(
     (mid) => [
       {

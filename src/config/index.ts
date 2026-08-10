@@ -88,7 +88,7 @@ export const DEFAULT_CONFIG: RecursiveNonUndefineable<
   fxmb: DEFAULT_PROJECT_CONFIG,
   kotulapay: DEFAULT_PROJECT_CONFIG,
   extra_mapping: {},
-  flexy_flexy: false,
+  mock_rate: false,
   patch_volumes: false,
 } as const;
 
@@ -175,7 +175,7 @@ const CONFIG_SCHEMA = z.strictObject({
   debug: z.boolean().default(false),
   patch_volumes: z.boolean().default(false),
   projects_dir: z.string().default(".."),
-  flexy_flexy: z.boolean().default(false),
+  mock_rate: z.boolean().default(true),
 });
 
 export type Config = z.infer<typeof CONFIG_SCHEMA>;
