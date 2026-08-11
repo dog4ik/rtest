@@ -2,6 +2,8 @@ import { delay } from "@std/async";
 import { assert } from "vitest";
 import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
+import { traderNoConvertSettings } from "@/driver/trader";
+import * as default_provider from "@/provider_mocks/default";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { providers } from "@/settings_builder";
 import { test } from "@/test_context";
@@ -554,5 +556,61 @@ test
 
         await approved_notification;
         await Promise.race([delay(5_000), another_notification]);
+      }),
+  );
+
+test.concurrent("concurrent requests create currency wallet once (default)", async ({
+  merchant,
+  ctx,
+}) =>
+  ctx.track_bg_rejections(async () => {
+    await merchant.set_settings(default_provider.fullSettings("RUB"));
+    await Promise.all([
+      merchant.create_payment(
+        default_provider.request("RUB", common.amount, "pay", true),
+      ),
+      merchant.create_payment(
+        default_provider.request("RUB", common.amount, "pay", true),
+      ),
+    ]);
+    let wallets = await merchant.wallets();
+    assert.lengthOf(wallets, 1, "only one wallet should be created");
+  }));
+
+test
+  .runIf(CONFIG.in_project(["a2", "reactivepay"]))
+  .only(
+    "concurrent requests create currency wallet once (trader)",
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({ usdt: false });
+        await trader.cashin("main", "RUB", 999999999999);
+        await trader.setup({ card: true, bank: "sberbank" });
+        await merchant.set_settings(
+          traderNoConvertSettings("RUB", [trader.id]),
+        );
+        let payments = await Promise.all(
+          [...Array(6)].map((_, i) =>
+            merchant.create_payment({
+              ...common.p2pPaymentRequest("RUB", "card"),
+              amount: common.amount + i,
+            }),
+          ),
+        );
+        let requisites = await Promise.all(
+          payments.map((p) =>
+            p.followFirstProcessingUrl().then((r) => r.as_trader_requisites()),
+          ),
+        );
+        await Promise.all(
+          requisites.map((p) =>
+            trader.finalizeTransaction(p.token, "approved"),
+          ),
+        );
+
+        await delay(1_000);
+
+        let wallets = await merchant.wallets();
+        assert.lengthOf(wallets, 1, "only one wallet should be created");
       }),
   );
