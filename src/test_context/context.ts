@@ -67,17 +67,12 @@ export class Context {
    * Create new unique merchant. Same as creating new merchant via UI in core/manage.
    */
   async create_random_merchant(opts?: CreateMerchantOptions) {
-    let now = new Date();
     let merchantInfo =
       await this.state.core_harness.create_random_merchant(opts);
     let merchant = await this.state.core_db
       .merchantByEmail(merchantInfo.email)
       .then((m) => extendMerchant(this, m));
-    await this.state.business_db.wait_for_settings_update(
-      now,
-      merchant.id,
-      true,
-    );
+    await this.state.business_db.wait_for_settings_update(merchant.id);
     if (CONFIG.in_project(["reactivepay", "kotulapay"])) {
       await this.state.core_db.set_force_password_change(merchant.id, false);
     }

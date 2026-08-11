@@ -85,25 +85,24 @@ const BusinessInteractionLogProjection = sqlProjection(
   BusinessInteractionLog,
 );
 
+/** Revision of a merchant that business has not synced yet. */
+const SETTINGS_NOT_SYNCED = "0@never";
+const SETTINGS_POLL_MS = 100;
+/**
+ * Business writes the settings tree row by row, so a revision is only final
+ * once it stops moving for this long.
+ */
+const SETTINGS_SETTLE_MS = 300;
+const SETTINGS_SYNC_TIMEOUT_MS = 15_000;
+/** Blind wait for the projects whose settings tree we can not query. */
+const SETTINGS_SYNC_SLEEP_MS = 6_000;
+
 export const BusinessMerchantSettingsSchema = z.object({
   created_at: z.date(),
   updated_at: z.date(),
 });
-const _BusinessMerchantSettings = sqlProjection(
-  "merchant_settings",
-  BusinessMerchantSettingsSchema,
-);
 
 export type BusinessPayment = z.infer<typeof BusinessPaymentSchema>;
-
-function _extendedBusinessPayment(payment: BusinessPayment) {
-  return {
-    ...payment,
-    async feed() {
-      console.log(this.business_account_profileID);
-    },
-  };
-}
 
 export class BusinessDb extends Db {
   constructor(
@@ -128,64 +127,52 @@ export class BusinessDb extends Db {
     return await this.fetch_one(BusinessPaymentSchema, query);
   }
 
-  private async settings_last_updated_at(external_id: number) {
+  async settings_revision(external_id: number): Promise<string> {
     let query = `
-select merchant_providers.updated_at as latest_update
+select count(*)::text || '@' || coalesce(to_char(max(merchant_providers.updated_at), 'YYYY-MM-DD HH24:MI:SS.US'), 'never') as revision
 from merchant_settings
 join merchant_currencies on merchant_currencies.merchant_setting_id = merchant_settings.id
 join merchant_providers on merchant_providers.merchant_currency_id = merchant_currencies.id
-where merchant_settings.external_id = '${external_id}' and merchant_providers.operation_type = 'all_types'
-order by merchant_providers.updated_at desc limit 1;
+where merchant_settings.external_id = '${external_id}';
 `;
 
-    return await this.fetch_optional(
-      z.object({ latest_update: z.date() }),
-      query,
-    ).then((r) => r?.latest_update);
+    return await this.fetch_one(z.object({ revision: z.string() }), query).then(
+      (r) => r.revision,
+    );
   }
 
+  /**
+   * Wait until business applies a settings change.
+   */
   async wait_for_settings_update(
-    since: Date,
     external_id: number,
-    is_initial: boolean,
-    waitDuration = 6_000,
+    previous_revision: string = SETTINGS_NOT_SYNCED,
   ) {
     if (
       PROJECT === "paygateway" ||
       PROJECT === "paysure" ||
       PROJECT === "fxmb"
     ) {
-      await delay(waitDuration);
+      await delay(SETTINGS_SYNC_SLEEP_MS);
       return;
     }
-    let delayMs = 400;
-    for (let i = 0; i < waitDuration / delayMs; ++i) {
-      let updated_at = is_initial
-        ? await this.initial_settings_last_updated_at(external_id)
-        : await this.settings_last_updated_at(external_id);
-      updated_at?.setHours(updated_at?.getHours() + 1);
-      console.log("Settings update wait tick", { updated_at, since });
-      if (updated_at && updated_at > since) {
-        return;
+    let deadline = Date.now() + SETTINGS_SYNC_TIMEOUT_MS;
+    let candidate: string | undefined;
+    let settled_at = 0;
+    while (Date.now() < deadline) {
+      let revision = await this.settings_revision(external_id);
+      if (revision !== previous_revision && revision !== SETTINGS_NOT_SYNCED) {
+        if (revision !== candidate) {
+          candidate = revision;
+          settled_at = Date.now() + SETTINGS_SETTLE_MS;
+        } else if (Date.now() >= settled_at) {
+          return;
+        }
       }
-      await delay(delayMs);
+      await delay(SETTINGS_POLL_MS);
     }
-    console.log(`Failed to wait until settings for ${external_id} are updated`);
-  }
-
-  private async initial_settings_last_updated_at(external_id: number) {
-    let query = `
-select merchant_providers.updated_at as latest_update
-from merchant_settings
-join merchant_currencies on merchant_currencies.merchant_setting_id = merchant_settings.id
-join merchant_providers on merchant_providers.merchant_currency_id = merchant_currencies.id
-where merchant_settings.external_id = '${external_id}' and merchant_currencies.currency_code = 'USD' and merchant_providers.operation_type = 'payout'
-order by merchant_providers.updated_at desc limit 1;
-`;
-
-    return await this.fetch_optional(
-      z.object({ latest_update: z.date() }),
-      query,
-    ).then((r) => r?.latest_update);
+    console.warn(
+      `Failed to wait until settings for ${external_id} are updated, still at revision ${candidate ?? previous_revision}`,
+    );
   }
 }

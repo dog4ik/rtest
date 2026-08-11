@@ -95,15 +95,14 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
    * Do not expect consistent results when changing settings for the same merchant concurrently!
    */
   async function set_settings(settings: Record<string, any>) {
+    let business_db = ctx.shared_state().business_db;
     let current = await settings_db.merchant_settings(merchant.id);
-    let now = new Date();
+    let revision = await business_db.settings_revision(merchant.id);
 
     await settings_service.edit(current.id, current.external_id, settings);
 
     ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
-    await ctx
-      .shared_state()
-      .business_db.wait_for_settings_update(now, merchant.id, false);
+    await business_db.wait_for_settings_update(merchant.id, revision);
   }
 
   function callbackUrl() {
