@@ -28,6 +28,15 @@ function phoneFormats(num: string) {
   ];
 }
 
+function formatAmount(amount: number) {
+  return new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+    .format(amount / 100)
+    .replace(",", ".");
+}
+
 export class SpinpayRequisitesPage {
   constructor(private p: playwright.Page) {}
 
@@ -82,9 +91,7 @@ export class SpinpayRequisitesPage {
       let phone = (await this.phoneSpan().textContent()) ?? "";
       assert.include(phoneFormats(phone), number);
       await expect(this.phoneAmountSpan()).toBeVisible();
-      await expect(this.phoneAmountSpan()).toHaveText(
-        (amount / 100).toString(),
-      );
+      await expect(this.phoneAmountSpan()).toHaveText(formatAmount(amount));
 
       if (name) {
         await expect(this.nameSpan()).toBeVisible();
@@ -99,7 +106,7 @@ export class SpinpayRequisitesPage {
       let panText = (await this.cardSpan().textContent()) ?? "";
       assert.strictEqual(panText, formatPan(number));
       await expect(this.panAmountSpan()).toBeVisible();
-      await expect(this.panAmountSpan()).toHaveText((amount / 100).toString());
+      await expect(this.panAmountSpan()).toHaveText(formatAmount(amount));
     }
   }
 }
