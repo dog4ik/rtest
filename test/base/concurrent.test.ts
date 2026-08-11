@@ -579,7 +579,7 @@ test.concurrent("concurrent requests create currency wallet once (default)", asy
 
 test
   .runIf(CONFIG.in_project(["a2", "reactivepay"]))
-  .only(
+  .concurrent(
     "concurrent requests create currency wallet once (trader)",
     async ({ merchant, ctx }) =>
       ctx.track_bg_rejections(async () => {

@@ -1,6 +1,7 @@
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
+import * as assets from "@/assets";
 import { CONFIG } from "@/config";
 import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
@@ -252,6 +253,189 @@ describe
       }));
   });
 
+describe
+  .runIf(CONFIG.in_project(["a2", "reactivepay"]) && CONFIG.mock_rate)
+  .only("trader requisite limits", () => {
+    test.concurrent("min_amount_float limit", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let requisite = await trader.setup({ card: true, bank: "sberbank" });
+        await requisite.card.edit({
+          min_amount_float: 221.0,
+        });
+        await trader.cashin("main", "USDT", 999999999999);
+        await merchant.set_settings(traderSettings([trader.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 220_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 221_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 222_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+      }));
+
+    test.concurrent("max_amount_float", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let requisites = await trader.setup({ card: true, bank: "sberbank" });
+        await requisites.card.edit({
+          max_amount_float: 221.0,
+        });
+        await trader.cashin("main", "USDT", 99999999999);
+        await merchant.set_settings(traderSettings([trader.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 220_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 221_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 222_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+
+    test.concurrent("daily amount", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let requisites = await trader.setup({ card: true, bank: "sberbank" });
+        await requisites.card.edit({
+          amount_limit_float: 221.0,
+          deactivate_limit_reached: true,
+        });
+        await trader.cashin("main", "USDT", 99999999999);
+        await merchant.set_settings(traderSettings([trader.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 220_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 221_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 222_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+
+    test.concurrent("daily transaction limit", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let requisites = await trader.setup({ card: true, bank: "sberbank" });
+        await requisites.card.edit({
+          transaction_limit: 2,
+          deactivate_limit_reached: true,
+        });
+        await trader.cashin("main", "USDT", 99999999999);
+        await merchant.set_settings(traderSettings([trader.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 220_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 221_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 222_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+
+    test.concurrent("deactivate when dispute", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let requisites = await trader.setup({ card: true, bank: "sberbank" });
+        await requisites.card.edit({
+          deactivate_dispute_present: true,
+          deactivate_limit_reached: true,
+        });
+        await trader.cashin("main", "USDT", 99999999999);
+        await merchant.set_settings(traderSettings([trader.id]));
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 220_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await delay(TRADER_DELAY);
+        await trader.finalizeTransaction(res.token, "declined");
+        await delay(TRADER_DELAY);
+        await merchant.create_dispute({
+          token: res.token,
+          description: "test dispute",
+          file_path: assets.PngImgPath,
+        });
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: 222_00,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+  });
 describe
   .runIf(CONFIG.in_project(["a2", "reactivepay"]) && CONFIG.mock_rate)
   .concurrent("trader core limits", () => {
