@@ -300,19 +300,9 @@ describe
           );
 
           provider.queue(suite.gw.requisites_payin_handler("pending", "card"));
-          let rate = ctx.rate_driver();
-          let rate_request = rate.queue_rate_handler(
-            merchant.id,
-            common.nginx500,
-          );
-
           await merchant
             .create_payment(common.p2pPaymentRequest("INR", "card"))
             .then((res) => res.followFirstProcessingUrl());
-          await delay(100_000);
-          await suite.gw
-            .send_callback("declined", new_amount)
-            .catch(() => undefined);
           merchant.queue_notification(
             (cb) => {
               assert.strictEqual(cb.status, "expired");
@@ -322,6 +312,8 @@ describe
               skip_healthcheck: true,
             },
           );
+          await delay(100_000);
+          await suite.gw.send_callback("declined", new_amount);
 
           await delay(20_000);
           let approved_notification = merchant.queue_notification(
@@ -343,7 +335,6 @@ describe
             .catch(() => undefined);
 
           await approved_notification;
-          await Promise.race([rate_request, delay(5_000)]);
         }),
     );
 
