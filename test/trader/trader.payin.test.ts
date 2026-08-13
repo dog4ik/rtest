@@ -1,7 +1,7 @@
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
-import * as common from "@/common";
 import * as assets from "@/assets";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
 import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
@@ -255,7 +255,7 @@ describe
 
 describe
   .runIf(CONFIG.in_project(["a2", "reactivepay"]) && CONFIG.mock_rate)
-  .only("trader requisite limits", () => {
+  .concurrent("trader requisite limits", () => {
     test.concurrent("min_amount_float limit", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
         let trader = await ctx.create_random_trader({
@@ -438,18 +438,18 @@ describe
   });
 describe
   .runIf(CONFIG.in_project(["a2", "reactivepay"]) && CONFIG.mock_rate)
-  .concurrent("trader core limits", () => {
+  .concurrent("trader core filters", () => {
     test.concurrent("min limit", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
-        let trader1 = await ctx.create_random_trader({
+        let trader = await ctx.create_random_trader({
           usdt: true,
           min_limit: 21,
           max_limit: 5000,
           currency: "RUB",
         });
-        await trader1.setup({ card: true, bank: "sberbank" });
-        await trader1.cashin("main", "USDT", 99999999);
-        await merchant.set_settings(traderSettings([trader1.id]));
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", 99999999);
+        await merchant.set_settings(traderSettings([trader.id]));
         await merchant
           .create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
@@ -475,15 +475,15 @@ describe
 
     test.concurrent("max limit", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
-        let trader1 = await ctx.create_random_trader({
+        let trader = await ctx.create_random_trader({
           usdt: true,
           min_limit: 0,
           max_limit: 21,
           currency: "RUB",
         });
-        await trader1.setup({ card: true, bank: "sberbank" });
-        await trader1.cashin("main", "USDT", 99999999);
-        await merchant.set_settings(traderSettings([trader1.id]));
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", 99999999);
+        await merchant.set_settings(traderSettings([trader.id]));
         await merchant
           .create_payment({
             ...common.traderPaymentRequest("RUB", "card"),
@@ -506,6 +506,78 @@ describe
           .then((r) => r.followFirstProcessingUrl())
           .then((r) => r.as_error());
       }));
+
+    test.concurrent("pick trader with the request currency convert_to", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader1 = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let trader2 = await ctx.create_random_trader({
+          usdt: true,
+          currency: "INR",
+        });
+        for (let trader of [trader1, trader2]) {
+          await trader.setup({ card: true, bank: "sberbank" });
+          await trader.cashin("main", "USDT", 99999999);
+        }
+        await merchant.set_settings(traderSettings([trader1.id, trader2.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("USD", "card"),
+            amount: 2200 * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "card"),
+            amount: 2200 * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+      }));
+
+    test.concurrent("pick trader with the request currency no convert", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader1 = await ctx.create_random_trader({
+          usdt: false,
+          currency: "RUB",
+        });
+        let trader2 = await ctx.create_random_trader({
+          usdt: false,
+          currency: "INR",
+        });
+        for (let trader of [trader1, trader2]) {
+          await trader.setup({ card: true, bank: "sberbank" });
+          await trader.cashin("main", trader.default_currency, 99999999);
+        }
+        await merchant.set_settings(traderSettings([trader1.id, trader2.id]));
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("USD", "card"),
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "card"),
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "card"),
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
   });
 
 describe
@@ -519,30 +591,70 @@ describe
         });
         await trader1.setup({ account: true, bank: "sberbank" });
         await trader1.cashin("main", "INR", 9999999999999);
-        let settings = traderNoConvertSettings("INR", [trader1.id]) as Record<
-          string,
-          any
-        >;
-        let trader_settings = settings.gateways.trader;
-        trader_settings.random_range = [100, 200];
-        trader_settings.random_retries = 1;
-        trader_settings.random_step = 100;
-        trader_settings.custom_payform = "upi";
-        settings.gateways.skip_processing_url = true;
+        let settings = traderNoConvertSettings("INR", [trader1.id], {
+          randomizer: {
+            random_range: [100, 200],
+            random_retries: 1,
+            random_step: 100,
+          },
+          custom_payform: "upi",
+          skip_processing_url: true,
+          pay_expired_minutes: 1,
+        }) as Record<string, any>;
         await merchant.set_settings(settings);
-        await merchant.create_payment({
-          ...common.traderPaymentRequest("INR", "account"),
-          redirect_success_url: "https://google.com/success",
-          redirect_fail_url: "https://google.com/fail",
-        });
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "account"),
+            redirect_success_url: "https://google.com/success",
+            redirect_fail_url: "https://google.com/fail",
+          })
+          .then((r) => ctx.annotate(r.selectorUrl ?? ""));
 
-        await merchant.create_payment({
-          ...common.traderPaymentRequest("INR", "account"),
-          redirect_success_url: "https://google.com/success",
-          redirect_fail_url: "https://google.com/fail",
-        });
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "account"),
+            redirect_success_url: "https://google.com/success",
+            redirect_fail_url: "https://google.com/fail",
+          })
+          .then((r) => ctx.annotate(r.selectorUrl ?? ""));
 
         // await delay(15_000)
         // await trader1.finalizeTransaction(create.token, "approved");
       }));
   });
+
+test
+  .runIf(CONFIG.in_project(["reactivepay"]))
+  .todo(
+    "changed expires_in same amount",
+    { timeout: 160_000 },
+    ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "INR",
+        });
+        await trader.setup({ account: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", 9999999999999);
+        let settings = traderSettings([trader.id], {
+          custom_payform: "upi",
+          skip_processing_url: true,
+          pay_expired_minutes: 30,
+        });
+        await merchant.set_settings(settings);
+        await merchant.create_payment({
+          ...common.traderPaymentRequest("INR", "account"),
+        });
+
+        let updated_settings = traderSettings([trader.id], {
+          custom_payform: "upi",
+          skip_processing_url: true,
+          pay_expired_minutes: 1,
+        });
+        merchant.set_settings(updated_settings);
+        await delay(95_000);
+        await merchant.create_payment({
+          ...common.traderPaymentRequest("INR", "account"),
+        });
+      }),
+  );

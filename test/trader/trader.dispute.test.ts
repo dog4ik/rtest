@@ -144,6 +144,98 @@ describe
         await dispute_declined_notification;
       }));
 
+    test.concurrent("only one pending and successful dispute allowed", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let { trader, merchant } = await setup(ctx);
+        merchant.set_commission({
+          operation: "DisputeRequest",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        let decline_cb = merchant.queue_notification(
+          (n) => {
+            assert.strictEqual(n.status, "declined");
+          },
+          { skip_healthcheck: true },
+        );
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: AMOUNT,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await delay(TRADER_DELAY);
+        await trader.finalizeTransaction(res.token, "declined");
+        await decline_cb;
+
+        let dispute_pending_notification =
+          PROJECT === "a2"
+            ? merchant.queue_notification(
+                (c) => {
+                  assert.strictEqual(c.status, "pending");
+                  assert.strictEqual(c.type, "dispute");
+                },
+                { skip_healthcheck: true },
+              )
+            : Promise.resolve(undefined);
+
+        let dispute_declined_notification = merchant.queue_notification((c) => {
+          assert.strictEqual(c.status, "declined");
+          assert.strictEqual(c.type, "dispute");
+        });
+
+        await merchant.create_dispute({
+          token: res.token,
+          file_path: assets.PngImgPath,
+          description: "test dispute",
+        });
+
+        await merchant.create_dispute_err({
+          token: res.token,
+          file_path: assets.PngImgPath,
+          description: "test dispute",
+        });
+
+        await dispute_pending_notification;
+        await delay(TRADER_DELAY);
+        let disputes = await ctx.get_disputes(res.token);
+        await trader.finalize_dispute(disputes[0].dispute_id, "declined");
+        await dispute_declined_notification;
+
+        let another_dispute_pending_notification =
+          PROJECT === "a2"
+            ? merchant.queue_notification(
+                (c) => {
+                  assert.strictEqual(c.status, "pending");
+                  assert.strictEqual(c.type, "dispute");
+                },
+                { skip_healthcheck: true },
+              )
+            : Promise.resolve(undefined);
+
+        await merchant.create_dispute({
+          token: res.token,
+          file_path: assets.PngImgPath,
+          description: "test dispute",
+        });
+        await another_dispute_pending_notification;
+
+        let approved_dispute_notification = merchant.queue_notification((c) => {
+          assert.strictEqual(c.status, "approved");
+          assert.strictEqual(c.type, "dispute");
+        });
+        await ctx
+          .get_disputes(res.token)
+          .then((disputes) =>
+            trader.finalize_dispute(disputes[1].dispute_id, "approved"),
+          );
+        await approved_dispute_notification;
+      }));
+
     test.concurrent("dispute on approved payin draws from deposit wallet", ({
       ctx,
     }) =>

@@ -1,8 +1,13 @@
 import { delay } from "@std/async";
 import { assert } from "vitest";
+import * as assets from "@/assets";
 import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
-import { traderNoConvertSettings } from "@/driver/trader";
+import {
+  TRADER_DELAY,
+  traderNoConvertSettings,
+  traderSettings,
+} from "@/driver/trader";
 import * as default_provider from "@/provider_mocks/default";
 import { GatewayConnectTransaction } from "@/provider_mocks/gateway_connect";
 import { providers } from "@/settings_builder";
@@ -613,4 +618,51 @@ test
         let wallets = await merchant.wallets();
         assert.lengthOf(wallets, 1, "only one wallet should be created");
       }),
+  );
+
+test
+  .runIf(CONFIG.in_project(["reactivepay"]))
+  .concurrent("concurrent dispute creation", async ({ merchant, ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({ usdt: true });
+      await trader.cashin("main", "USDT", 999999999999);
+      await trader.setup({ card: true, bank: "sberbank" });
+      await merchant.set_settings(traderSettings([trader.id]));
+      let res = await merchant
+        .create_payment({
+          ...common.p2pPaymentRequest("RUB", "card"),
+          amount: common.amount,
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+
+      let notification = merchant.queue_notification((cb) => {
+        assert.strictEqual(cb.status, "declined");
+      });
+      await delay(TRADER_DELAY);
+      await trader.finalizeTransaction(res.token, "declined");
+      await notification;
+      let dispute_notification = merchant.queue_notification((cb) => {
+        assert.strictEqual(cb.type, "dispute");
+        assert.strictEqual(cb.status, "approved");
+      });
+      let disputes = await Promise.all(
+        [...Array(3)].map(() =>
+          merchant.create_dispute_raw({
+            token: res.token,
+            description: "test dispute",
+            file_path: assets.PngImgPath,
+          }),
+        ),
+      );
+      assert.lengthOf(
+        disputes.filter((dispute) => dispute.is_ok()),
+        1,
+        "only one successful dispute sholud be created",
+      );
+      let dispute_list = await ctx.get_disputes(res.token);
+      assert.lengthOf(dispute_list, 1, "feed should have only one dispute");
+      trader.finalize_dispute(dispute_list[0].dispute_id, "approved");
+      await dispute_notification;
+    }),
   );

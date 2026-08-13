@@ -7,6 +7,7 @@ import type { CreateTraderOptions } from "@/driver/core";
 import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
+import { STATIC_RATE } from "@/provider_mocks/rate";
 import { test } from "@/test_context";
 
 const TRADER_DELAY = 5_000;
@@ -289,7 +290,7 @@ for (const usdt of [true, false]) {
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
-          let converted_amount = common.amount / (usdt ? 74.01 : 1);
+          let converted_amount = common.amount * (usdt ? STATIC_RATE : 1);
           await setup_merchant(merchant, trader.id);
           if (usdt) {
             await merchant.cashin(

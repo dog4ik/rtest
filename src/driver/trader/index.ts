@@ -299,6 +299,8 @@ export type RandomizerSettings = {
 export type TraderSettingsOptions = {
   randomizer?: RandomizerSettings;
   pay_expired_minutes?: number;
+  custom_payform?: string;
+  skip_processing_url?: boolean;
 };
 
 export function traderSettings(list: number[], opts?: TraderSettingsOptions) {
@@ -324,11 +326,13 @@ export function traderSettings(list: number[], opts?: TraderSettingsOptions) {
     convert_to: "USDT",
     gateways: {
       allow_host2host: true,
+      skip_processing_url: opts?.skip_processing_url,
       trader: {
         list,
         pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
+        custom_payform: opts?.custom_payform,
         ...opts?.randomizer,
       },
     },
@@ -361,11 +365,13 @@ export function traderNoConvertSettings(
     },
     gateways: {
       allow_host2host: true,
+      skip_processing_url: opts?.skip_processing_url,
       trader: {
         list,
         pay_expired_minutes: opts?.pay_expired_minutes ?? 15,
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
+        custom_payform: opts?.custom_payform,
         ...opts?.randomizer,
       },
     },

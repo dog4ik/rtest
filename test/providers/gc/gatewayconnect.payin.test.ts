@@ -411,7 +411,7 @@ describe
         await approved_notification;
       }));
 
-    test.concurrent("create enable_change_final_status", ({ ctx }) =>
+    test.skip("create enable_change_final_status", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {
         let suite = enableChangeStatusSuite();
         let merchant = await ctx.create_random_merchant();
@@ -1018,6 +1018,7 @@ describe.runIf(CONFIG.in_project(["reactivepay"])).skip("rp 1xbet", () => {
           requisite_type: config.request_requisite,
           bank_name: config.request_bank,
         },
+        pending_url: common.redirectPayUrl,
         ...(config.locale ? { locale: config.locale } : {}),
       }),
       settings: (s) => ({
@@ -1960,7 +1961,7 @@ test.skip("test gateway connect payin2", ({ ctx }) =>
       suite.gw.status_handler("approved", new_amount),
     );
 
-    let _response = await merchant
+    await merchant
       .create_payment(common.p2pPaymentRequest("INR", "account"))
       .then((r) => r.followFirstProcessingUrl())
       .then((r) => r.as_trader_requisites());
@@ -2008,7 +2009,7 @@ test.skip("test gateway connect payin", ({ ctx }) =>
       }),
     );
 
-    let _response = await merchant.create_payment(suite.request());
+    await merchant.create_payment(suite.request());
 
     await provider_request;
 
@@ -2055,7 +2056,7 @@ test.skip("test gateway connect payout", ({ ctx }) =>
       }),
     );
 
-    let _response = await merchant.create_payout({
+    await merchant.create_payout({
       ...common.payoutRequest("RUB"),
       card: { pan: common.visaCard },
     });

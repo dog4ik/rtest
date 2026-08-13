@@ -60,7 +60,7 @@ class LimitTester {
 
 describe
   .runIf(CONFIG.in_project(["spinpay", "reactivepay", "8pay"]))
-  .only("limits tests", () => {
+  .concurrent("limits tests", () => {
     test.concurrent("daily p2p approve routing", ({
       ctx,
       merchant,

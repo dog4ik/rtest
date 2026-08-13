@@ -806,3 +806,57 @@ describe
       ],
     });
   });
+
+test.todo(
+  "concurrent expired with sms finalization",
+  { timeout: 150_000 },
+  ({ merchant, ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let bank = await ctx.create_random_bank();
+      let trader = await ctx.create_random_trader({
+        currency: "RUB",
+        usdt: true,
+      });
+      let setup = await trader.setup({ card: true, bank: bank.system_name });
+      await trader.cashin("main", "USDT", 2999299292);
+      await merchant.set_settings(
+        traderSettings([trader.id], { pay_expired_minutes: 1 }),
+      );
+
+      let sim = [...Array(3)]
+        .map(() => crypto.randomBytes(4).toString("hex"))
+        .join(".");
+
+      await ctx.create_sms_parser({
+        from_data: "test",
+        currency: "RUB",
+        sms_type: "card",
+        text_pattern: "(?<amount>.*)",
+        pattern: "",
+        from_pattern: "test",
+        bank_id: bank.id.toString(),
+        sim,
+      });
+
+      let notification = merchant.queue_notification(() => {});
+      await merchant
+        .create_payment({
+          ...common.p2pPaymentRequest("RUB", "card"),
+          bank_account: {
+            bank_name: bank.system_name,
+            requisite_type: "card",
+          },
+        })
+        .then((r) => r.followFirstProcessingUrl())
+        .then((r) => r.as_trader_requisites());
+      await delay(93_000);
+      await trader.driver.send_sms({
+        uuid: setup.device_id,
+        from: "test",
+        text: "1.234.56",
+        sim,
+      });
+
+      await notification;
+    }),
+);
