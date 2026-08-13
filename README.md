@@ -21,6 +21,7 @@
 - `npm run init` - инициализация конфигурационного файла
 - `npm run cleanup` - удаление созданных тестовых аккаунтов
 - `npm run playground` - запустить тестовый траффик на трейдеров пока процесс не получит sigint
+- `npm run rate` - Запустить моку rate сервиса с статичным курсом валюты.
 
 ## configuration.toml
 
@@ -32,6 +33,7 @@
 - **projects_dir** - путь к каталогу, где расположены проекты (например: `..` или `/path/to/projects`)
 - **flexy_flexy** - включить/выключить совместимость с новым flexy_guard
 - **patch_volumes** - при патчинге (`npm run patch`) подменяет docker volumes сервисов `postgres`, `mongo` и `minio` на отдельные именованные тома (`postgres-data-test`, `mongo-data-test`, `minio-data-test`, `minio-config-test`), чтобы тестовые данные не смешивались с данными основного проекта. Однако требует повторно настравывать проект на новом volume
+- **mock_rate** - Использовать моку сервиса rate
 
 Секция `[extra_mapping]` позволяет переопределить порты для провайдеров:
 
