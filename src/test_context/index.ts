@@ -53,7 +53,7 @@ type ProvidersContext = Record<
 
 declare module "vitest" {
   interface TaskMeta {
-    [key: string]: string;
+    [key: string]: string | boolean | undefined;
   }
 }
 
