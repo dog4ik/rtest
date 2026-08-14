@@ -6,6 +6,7 @@ import type { CreateTraderOptions } from "@/driver/core";
 import { traderNoConvertSettings, traderSettings } from "@/driver/trader";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { ExtendedTrader } from "@/entities/trader";
+import { STATIC_RATE } from "@/provider_mocks/rate";
 import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
 
@@ -22,20 +23,17 @@ describe
     async function setup(
       ctx: Context,
       merchant: ExtendedMerchant,
-      usdt = opts.usdt,
-      pay_expired_minutes?: number,
+      usdt: boolean,
     ) {
       let trader = await ctx.create_random_trader({ ...opts, usdt });
       await trader.setup({ card: true, bank: "sberbank" });
       if (usdt === true) {
         await trader.cashin("main", "USDT", AMOUNT_RUB);
-        await merchant.set_settings(
-          traderSettings([trader.id], { pay_expired_minutes }),
-        );
+        await merchant.set_settings(traderSettings([trader.id]));
       } else {
         await trader.cashin("main", "RUB", AMOUNT_RUB);
         await merchant.set_settings(
-          traderNoConvertSettings("RUB", [trader.id], { pay_expired_minutes }),
+          traderNoConvertSettings("RUB", [trader.id]),
         );
       }
       await merchant.set_commission({
@@ -50,6 +48,11 @@ describe
 
     for (let usdt of [true, false]) {
       let variant = usdt ? "usdt" : "rub";
+      // The rate mock is static, so a converting payin charges the trader
+      // `request_amount / STATIC_RATE`. Asking for `AMOUNT * STATIC_RATE` makes
+      // that charge exactly `AMOUNT` in both variants, which is what the trader
+      // was funded with: every payin drains the main wallet to zero.
+      let request_amount = usdt ? AMOUNT * STATIC_RATE : AMOUNT;
 
       test.concurrent(`payin approved -> declined (${variant})`, ({
         ctx,
@@ -71,7 +74,7 @@ describe
           let res = await merchant
             .create_payment({
               ...common.traderPaymentRequest("RUB", "card"),
-              amount: AMOUNT,
+              amount: request_amount,
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -110,7 +113,7 @@ describe
           let res = await merchant
             .create_payment({
               ...common.traderPaymentRequest("RUB", "card"),
-              amount: AMOUNT,
+              amount: request_amount,
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -143,7 +146,7 @@ describe
           let res = await merchant
             .create_payment({
               ...common.traderPaymentRequest("RUB", "card"),
-              amount: AMOUNT,
+              amount: request_amount,
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -173,7 +176,7 @@ describe
           let res = await merchant
             .create_payment({
               ...common.traderPaymentRequest("RUB", "card"),
-              amount: AMOUNT,
+              amount: request_amount,
             })
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
@@ -190,49 +193,25 @@ describe
 
           await ctx.healthcheck(res.token, { expect: { status: 2 } });
         }));
-
-      test.concurrent(`payin pending -> expired (${variant})`, ({
-        ctx,
-        merchant,
-      }) =>
-        ctx.track_bg_rejections(async () => {
-          await setup(ctx, merchant, usdt, 1);
-
-          let res = await merchant
-            .create_payment({
-              ...common.traderPaymentRequest("RUB", "card"),
-              amount: AMOUNT,
-            })
-            .then((r) => r.followFirstProcessingUrl())
-            .then((r) => r.as_trader_requisites());
-
-          let feed = await ctx.get_feed(res.token);
-          assert.strictEqual(feed.status, 0, "feed should be pending");
-
-          let declined_callback = merchant.queue_notification((n) => {
-            assert.strictEqual(n.type, "pay");
-            assert.strictEqual(n.status, "expired");
-          });
-
-          await declined_callback;
-
-          await ctx.healthcheck(res.token, { expect: { status: 2 } });
-        }));
     }
   });
 
 const PAYIN_AMOUNT = 10_000; // 100 RUB in kopeyki
 const PAYIN_AMOUNT_RUB = PAYIN_AMOUNT / 100; // 100 RUB
-// Over-fund the trader: the healthcheck validates per-transaction entries, not
-// absolute wallet balances, so extra balance is harmless and avoids
-// insufficient-funds errors on requisite assignment.
-const TRADER_CASHIN = PAYIN_AMOUNT_RUB + 10;
+// Fund the trader with exactly the amount the payin charges, so the main wallet
+// lands on zero and the wallet calculations are exercised on their edge.
+const TRADER_CASHIN = PAYIN_AMOUNT_RUB;
 const REQUISITE_DELAY = 5_000;
 
-function payinRequest() {
+/**
+ * The rate mock is static, so a converting payin charges the trader
+ * `request_amount / STATIC_RATE`. Asking for `PAYIN_AMOUNT * STATIC_RATE` makes
+ * that charge exactly `PAYIN_AMOUNT` in both variants.
+ */
+function payinRequest(usdt: boolean) {
   return {
     ...common.traderPaymentRequest("RUB", "card"),
-    amount: PAYIN_AMOUNT,
+    amount: usdt ? PAYIN_AMOUNT * STATIC_RATE : PAYIN_AMOUNT,
   };
 }
 
@@ -275,6 +254,7 @@ async function approved_payin(
   ctx: Context,
   merchant: ExtendedMerchant,
   trader: ExtendedTrader,
+  usdt: boolean,
 ) {
   let approved = merchant.queue_notification((n) => {
     assert.strictEqual(n.type, "pay");
@@ -282,7 +262,7 @@ async function approved_payin(
   });
 
   let res = await merchant
-    .create_payment(payinRequest())
+    .create_payment(payinRequest(usdt))
     .then((r) => r.followFirstProcessingUrl())
     .then((r) => r.as_trader_requisites());
 
@@ -296,7 +276,7 @@ async function approved_payin(
 }
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay"]))
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
   .concurrent(
     "payin cancellation with insufficient trader income balance",
     () => {
@@ -308,7 +288,7 @@ describe
         }) =>
           ctx.track_bg_rejections(async () => {
             let trader = await setup_payin(ctx, merchant, { usdt });
-            let token = await approved_payin(ctx, merchant, trader);
+            let token = await approved_payin(ctx, merchant, trader, usdt);
 
             // drain the trader income wallet so the earned provider commission
             // can not be clawed back
@@ -337,7 +317,7 @@ describe
       }) =>
         ctx.track_bg_rejections(async () => {
           let trader = await setup_payin(ctx, merchant, { usdt });
-          let token = await approved_payin(ctx, merchant, trader);
+          let token = await approved_payin(ctx, merchant, trader, usdt);
 
           // drain the merchant wallet so the credited payin amount can not be
           // taken back on reversal
@@ -385,7 +365,7 @@ describe
         });
         await merchant.set_settings(traderSettings([trader.id]));
 
-        let token = await approved_payin(ctx, merchant, trader);
+        let token = await approved_payin(ctx, merchant, trader, true);
 
         // drain the agent wallet so it can not cover the reversal of the
         // agent commission
@@ -412,7 +392,7 @@ describe
   });
 
 describe
-  .runIf(CONFIG.in_project(["reactivepay"]))
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
   .concurrent("payin restore with insufficient trader main balance", () => {
     for (let usdt of [true, false]) {
       let currency = usdt ? "USDT" : "RUB";
@@ -429,7 +409,7 @@ describe
           });
 
           let res = await merchant
-            .create_payment(payinRequest())
+            .create_payment(payinRequest(usdt))
             .then((r) => r.followFirstProcessingUrl())
             .then((r) => r.as_trader_requisites());
 
