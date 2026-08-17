@@ -805,6 +805,28 @@ describe
         },
       ],
     });
+
+    test_new_bank_sms("from data filter", {
+      requisite_type: "card",
+      should_fail: true,
+      sms_messages: [
+        {
+          from: "086305 75797",
+          text: (_) =>
+            `Your a/c no.XXXX68986 is credited by Rs.1234.56 on 17/08/26 02:00 PM and debited from a/c no.60079(UPI Ref no 118328716199)-Kerala Grameen... `,
+        },
+      ],
+      parsers: [
+        {
+          sms_type: "card",
+          from_pattern: `.*-S$`,
+          from_data: `VTB`,
+          pattern: ``,
+          text_pattern: `^(?!.*SPAM).*Rs\\.\\s*(?<amount>[\\d.,]+)`,
+          currency: "RUB",
+        },
+      ],
+    });
   });
 
 test.todo(
