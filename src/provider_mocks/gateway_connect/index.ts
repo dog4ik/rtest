@@ -330,7 +330,6 @@ export class GatewayConnectTransaction {
         requisites,
         currency: this.payin_request.payment.gateway_currency,
         payment_form_url: requisite_data?.payment_form_url,
-        qr_data: common.redirectPayUrl,
         details: status === "declined" ? "Test error message" : undefined,
         redirect_request:
           status === "pending"

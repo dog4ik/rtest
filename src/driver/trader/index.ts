@@ -296,8 +296,16 @@ export type RandomizerSettings = {
   random_retries: number;
 };
 
+/** Block requisite when conversion is low settings */
+export type IdleRequisiteSettings = {
+  idle_requisite_minutes: number;
+  idle_requisite_limit: number;
+  idle_requisite_conversion_limit: number;
+};
+
 export type TraderSettingsOptions = {
   randomizer?: RandomizerSettings;
+  idle_requisite?: IdleRequisiteSettings;
   pay_expired_minutes?: number;
   custom_payform?: string;
   skip_processing_url?: boolean;
@@ -333,6 +341,7 @@ export function traderSettings(list: number[], opts?: TraderSettingsOptions) {
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
         custom_payform: opts?.custom_payform,
+        ...opts?.idle_requisite,
         ...opts?.randomizer,
       },
     },
@@ -372,6 +381,7 @@ export function traderNoConvertSettings(
         private_key: "1ccca8894bf0baabb47ef6695c0f0f18",
         wrapped_to_json_response: true,
         custom_payform: opts?.custom_payform,
+        ...opts?.idle_requisite,
         ...opts?.randomizer,
       },
     },
