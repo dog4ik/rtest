@@ -34,6 +34,7 @@ const PROJECT_DIR_MAP: Record<Project | string, string> = {
   a2: "rpay-engine-a2",
   fxmb: "rpay-engine-fxmb",
   kotulapay: "rpay-engine-kotulapay",
+  settlixx: "rpay-engine-settlixx",
 };
 
 function resolveProjectDir(config: Config) {

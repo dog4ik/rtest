@@ -3,8 +3,8 @@ import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import { BrusnikaPayment } from "@/provider_mocks/brusnika";
-import { test } from "@/test_context";
 import { STATIC_RATE } from "@/provider_mocks/rate";
+import { test } from "@/test_context";
 
 const TRADER_DELAY = 5_000;
 
@@ -260,7 +260,9 @@ describe
           ...common.traderPaymentRequest("RUB", "card"),
           amount: common.amount * STATIC_RATE,
         });
-        await res.followFirstProcessingUrl().then((r) => r.as_trader_requisites());
+        await res
+          .followFirstProcessingUrl()
+          .then((r) => r.as_trader_requisites());
         await delay(TRADER_DELAY);
         await ctx.healthcheck(res.token);
       }));
