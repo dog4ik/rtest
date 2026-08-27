@@ -2,7 +2,7 @@ import { assert } from "vitest";
 import * as common from "@/common";
 import type { Trader } from "@/db/core";
 import type { TraderMethodToggle } from "@/driver/core";
-import { type Bank, TraderDriver } from "@/driver/trader";
+import { type Bank, type Requisite, TraderDriver } from "@/driver/trader";
 import type { Context } from "@/test_context/context";
 import { type ExtendedRequisite, extendedRequisite } from "./requisite";
 
@@ -21,6 +21,9 @@ export function extendTrader(ctx: Context, trader: Trader) {
     finalizeTransaction,
     finalize_dispute,
     enable_trader_method,
+    create_device,
+    create_profile,
+    create_requisite,
     ...trader,
   };
 }
@@ -39,7 +42,7 @@ type TraderRequisiteResult<T extends Partial<TraderSetupOptions>> = {
   [K in BooleanRequisiteKeys as T[K] extends true
     ? K
     : never]: ExtendedRequisite;
-} & { device_id: string };
+} & { device_id: string; profile_id?: number };
 
 const DEFAULT_SETUP: TraderSetupOptions = {
   card: false,
@@ -83,6 +86,54 @@ async function finalize_dispute(
     `${dispute_id} to ${status}`,
   );
   return this.driver.update_dispute(dispute_id, status);
+}
+
+async function create_device(this: ExtendedTrader, is_active: boolean) {
+  let device_id = await this.driver.create_device("Test device");
+  if (is_active) {
+    await this.driver.activate_device(device_id);
+  }
+  return device_id;
+}
+
+async function create_profile(
+  this: ExtendedTrader,
+  device_id: string,
+  bank?: Bank | {},
+) {
+  let profile = await this.driver.create_profile({
+    bank: bank ?? "sberbank",
+    device_id,
+  });
+  assert(profile.id, "profile id can't be empty");
+  assert.strictEqual(
+    profile.device_id,
+    device_id,
+    "created profile device_id should match requested device",
+  );
+  return profile.id;
+}
+
+async function create_requisite(
+  this: ExtendedTrader,
+  profile_id: number,
+  type: Requisite,
+  value: string,
+  is_active?: boolean,
+) {
+  let requisite = await this.driver.add_requisite({
+    profile_id,
+    title: "Test requisite",
+    card_holder: type === "card" ? common.fullName : undefined,
+    requisite_type: type,
+    requisite_value: value,
+  });
+  assert(requisite.id, "requisite id can't be empty");
+
+  if (is_active) {
+    await this.driver.activate_requisite(requisite.id);
+  }
+  return requisite.id;
 }
 
 async function setup<const T extends Partial<TraderSetupOptions>>(
@@ -179,7 +230,7 @@ async function setup<const T extends Partial<TraderSetupOptions>>(
     await this.enable_trader_method("link_enabled");
   }
 
-  return { device_id, ...result } as TraderRequisiteResult<T>;
+  return { device_id, ...result, profile_id } as TraderRequisiteResult<T>;
 }
 
 async function bank_accounts(this: ExtendedTrader) {

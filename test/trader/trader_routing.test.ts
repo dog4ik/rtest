@@ -183,6 +183,20 @@ describe
         let trader2 = await ctx.create_random_trader({
           usdt: true,
         });
+        await merchant.set_commission({
+          status: "1",
+          trader_id: trader1.id.toString(),
+          operation: "PayinRequest",
+          self_rate: "10",
+          provider_rate: "5",
+        });
+        await merchant.set_commission({
+          status: "1",
+          trader_id: trader2.id.toString(),
+          operation: "PayinRequest",
+          self_rate: "5",
+          provider_rate: "2",
+        });
         let trader1_setup = await trader1.setup({
           card: true,
           bank: "sberbank",
@@ -260,10 +274,15 @@ describe
           ...common.traderPaymentRequest("RUB", "card"),
           amount: common.amount * STATIC_RATE,
         });
+        let notification = merchant.queue_notification((cb) => {
+          assert.strictEqual(cb.status, "approved");
+        });
         await res
           .followFirstProcessingUrl()
           .then((r) => r.as_trader_requisites());
         await delay(TRADER_DELAY);
+        await trader1.finalizeTransaction(res.token, "approved");
+        await notification;
         await ctx.healthcheck(res.token);
       }));
 

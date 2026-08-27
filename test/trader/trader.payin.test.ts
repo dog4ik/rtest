@@ -153,49 +153,292 @@ describe
       }));
   });
 
+describe
+  .runIf(CONFIG.in_project(["reactivepay", "a2"]))
+  .concurrent("unique amount per device", () => {
+    test.concurrent("1 device 1 profile 1 card 1 sbp should allow same amount", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.cashin("main", "USDT", common.amount * 5);
+        await trader.enable_trader_method("card_enabled");
+        await trader.enable_trader_method("sbp_enabled");
+        let device_id = await trader.create_device(true);
+        let profile_id = await trader.create_profile(device_id);
+        await trader.create_requisite(
+          profile_id,
+          "card",
+          common.visaCard,
+          true,
+        );
+        await trader.create_requisite(
+          profile_id,
+          "sbp",
+          common.phoneNumber,
+          true,
+        );
+        await merchant.set_settings(traderSettings([trader.id]));
+        let request_amount = common.amount * STATIC_RATE;
+        let res = await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "sbp"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await trader.finalizeTransaction(res.token, "approved");
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "sbp"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+      }));
+
+    test.concurrent("2 device 2 profile card should allow same amount", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.cashin("main", "USDT", common.amount * 5);
+        await trader.enable_trader_method("card_enabled");
+        await Promise.all(
+          [...Array(2)].map(async (_, i) => {
+            let device_id = await trader.create_device(true);
+            let profile_id = await trader.create_profile(device_id);
+            await trader.create_requisite(
+              profile_id,
+              "card",
+              i % 2 === 0 ? common.visaCard : common.mastercardCard,
+              true,
+            );
+          }),
+        );
+        await merchant.set_settings(traderSettings([trader.id]));
+        let request_amount = common.amount * STATIC_RATE;
+        let res = await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+
+        await trader.finalizeTransaction(res.token, "approved");
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+      }));
+
+    test.concurrent("1 device 2 profile 2 card should not allow same amount", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.cashin("main", "USDT", common.amount * 5);
+        await trader.enable_trader_method("card_enabled");
+        let device_id = await trader.create_device(true);
+        await Promise.all(
+          [...Array(2)].map(async (_, i) => {
+            let profile_id = await trader.create_profile(device_id);
+            await trader.create_requisite(
+              profile_id,
+              "card",
+              i % 2 === 0 ? common.visaCard : common.mastercardCard,
+              true,
+            );
+          }),
+        );
+        await merchant.set_settings(traderSettings([trader.id]));
+        let request_amount = common.amount * STATIC_RATE;
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+
+    test.concurrent("1 device 1 profile 2 card should not allow same amount", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.cashin("main", "USDT", common.amount * 5);
+        await trader.enable_trader_method("card_enabled");
+        let device_id = await trader.create_device(true);
+        let profile_id = await trader.create_profile(device_id);
+        await Promise.all(
+          [...Array(2)].map(async (_, i) => {
+            await trader.create_requisite(
+              profile_id,
+              "card",
+              i % 2 === 0 ? common.visaCard : common.mastercardCard,
+              true,
+            );
+          }),
+        );
+        await merchant.set_settings(traderSettings([trader.id]));
+        let request_amount = common.amount * STATIC_RATE;
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        await merchant
+          .create_payment({
+            ...common.p2pPaymentRequest("RUB", "card"),
+            amount: request_amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }));
+  });
+
 test
   .runIf(CONFIG.in_project(["reactivepay", "a2"]))
-  .concurrent("only one requisite assigned", ({ ctx, merchant }) =>
-    ctx.track_bg_rejections(async () => {
-      let trader = await ctx.create_random_trader({
-        usdt: false,
-        payout_hold_period: 0,
-      });
-      await trader.setup({ card: true, bank: "sberbank" });
-      let transactions_amount = 3;
-      let amount = 10000;
-      await trader.cashin("main", "RUB", transactions_amount * (amount / 100));
-      await merchant.set_settings(traderNoConvertSettings("RUB", [trader.id]));
-
-      let barrier = Promise.withResolvers<unknown>();
-      let got_requests = 0;
-      let got_requisites = 0;
-
-      let results = [...new Array(transactions_amount)].map(async () => {
-        let res = await merchant.create_payment({
-          ...common.traderPaymentRequest("RUB", "card"),
-          amount,
+  .concurrent(
+    "only one requisite assigned under concurrency",
+    ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          payout_hold_period: 0,
         });
-        got_requests += 1;
-        if (got_requests === transactions_amount) {
-          barrier.resolve(undefined);
-        }
-        await barrier.promise;
-        let json = await res
-          .followFirstProcessingUrl()
-          .then((r) => r.as_raw_json() as Record<string, any>);
-        if (json?.card?.pan === common.visaCard) {
-          got_requisites += 1;
-        }
-      });
+        let setup = await trader.setup({
+          card: true,
+          sbp: true,
+          bank: "sberbank",
+        });
+        assert(setup.profile_id);
+        await trader.driver
+          .add_requisite({
+            profile_id: setup.profile_id,
+            requisite_type: "card",
+            requisite_value: common.mastercardCard,
+            title: "another card",
+            card_holder: "Test holder",
+          })
+          .then(async (r) => {
+            assert(r.id);
+            await trader.driver.activate_requisite(r.id);
+          });
 
-      await Promise.all(results);
-      assert.strictEqual(
-        got_requisites,
-        1,
-        "merchant should get only one requisite",
-      );
-    }),
+        let transactions_amount = 8;
+        let amount = 10000;
+        await trader.cashin(
+          "main",
+          "USDT",
+          transactions_amount * (amount / 100),
+        );
+        await merchant.set_settings(
+          traderSettings([trader.id], {
+            // randomizer: {
+            //   random_step: 1_00,
+            //   random_range: [1_00, 10_00],
+            //   random_retries: 100,
+            // },
+          }),
+        );
+
+        let barrier = Promise.withResolvers<unknown>();
+        let got_requests = 0;
+        let got_requisites = 0;
+
+        let results = [...new Array(transactions_amount)].map(async (_, i) => {
+          let res = await merchant.create_payment({
+            ...common.traderPaymentRequest("RUB", i % 2 === 0 ? "card" : "sbp"),
+            amount: amount * STATIC_RATE,
+          });
+          got_requests += 1;
+          if (got_requests === transactions_amount) {
+            barrier.resolve(undefined);
+          }
+          await barrier.promise;
+          let json = await res
+            .followFirstProcessingUrl()
+            .then((r) => r.as_raw_json() as Record<string, any>);
+          if (
+            [common.visaCard, common.mastercardCard].includes(
+              json?.card?.pan,
+            ) ||
+            common.phoneNumber === json?.sbp?.phone
+          ) {
+            got_requisites += 1;
+          }
+        });
+
+        await Promise.all(results);
+        assert.strictEqual(
+          got_requisites,
+          2,
+          "merchant should get only one requisite",
+        );
+      }),
   );
 
 describe
