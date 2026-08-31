@@ -16,21 +16,12 @@ const SELF_RATE = 0.1; // 10%
 const PROVIDER_RATE = 0.05; // 5%
 const COMMISSION = PAYOUT_AMOUNT_MAJOR * SELF_RATE; // 10 taken from the merchant
 const TRADER_PROFIT = PAYOUT_AMOUNT_MAJOR * PROVIDER_RATE; // 5 earned by the trader
-// Payout amount plus the merchant commission, in the wallet currency of the
-// settings variant. Every payout drains the merchant wallet to zero.
 const MERCHANT_CASHIN = PAYOUT_AMOUNT_MAJOR + COMMISSION; // 110
 
-/**
- * The rate mock is static, so a converting payout charges the merchant
- * `amount / STATIC_RATE` of its USDT wallet. Asking for
- * `PAYOUT_AMOUNT * STATIC_RATE` makes that charge exactly `PAYOUT_AMOUNT`, so
- * both variants move the same numbers through the merchant and trader wallets
- * and share `MERCHANT_CASHIN`.
- */
 function payoutRequest(usdt: boolean) {
   return {
     ...common.payoutRequest("RUB"),
-    amount: usdt ? PAYOUT_AMOUNT * STATIC_RATE - 10 : PAYOUT_AMOUNT,
+    amount: usdt ? PAYOUT_AMOUNT * STATIC_RATE : PAYOUT_AMOUNT,
     bank_account: { requisite_type: "card" as const },
     customer: {
       email: common.email,
