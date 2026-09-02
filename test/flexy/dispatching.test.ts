@@ -34,8 +34,10 @@ class DispatchingTester {
     private n: number,
   ) {
     this.secrets = [...Array(n)].map(() => crypto.randomUUID());
-    this.instances = this.secrets.map((secret) =>
-      ctx.mock_server(JusanPayment.mock_params(secret)),
+    this.instances = this.secrets.map((secret, i) =>
+      ctx.mock_server(JusanPayment.mock_params(secret), () => {
+        assert.fail(`unexpected request on ${i} instance`);
+      }),
     );
   }
 

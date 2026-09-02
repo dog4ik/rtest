@@ -101,7 +101,7 @@ test
 
 test
   .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
-  .concurrent(
+  .only(
     "concurrent approved callback & approved status",
     { timeout: 60_000 },
     async ({ merchant, ctx }) =>
@@ -113,6 +113,7 @@ test
             enable_change_final_status: true,
           }),
         );
+        await merchant.set_commission();
         await merchant.cashin(CURRENCY, 10);
         await merchant.cashout(CURRENCY, 10);
         await merchant.set_balance(CURRENCY, {

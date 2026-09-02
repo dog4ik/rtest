@@ -515,44 +515,4 @@ export class CoreDriver {
     let suffix = status === "approved" ? "accepted" : "declined";
     await this.action(`/settlements/${feed_id}/${suffix}`, form);
   }
-
-  async change_state_by_status(
-    feed_id: number,
-    target_status: "accepted" | "declined",
-    opts?: { paid_amount?: number; force_change?: boolean },
-  ) {
-    if (!this.docker_compose_path) {
-      throw new Error("docker_compose_path is not configured in CoreDriver");
-    }
-    let { exec } = await import("node:child_process");
-    let { promisify } = await import("node:util");
-    let execAsync = promisify(exec);
-
-    let args = [`target_status: "${target_status}"`];
-    if (opts?.paid_amount !== undefined) {
-      let rubyFloat = Number.isInteger(opts.paid_amount)
-        ? opts.paid_amount.toFixed(1)
-        : opts.paid_amount;
-      args.push(`paid_amount: ${rubyFloat}`);
-    }
-    if (opts?.force_change) {
-      args.push(`force_change: true`);
-    }
-
-    let ruby =
-      `f = Feed.find(${feed_id}); ` +
-      `result = Operations::Feeds::ChangeStateByStatus.call(transaction: f, ${args.join(", ")}); ` +
-      `if result.success? then puts "CSBS_OK"; else puts "CSBS_FAIL: #{result.inspect}"; end`;
-
-    let { stdout } = await execAsync(
-      `docker compose -f ${this.docker_compose_path} exec core bundle exec rails runner '${ruby}'`,
-      { timeout: 30_000 },
-    );
-
-    if (!stdout.includes("CSBS_OK")) {
-      throw new Error(
-        `ChangeStateByStatus failed for feed ${feed_id} (target: ${target_status}): ${stdout}`,
-      );
-    }
-  }
 }
