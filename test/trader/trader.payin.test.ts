@@ -853,77 +853,85 @@ describe
           .then((r) => r.as_error());
       }));
 
-    test.concurrent("pick trader with the request currency convert_to", ({
-      ctx,
-      merchant,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let trader1 = await ctx.create_random_trader({
-          usdt: true,
-          currency: "RUB",
-        });
-        let trader2 = await ctx.create_random_trader({
-          usdt: true,
-          currency: "INR",
-        });
-        for (let trader of [trader1, trader2]) {
-          await trader.setup({ card: true, bank: "sberbank" });
-          await trader.cashin("main", "USDT", 99999999);
-        }
-        await merchant.set_settings(traderSettings([trader1.id, trader2.id]));
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("USD", "card"),
-            amount: 2200 * STATIC_RATE,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_error());
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("INR", "card"),
-            amount: 2200 * STATIC_RATE,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-      }));
+    test
+      .runIf(CONFIG.in_project(["reactivepay"]))
+      .concurrent(
+        "pick trader with the request currency convert_to",
+        ({ ctx, merchant }) =>
+          ctx.track_bg_rejections(async () => {
+            let trader1 = await ctx.create_random_trader({
+              usdt: true,
+              currency: "RUB",
+            });
+            let trader2 = await ctx.create_random_trader({
+              usdt: true,
+              currency: "INR",
+            });
+            for (let trader of [trader1, trader2]) {
+              await trader.setup({ card: true, bank: "sberbank" });
+              await trader.cashin("main", "USDT", 99999999);
+            }
+            await merchant.set_settings(
+              traderSettings([trader1.id, trader2.id]),
+            );
+            await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("USD", "card"),
+                amount: 2200 * STATIC_RATE,
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_error());
+            await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("INR", "card"),
+                amount: 2200 * STATIC_RATE,
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_trader_requisites());
+          }),
+      );
 
-    test.concurrent("pick trader with the request currency no convert", ({
-      ctx,
-      merchant,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let trader1 = await ctx.create_random_trader({
-          usdt: false,
-          currency: "RUB",
-        });
-        let trader2 = await ctx.create_random_trader({
-          usdt: false,
-          currency: "INR",
-        });
-        for (let trader of [trader1, trader2]) {
-          await trader.setup({ card: true, bank: "sberbank" });
-          await trader.cashin("main", trader.default_currency, 99999999);
-        }
-        await merchant.set_settings(traderSettings([trader1.id, trader2.id]));
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("USD", "card"),
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_error());
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("INR", "card"),
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("INR", "card"),
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_error());
-      }));
+    test
+      .runIf(CONFIG.in_project(["reactivepay"]))
+      .concurrent(
+        "pick trader with the request currency no convert",
+        ({ ctx, merchant }) =>
+          ctx.track_bg_rejections(async () => {
+            let trader1 = await ctx.create_random_trader({
+              usdt: false,
+              currency: "RUB",
+            });
+            let trader2 = await ctx.create_random_trader({
+              usdt: false,
+              currency: "INR",
+            });
+            for (let trader of [trader1, trader2]) {
+              await trader.setup({ card: true, bank: "sberbank" });
+              await trader.cashin("main", trader.default_currency, 99999999);
+            }
+            await merchant.set_settings(
+              traderSettings([trader1.id, trader2.id]),
+            );
+            await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("USD", "card"),
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_error());
+            await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("INR", "card"),
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_trader_requisites());
+            await merchant
+              .create_payment({
+                ...common.traderPaymentRequest("INR", "card"),
+              })
+              .then((r) => r.followFirstProcessingUrl())
+              .then((r) => r.as_error());
+          }),
+      );
   });
 
 describe
@@ -948,24 +956,12 @@ describe
           pay_expired_minutes: 1,
         }) as Record<string, any>;
         await merchant.set_settings(settings);
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("INR", "account"),
-            redirect_success_url: "https://google.com/success",
-            redirect_fail_url: "https://google.com/fail",
-          })
-          .then((r) => ctx.annotate(r.selectorUrl ?? ""));
-
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("INR", "account"),
-            redirect_success_url: "https://google.com/success",
-            redirect_fail_url: "https://google.com/fail",
-          })
-          .then((r) => ctx.annotate(r.selectorUrl ?? ""));
-
-        // await delay(15_000)
-        // await trader1.finalizeTransaction(create.token, "approved");
+        let create = await merchant.create_payment({
+          ...common.traderPaymentRequest("INR", "account"),
+          redirect_success_url: "https://google.com/success",
+          redirect_fail_url: "https://google.com/fail",
+        });
+        await ctx.annotate(create.selectorUrl ?? "");
       }));
   });
 

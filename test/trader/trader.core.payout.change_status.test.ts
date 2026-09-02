@@ -198,7 +198,11 @@ describe
           );
 
           let approved_feed = await ctx.get_feed(token);
-          assert.strictEqual(approved_feed.status, 1, "feed should be approved");
+          assert.strictEqual(
+            approved_feed.status,
+            1,
+            "feed should be approved",
+          );
 
           let declined_callback = merchant.queue_notification((n) => {
             assert.strictEqual(n.type, "payout");
@@ -672,7 +676,12 @@ describe
         });
         await merchant.set_settings(traderSettings([trader.id]));
 
-        let { feed, token } = await approved_payout(ctx, merchant, trader, true);
+        let { feed, token } = await approved_payout(
+          ctx,
+          merchant,
+          trader,
+          true,
+        );
 
         // drain the agent wallet so it can not cover the reversal of the
         // agent commission
@@ -743,172 +752,151 @@ describe
           await approved_payout(ctx, merchant, trader, usdt);
         }));
     }
+  });
 
-    describe
-      .runIf(CONFIG.in_project(["a2"]))
-      .concurrent("deposit drain payout tests", () => {
-        for (let usdt of [true, false]) {
-          let variant = usdt ? "usdt" : "rub";
-          let currency = usdt ? "USDT" : "RUB";
+describe
+  .runIf(CONFIG.in_project(["a2"]))
+  .concurrent("deposit drain payout tests", () => {
+    for (let usdt of [true, false]) {
+      let variant = usdt ? "usdt" : "rub";
+      let currency = usdt ? "USDT" : "RUB";
 
-          test.concurrent(
-            `approved -> declined drains deposit balance and commission amount (${variant})`,
-            ({ ctx, merchant }) =>
-              ctx.track_bg_rejections(async () => {
-                let trader = await setup_payout(ctx, merchant, { usdt });
+      test.concurrent(`approved -> declined drains deposit balance and commission amount (${variant})`, ({
+        ctx,
+        merchant,
+      }) =>
+        ctx.track_bg_rejections(async () => {
+          let trader = await setup_payout(ctx, merchant, { usdt });
 
-                let { feed } = await approved_payout(
-                  ctx,
-                  merchant,
-                  trader,
-                  usdt,
-                  { skip_notification_healthcheck: true },
-                );
+          let { feed } = await approved_payout(ctx, merchant, trader, usdt, {
+            skip_notification_healthcheck: true,
+          });
 
-                let core = ctx.shared_state().core_harness;
-                let wallets = await trader.wallets();
-                await trader.cashout("main", currency, wallets.main.available);
-                await trader.cashout(
-                  "income",
-                  currency,
-                  wallets.income.available,
-                );
+          let core = ctx.shared_state().core_harness;
+          let wallets = await trader.wallets();
+          await trader.cashout("main", currency, wallets.main.available);
+          await trader.cashout("income", currency, wallets.income.available);
 
-                await delay(2_000);
-                await core.change_status(feed.id, "declined");
-                await delay(1_000);
-                wallets = await trader.wallets();
-                // assert.containSubset(wallets, {
-                //   main: { available: 0, held: 0 },
-                //   profit: { available: 0, held: 0 },
-                //   // payout amount + provider commission -> -105
-                //   deposit: {
-                //     available: -(PAYOUT_AMOUNT_MAJOR + TRADER_PROFIT),
-                //     held: 0,
-                //   },
-                // });
-                assert.isNotNull(
-                  feed.api_payment_token,
-                  "feed api payment token",
-                );
-                await ctx.healthcheck(feed.api_payment_token, {
-                  expect: {
-                    status: 2,
-                    commission_provider_amount: TRADER_PROFIT,
-                  },
-                });
-              }),
+          await delay(2_000);
+          await core.change_status(feed.id, "declined");
+          await delay(1_000);
+          wallets = await trader.wallets();
+          // assert.containSubset(wallets, {
+          //   main: { available: 0, held: 0 },
+          //   profit: { available: 0, held: 0 },
+          //   // payout amount + provider commission -> -105
+          //   deposit: {
+          //     available: -(PAYOUT_AMOUNT_MAJOR + TRADER_PROFIT),
+          //     held: 0,
+          //   },
+          // });
+          assert.isNotNull(feed.api_payment_token, "feed api payment token");
+          await ctx.healthcheck(feed.api_payment_token, {
+            expect: {
+              status: 2,
+              commission_provider_amount: TRADER_PROFIT,
+            },
+          });
+        }));
+
+      test.concurrent(`approved -> declined drains deposit balance (${variant})`, ({
+        ctx,
+        merchant,
+      }) =>
+        ctx.track_bg_rejections(async () => {
+          let trader = await setup_payout(ctx, merchant, { usdt });
+
+          let { feed } = await approved_payout(ctx, merchant, trader, usdt, {
+            skip_notification_healthcheck: true,
+          });
+
+          let core = ctx.shared_state().core_harness;
+          let wallets = await trader.wallets();
+          await trader.cashout("main", currency, wallets.main.available);
+
+          await delay(2_000);
+          await core.change_status(feed.id, "declined");
+          await delay(1_000);
+          wallets = await trader.wallets();
+          assert.containSubset(wallets, {
+            deposit: { available: -PAYOUT_AMOUNT_MAJOR, held: 0 },
+          });
+          assert.isNotNull(feed.api_payment_token, "feed api payment token");
+          await ctx.healthcheck(feed.api_payment_token, {
+            expect: { status: 2 },
+          });
+        }));
+
+      test.concurrent(`concurrent payout declines must not overdraw main (${variant})`, ({
+        ctx,
+        merchant,
+      }) =>
+        ctx.track_bg_rejections(async () => {
+          let trader = await setup_payout(ctx, merchant, {
+            usdt,
+            // funds both payouts of the pair
+            cashin: MERCHANT_CASHIN * 2,
+          });
+
+          let core = ctx.shared_state().core_harness;
+          let approve = () =>
+            approved_payout(ctx, merchant, trader, usdt, {
+              skip_notification_healthcheck: true,
+            }).then((r) => r.feed);
+
+          let feeds = [await approve(), await approve()];
+
+          let wallets = await trader.wallets();
+          await trader.cashout(
+            "main",
+            currency,
+            wallets.main.available - PAYOUT_AMOUNT_MAJOR,
+          );
+          await trader.wallets().then(({ main }) => {
+            assert.containSubset(
+              main,
+              { available: PAYOUT_AMOUNT_MAJOR, held: 0 },
+              "main funded for one clawback",
+            );
+          });
+
+          let declines = Promise.all(
+            feeds.map(() =>
+              merchant.queue_notification(
+                (n) => {
+                  assert.strictEqual(n.type, "payout");
+                  assert.strictEqual(n.status, "declined");
+                },
+                { skip_healthcheck: true, timeout: 20_000 },
+              ),
+            ),
           );
 
-          test.concurrent(
-            `approved -> declined drains deposit balance (${variant})`,
-            ({ ctx, merchant }) =>
-              ctx.track_bg_rejections(async () => {
-                let trader = await setup_payout(ctx, merchant, { usdt });
+          await delay(2_000);
+          await Promise.all(
+            feeds.map((feed) => core.change_status(feed.id, "declined")),
+          );
+          await declines;
+          await delay(1_000);
 
-                let { feed } = await approved_payout(
-                  ctx,
-                  merchant,
-                  trader,
-                  usdt,
-                  { skip_notification_healthcheck: true },
-                );
-
-                let core = ctx.shared_state().core_harness;
-                let wallets = await trader.wallets();
-                await trader.cashout("main", currency, wallets.main.available);
-
-                await delay(2_000);
-                await core.change_status(feed.id, "declined");
-                await delay(1_000);
-                wallets = await trader.wallets();
-                assert.containSubset(wallets, {
-                  deposit: { available: -PAYOUT_AMOUNT_MAJOR, held: 0 },
-                });
-                assert.isNotNull(
-                  feed.api_payment_token,
-                  "feed api payment token",
-                );
-                await ctx.healthcheck(feed.api_payment_token, {
-                  expect: { status: 2 },
-                });
-              }),
+          let final = await trader.wallets();
+          assert.containSubset(
+            final,
+            {
+              // One drained main to 0; main must never go negative.
+              main: { available: 0, held: 0 },
+              // The other fell through to the deposit wallet -> -100.
+              deposit: { available: -PAYOUT_AMOUNT_MAJOR, held: 0 },
+            },
+            "trader: concurrent payout declines split across main and deposit without overdrawing main",
           );
 
-          test.concurrent(
-            `concurrent payout declines must not overdraw main (${variant})`,
-            ({ ctx, merchant }) =>
-              ctx.track_bg_rejections(async () => {
-                let trader = await setup_payout(ctx, merchant, {
-                  usdt,
-                  // funds both payouts of the pair
-                  cashin: MERCHANT_CASHIN * 2,
-                });
-
-                let core = ctx.shared_state().core_harness;
-                let approve = () =>
-                  approved_payout(ctx, merchant, trader, usdt, {
-                    skip_notification_healthcheck: true,
-                  }).then((r) => r.feed);
-
-                let feeds = [await approve(), await approve()];
-
-                let wallets = await trader.wallets();
-                await trader.cashout(
-                  "main",
-                  currency,
-                  wallets.main.available - PAYOUT_AMOUNT_MAJOR,
-                );
-                await trader.wallets().then(({ main }) => {
-                  assert.containSubset(
-                    main,
-                    { available: PAYOUT_AMOUNT_MAJOR, held: 0 },
-                    "main funded for one clawback",
-                  );
-                });
-
-                let declines = Promise.all(
-                  feeds.map(() =>
-                    merchant.queue_notification(
-                      (n) => {
-                        assert.strictEqual(n.type, "payout");
-                        assert.strictEqual(n.status, "declined");
-                      },
-                      { skip_healthcheck: true, timeout: 20_000 },
-                    ),
-                  ),
-                );
-
-                await delay(2_000);
-                await Promise.all(
-                  feeds.map((feed) => core.change_status(feed.id, "declined")),
-                );
-                await declines;
-                await delay(1_000);
-
-                let final = await trader.wallets();
-                assert.containSubset(
-                  final,
-                  {
-                    // One drained main to 0; main must never go negative.
-                    main: { available: 0, held: 0 },
-                    // The other fell through to the deposit wallet -> -100.
-                    deposit: { available: -PAYOUT_AMOUNT_MAJOR, held: 0 },
-                  },
-                  "trader: concurrent payout declines split across main and deposit without overdrawing main",
-                );
-
-                for (let feed of feeds) {
-                  assert.isNotNull(
-                    feed.api_payment_token,
-                    "feed api payment token",
-                  );
-                  await ctx.healthcheck(feed.api_payment_token, {
-                    expect: { status: 2 },
-                  });
-                }
-              }),
-          );
-        }
-      });
+          for (let feed of feeds) {
+            assert.isNotNull(feed.api_payment_token, "feed api payment token");
+            await ctx.healthcheck(feed.api_payment_token, {
+              expect: { status: 2 },
+            });
+          }
+        }));
+    }
   });

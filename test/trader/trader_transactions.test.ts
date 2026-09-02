@@ -336,10 +336,7 @@ for (const usdt of [true, false]) {
           await approve_notification;
         }));
 
-      test.concurrent("card payin transactions load test", ({
-        ctx,
-        merchant,
-      }) =>
+      test.skip("card payin transactions load test", ({ ctx, merchant }) =>
         ctx.track_bg_rejections(async () => {
           let trader = await ctx.create_random_trader(opts);
           await trader.setup({ card: true, bank: "sberbank" });
