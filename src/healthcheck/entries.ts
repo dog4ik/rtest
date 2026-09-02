@@ -49,6 +49,7 @@ export class EntryValidator {
         break;
 
       case EntryCodes.COMMISSION:
+      case EntryCodes.CANCELLATION_COMMISSION:
       case EntryCodes.TRADER_COMMISSION:
       case EntryCodes.TRADER_COMMISSION_RETURN:
       case EntryCodes.AGENT_COMMISSION:
