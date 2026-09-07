@@ -49,6 +49,12 @@ export const PayoutResponseSchema = z.object({
   }),
 });
 
+const UpiAppLinksSchema = z.object({
+  upi: z.string().nonempty(),
+  phonepe: z.string().nonempty(),
+  paytm: z.string().nonempty(),
+});
+
 export const TraderRequisiteSchema = z.object({
   success: z.literal(true),
   // Trader (source=trader) response makes these 2 fields optional :=D
@@ -91,6 +97,13 @@ export const TraderRequisiteSchema = z.object({
       bank: z.string(),
     })
     .optional(),
+  deeplink: z
+    .object({
+      ios: UpiAppLinksSchema,
+      android: UpiAppLinksSchema,
+    })
+    .optional(),
+  payform_url: z.url().optional(),
 });
 
 export class ProcessingUrlResponse {

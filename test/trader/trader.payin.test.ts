@@ -936,6 +936,240 @@ describe
 
 describe
   .runIf(CONFIG.in_project(["reactivepay"]))
+  .concurrent("trader account deeplink", () => {
+    const UPI_VPA = "satorugojo@okhdfcbank";
+
+    function linkQuery(link: string) {
+      let query = link.split("?")[1]?.split("#")[0];
+      assert(query, `deeplink carries a query string: ${link}`);
+      return new URLSearchParams(query);
+    }
+
+    async function upiTrader(ctx: Context) {
+      let trader = await ctx.create_random_trader({
+        usdt: true,
+        currency: "INR",
+      });
+      let device_id = await trader.create_device(true);
+      let profile_id = await trader.create_profile(device_id, "sberbank");
+      let requisite = await trader.driver.add_requisite({
+        profile_id,
+        requisite_type: "account",
+        requisite_value: UPI_VPA,
+        card_holder: common.fullName,
+        title: "Test upi account",
+      });
+      assert(requisite.id, "account requisite id");
+      await trader.driver.activate_requisite(requisite.id);
+      await trader.enable_trader_method("account_enabled");
+      await trader.cashin("main", "USDT", common.amount / 100);
+      return trader;
+    }
+
+    test.concurrent("INR account requisite carries upi deeplinks", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await upiTrader(ctx);
+        await merchant.set_settings(traderSettings([trader.id]));
+
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "account"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert.strictEqual(
+          res.account?.number,
+          UPI_VPA,
+          "account requisite holds the vpa",
+        );
+        assert(res.deeplink, "deeplink is built for an INR account requisite");
+
+        let expected_amount = (res.payment.amount / 100).toFixed(2);
+
+        for (let platform of ["ios", "android"] as const) {
+          let links = res.deeplink[platform];
+          assert.deepEqual(
+            Object.keys(links).sort(),
+            ["paytm", "phonepe", "upi"],
+            `${platform}: every supported app is linked`,
+          );
+
+          for (let [app, link] of Object.entries(links)) {
+            let query = linkQuery(link);
+            assert.deepEqual(
+              {
+                pa: query.get("pa"),
+                pn: query.get("pn"),
+                am: query.get("am"),
+                cu: query.get("cu"),
+                tn: query.get("tn"),
+              },
+              {
+                pa: UPI_VPA,
+                pn: common.fullName,
+                am: expected_amount,
+                cu: "INR",
+                tn: res.token,
+              },
+              `${platform}.${app}: payment params`,
+            );
+          }
+        }
+
+        assert.deepEqual(
+          res.deeplink.android,
+          res.deeplink.ios,
+          "every app link is platform independent",
+        );
+
+        assert.match(
+          res.deeplink.ios.upi,
+          /^upi:\/\/pay\?/,
+          "generic upi scheme",
+        );
+        assert.include(
+          res.deeplink.ios.upi,
+          encodeURIComponent(UPI_VPA),
+          "the vpa @ is percent encoded in the deeplink",
+        );
+        assert.match(
+          res.deeplink.ios.phonepe,
+          /^phonepe:\/\/pay\?/,
+          "phonepe app scheme",
+        );
+        assert.match(
+          res.deeplink.ios.paytm,
+          /^paytmmp:\/\/cash_wallet\?/,
+          "paytm wallet scheme",
+        );
+        assert.strictEqual(
+          linkQuery(res.deeplink.ios.paytm).get("featuretype"),
+          "money_transfer",
+          "paytm link is a money transfer",
+        );
+        assert.isUndefined(
+          res.payform_url,
+          "no payform url without custom_payform: upi",
+        );
+      }));
+
+    test.concurrent("upi payform url renders the cached requisites", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await upiTrader(ctx);
+        await merchant.set_settings(
+          traderNoConvertSettings("INR", [trader.id], {
+            custom_payform: "upi",
+          }),
+        );
+
+        let res = await merchant
+          .create_payment(common.traderPaymentRequest("INR", "account"))
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert(res.payform_url, "payform url comes back with the requisites");
+        assert.include(
+          res.payform_url,
+          `/payforms/upi/${res.token}`,
+          "payform url points at this payment",
+        );
+
+        // The form renders out of the select result cache, so following the url is
+        // what proves the requisites were cached on the way out.
+        let form = await fetch(res.payform_url, {
+          method: "GET",
+          redirect: "follow",
+        });
+        assert.strictEqual(form.status, 200, "payform responds");
+        assert.notInclude(
+          new URL(form.url).pathname,
+          "/wait/",
+          "payform has requisites, so it does not bounce to the wait screen",
+        );
+        assert.include(
+          await form.text(),
+          UPI_VPA,
+          "payform shows the account requisite",
+        );
+      }));
+
+    test.concurrent("no deeplinks for an INR card requisite", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "INR",
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", common.amount / 100);
+        await merchant.set_settings(traderSettings([trader.id]));
+
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("INR", "card"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert.isUndefined(
+          res.deeplink,
+          "card requisite gets no upi deeplinks",
+        );
+      }));
+
+    test.concurrent("no deeplinks for a non INR account requisite", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+          currency: "RUB",
+        });
+        let device_id = await trader.create_device(true);
+        let profile_id = await trader.create_profile(device_id, "sberbank");
+        let requisite = await trader.driver.add_requisite({
+          profile_id,
+          requisite_type: "account",
+          requisite_value: UPI_VPA,
+          card_holder: common.fullName,
+          title: "Test upi account",
+        });
+        assert(requisite.id, "account requisite id");
+        await trader.driver.activate_requisite(requisite.id);
+        await trader.enable_trader_method("account_enabled");
+        await trader.cashin("main", "USDT", common.amount);
+        await merchant.set_settings(traderSettings([trader.id]));
+
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "account"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+
+        assert.strictEqual(res.account?.number, UPI_VPA, "account requisite");
+        assert.isUndefined(
+          res.deeplink,
+          "non INR currency gets no upi deeplinks",
+        );
+      }));
+  });
+
+describe
+  .runIf(CONFIG.in_project(["reactivepay"]))
   .concurrent("test inr payform", () => {
     test.skip("inr payfrom random amount", ({ ctx, merchant }) =>
       ctx.track_bg_rejections(async () => {
