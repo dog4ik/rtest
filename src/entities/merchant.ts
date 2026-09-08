@@ -242,7 +242,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
         let callback = extendNotification(
           NOTIFICATION_SCHEMA.parse(raw_request),
         );
-        if (options?.skip_signature_check) {
+        if (!options?.skip_signature_check) {
           callback.verifySignature(merchant.merchant_private_key);
         }
         if (!options?.skip_healthcheck) {
