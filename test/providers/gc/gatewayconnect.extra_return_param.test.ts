@@ -94,10 +94,20 @@ describe
       expected: "SBP",
     });
 
-    // testExtraReturnParam({
-    //   with_setting: true,
-    //   actual: "_eutheuh_выха9383*!<script/>love  ",
-    // });
+    testExtraReturnParam({
+      with_setting: true,
+      actual: "_eutHEUh_выхА9383*!<script/>Love  ",
+    });
+
+    testExtraReturnParam({
+      with_setting: true,
+      actual: "Test with space",
+    });
+
+    testExtraReturnParam({
+      with_setting: true,
+      actual: " Test ",
+    });
 
     testExtraReturnParam({
       with_setting: false,
