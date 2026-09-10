@@ -23,8 +23,9 @@ const CURRENCY = "CDF";
 async function setupMerchant(ctx: Context) {
   let uuid = crypto.randomUUID();
   let merchant = await ctx.create_random_merchant();
-  let settings = defaultSettings(CURRENCY, DalapayTransaction.settings(uuid));
-  settings.gateways.allow_h2h_payin_without_card = true;
+  let settings = defaultSettings(CURRENCY, DalapayTransaction.settings(uuid), {
+    allow_h2h_payin_without_card: true,
+  });
   await merchant.set_settings(settings);
   let dalapay = ctx.mock_server(DalapayTransaction.mock_params(uuid));
   let payment = new DalapayTransaction();
@@ -35,14 +36,10 @@ let dalapaySuite = () => {
   let suite = payinSuite();
   return {
     ...suite,
-    settings: (secret) => {
-      let settings = defaultSettings(
-        suite.request().currency,
-        suite.settings(secret),
-      );
-      settings.gateways.allow_h2h_payin_without_card = true;
-      return settings;
-    },
+    settings: (secret) =>
+      defaultSettings(suite.request().currency, suite.settings(secret), {
+        allow_h2h_payin_without_card: true,
+      }),
   } as P2PSuite<DalapayTransaction>;
 };
 

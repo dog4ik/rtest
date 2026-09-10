@@ -20,6 +20,7 @@ export type CommonSettingsParams = {
 export type SettingsOpts = {
   convert_to?: boolean;
   skip_processing_url?: boolean;
+  allow_h2h_payin_without_card?: boolean;
 };
 
 /**
@@ -79,6 +80,7 @@ export function defaultSettings(
     gateways: {
       gateway,
       allow_host2host: true,
+      allow_h2h_payin_without_card: opts?.allow_h2h_payin_without_card,
       skip_processing_url: opts?.skip_processing_url,
     },
   };
