@@ -58,6 +58,7 @@ export function commonSettings(alias: string, secret: string) {
               "merchant_private_key",
               "extra_return_param",
               "gateway_amount",
+              "card_brand_name",
               "lead_id",
               "gateway_currency",
               "token",
@@ -95,6 +96,7 @@ export function commonSettings(alias: string, secret: string) {
             ],
             payment: [
               "merchant_private_key",
+              "card_brand_name",
               "gateway_amount",
               "extra_return_param",
               "lead_id",

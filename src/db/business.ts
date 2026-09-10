@@ -59,6 +59,7 @@ export const BusinessPaymentSchema = z.object({
   details: z.object().nullable(),
   gateway_details: z.object().nullable(),
   gateway_currency: z.string().nullable(),
+  card_brand_name: z.string().nullable(),
   currency: z.string(),
   // created_at: z.string().datetime(),
   // updated_at: z.string().datetime(),
