@@ -8,7 +8,7 @@
 
 1. Установить зависимости проекта: `npm i` && `npx playwright install`
 2. Выполнить команду `npm run init` - будет создан конфигурационный файл `configuration.toml` с настройками по умолчанию.
-3. В конфигурационном файле указать параметр `projects_dir`, задав путь к каталогу с проектами, например: `~/work` если проект находится в `~/work/rpay-engine-pcidss`.
+3. В конфигурационном файле указать параметр `projects_dir`, задав путь к каталогу с проектами, например: `~/work` если проект находится в `~/work/rpay-engine-pcidss`. Либо указать путь к конкретному проекту параметром `path` в секции проекта (см. [Конфигурация проектов](#конфигурация-проектов)).
 4. Повторно выполнить `npm run patch` - в клиентском проекте должны появиться изменения.
 5. После успешного применения патча запустить проект стандартным способом.
 6. Запустить тесты командой: `npm run test`.
@@ -52,8 +52,13 @@ provider_name = 6666
 - **dummy_rsa_public_key_path** - minio путь к публичному RSA ключу
 - **dummy_rsa_private_key_path** - minio путь к приватному RSA ключу
 
+Опционально:
+
+- **path** - путь к каталогу конкретного проекта (например: `/path/to/rpay-engine-pcidss`). Если указан, используется вместо `projects_dir`. Относительный путь разрешается от текущего рабочего каталога.
+
 ```toml
 [reactivepay]
+path = "../rpay-engine-pcidss"
 dummy_ssl_path = "a9bvYvWDgfoBu1nFdze5TVBb"
 dummy_rsa_public_key_path = "bJXK9oBAcAUmGkNUFUEvJiSH"
 dummy_rsa_private_key_path = "BYJHRMhwGbfyhk9ye41qXURv"

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { Config } from "@/config";
+import { type Config, projectCredentials } from "@/config";
 import type { Project } from "@/project";
 
 export class ProjectDir {
@@ -38,6 +38,9 @@ const PROJECT_DIR_MAP: Record<Project | string, string> = {
 };
 
 function resolveProjectDir(config: Config) {
+  let projectPath = projectCredentials(config).path;
+  if (projectPath) return path.resolve(projectPath);
+
   let repoName = (project: Project) => {
     let dir = PROJECT_DIR_MAP[project];
     if (dir) return dir;

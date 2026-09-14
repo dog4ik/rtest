@@ -65,8 +65,13 @@ const DEFAULT_PROJECT_CONFIG = {
 
 type NonUndefined<T> = T extends undefined ? never : T;
 
+// Keys without a default value, left out of DEFAULT_CONFIG.
+type NoDefaultKey = "path";
+
 type RecursiveNonUndefineable<T> = {
-  [K in keyof T]-?: RecursiveNonUndefineable<NonUndefined<T[K]>>;
+  [K in keyof T as K extends NoDefaultKey
+    ? never
+    : K]-?: RecursiveNonUndefineable<NonUndefined<T[K]>>;
 };
 
 export const DEFAULT_CONFIG: RecursiveNonUndefineable<
@@ -145,6 +150,8 @@ const URLS_SCHEMA = z
   .default(DEFAULT_URLS);
 
 const PROJECT_CONFIG = z.strictObject({
+  // Path to the project repository. Takes precedence over `projects_dir`.
+  path: z.string().optional(),
   core_credentials: LOGIN_PASSWORD_SCHEMA,
   settings_credentials: LOGIN_PASSWORD_SCHEMA,
   flexy_guard_credentials: LOGIN_PASSWORD_SCHEMA,
