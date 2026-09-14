@@ -137,6 +137,7 @@ export function commonSettings(alias: string, secret: string) {
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
         },
+        custom_requisite_fields: ["custom_field", "another_custom_field"],
       },
       processing_method: "http_requests",
       status_checker_time_rates: {
@@ -264,6 +265,7 @@ export class GatewayConnectTransaction {
       qr_data?: string;
       deeplink?: boolean;
       amount?: number;
+      custom_fields?: Record<string, any>;
     },
   ): Handler {
     return async (c) => {
@@ -322,6 +324,14 @@ export class GatewayConnectTransaction {
         }
       }
 
+      if (requisites) {
+        for (let [key, value] of Object.entries(
+          requisite_data?.custom_fields ?? {},
+        )) {
+          requisites[key] = value;
+        }
+      }
+
       let is_wrapped =
         this.payin_request.settings.wrapped_to_json_response ?? false;
 
@@ -331,6 +341,7 @@ export class GatewayConnectTransaction {
         amount: requisite_data?.amount ?? common.amount,
         requisites,
         currency: this.payin_request.payment.gateway_currency,
+        custom_field: "bar",
         payment_form_url: requisite_data?.payment_form_url,
         details: status === "declined" ? "Test error message" : undefined,
         redirect_request:

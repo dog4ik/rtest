@@ -1681,6 +1681,46 @@ describe.concurrent("commission healthcheck payins", () => {
     }));
 });
 
+describe
+  .runIf(CONFIG.in_project(["reactivepay"]))
+  .only("custom_requisite_fields gc setting", () => {
+    function testSuite(): P2PSuite<GatewayConnectTransaction> {
+      let suite = payinSuite();
+      return providersSuite("RUB", {
+        ...suite,
+        create_handler: (s) => suite.gw.basic_payin_handler(s),
+        request: () => ({
+          ...common.p2pPaymentRequest("RUB", "card"),
+          custom_request_field: { test: "test" },
+        }),
+      }) as P2PSuite<GatewayConnectTransaction>;
+    }
+
+    test.concurrent("base example", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let suite = testSuite();
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_commission({ operation: "PayinRequest" });
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
+
+        provider.queue(
+          suite.gw.requisites_payin_handler("pending", "card", {
+            custom_fields: { custom_field: "foo", another_custom_field: 33 },
+          }),
+        );
+
+        let response = await merchant
+          .create_payment(suite.request())
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_raw_json() as Record<string, any>);
+        let card = response.card;
+        console.log(card, response);
+        assert.strictEqual(card.custom_field, "foo");
+        assert.strictEqual(card.another_custom_field, 33);
+      }));
+  });
+
 describe.concurrent("gateway connect refund", () => {
   function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
     let suite = payinSuite();
@@ -1864,7 +1904,7 @@ describe.concurrent("gateway connect refund", () => {
 
 function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
   let suite = payinSuite("RUB");
-  return defaultSuite(
+  return providersSuite(
     "RUB",
     {
       ...suite,
@@ -1883,7 +1923,7 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
               enable_status_checker: true,
               final_waiting_seconds: 10,
               params_fields: {
-                params: ["pan", "expires", "holder", "cvv"],
+                params: ["pan", "custom_field", "expires", "holder", "cvv"],
                 payment: ["gateway_currency", "gateway_amount"],
                 settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
               },
@@ -2009,7 +2049,9 @@ test.skip("test gateway connect payin", ({ ctx }) =>
       }),
     );
 
-    await merchant.create_payment(suite.request());
+    await merchant
+      .create_payment({ ...suite.request(), custom_field: "foo" })
+      .then((r) => r.followFirstProcessingUrl());
 
     await provider_request;
 
