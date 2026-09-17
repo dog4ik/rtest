@@ -25,7 +25,7 @@ const UrlFields = z.object({
 
 const BaseDepositRequestSchema = z.object({
   transaction_id: z.string(),
-  amount: z.number(),
+  amount: z.coerce.number(),
   currency: z.string(),
   payment_system: z.string(),
   note: z.string().optional(),
@@ -71,7 +71,7 @@ const DepositRequestSchema = z.union([
 const RefundRequestSchema = z.object({
   transaction_id: z.string(),
   original_transaction_id: z.string(),
-  amount: z.number(),
+  amount: z.coerce.number(),
   currency: z.string(),
   url: z.object({
     callback_url: z.string(),
@@ -93,6 +93,10 @@ export class RoyalpayPayment {
 
   constructor() {
     this.gateway_id = Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
+  }
+
+  parse_deposit(payload: any) {
+    this.request_data = DepositRequestSchema.parse(payload);
   }
 
   create_response(request: any) {
@@ -304,6 +308,22 @@ export class RoyalpayPayment {
     let payload = this.refund_callback(status);
     let url = this.refund_request_data.url.callback_url;
     await this._send(payload, url, secret);
+  }
+
+  error_response() {
+    return {
+      status: "error",
+      code: "401",
+      message: "Declined",
+      id: this.gateway_id,
+    };
+  }
+
+  instant_decline_handler(): Handler {
+    return async (c) => {
+      this.request_data = DepositRequestSchema.parse(await c.req.json());
+      return c.json(this.error_response(), 201);
+    };
   }
 
   create_refund_response(status: PrimeBusinessStatus, request: any) {

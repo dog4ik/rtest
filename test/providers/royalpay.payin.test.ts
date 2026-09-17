@@ -1,8 +1,9 @@
 import { delay } from "@std/async";
 import { assert, describe } from "vitest";
+import * as common from "@/common";
 import { CONFIG } from "@/config";
 import { payinSuite, RoyalpayPayment } from "@/provider_mocks/royalpay";
-import { defaultSettings } from "@/settings_builder";
+import { defaultSettings, providers } from "@/settings_builder";
 import {
   type Callback,
   callbackFinalizationSuite,
@@ -19,7 +20,7 @@ const cardSuite = () =>
     ...payinSuite(),
     settings: (secret) =>
       defaultSettings(CURRENCY, RoyalpayPayment.settings(secret)),
-  }) as Callback & Status;
+  }) as Callback<RoyalpayPayment> & Status<RoyalpayPayment>;
 
 describe
   .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
@@ -65,5 +66,62 @@ describe
         });
 
         await refund_notifications;
+      }));
+  });
+
+const applePaySuite = () =>
+  ({
+    ...payinSuite(),
+    settings: (secret) => providers(CURRENCY, RoyalpayPayment.settings(secret)),
+    request: () => ({
+      ...common.paymentRequest(CURRENCY),
+      extra_return_param: "applepay",
+      customer: {
+        email: common.email,
+        first_name: common.firstName,
+        last_name: common.lastName,
+        ip: common.ip,
+      },
+    }),
+  }) as Callback & Status;
+
+describe
+  .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
+  .concurrent("royalpay applepay", () => {
+    callbackFinalizationSuite(applePaySuite);
+    statusFinalizationSuite(applePaySuite);
+  });
+
+describe
+  .runIf(CONFIG.in_project(["reactivepay", "8pay"]))
+  .concurrent("royalpay declined callback", () => {
+    test.concurrent("insta callback with declined", ({ ctx, merchant }) =>
+      ctx.track_bg_rejections(async () => {
+        let suite = cardSuite();
+        await merchant.set_commission();
+        let gw = suite.gw;
+        await merchant.set_settings(suite.settings(ctx.uuid));
+        let server = ctx.mock_server(suite.mock_options(ctx.uuid));
+        server.queue(async (c) => {
+          gw.parse_deposit(await c.req.json());
+          await gw.send_callback("error", ctx.uuid);
+          return c.json(gw.error_response(), 201);
+        });
+        let declined = merchant.queue_notification(
+          (cb) => {
+            assert.strictEqual(
+              cb.gatewayDetails?.decline_reason,
+              "gateway response error: Declined",
+            );
+          },
+          {
+            expect: { status: 2 },
+          },
+        );
+        await merchant.create_payment({
+          ...suite.request(),
+          card: common.cardObject(),
+        });
+        await declined;
       }));
   });
