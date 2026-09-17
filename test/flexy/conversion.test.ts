@@ -1,5 +1,5 @@
 import { delay } from "@std/async";
-import { MongoClient } from "mongodb";
+import { type Collection, MongoClient } from "mongodb";
 import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
@@ -15,16 +15,24 @@ const CURRENCY = "RUB";
 
 const REQUISITE_TYPE = "card";
 
+async function with_attempts<T>(
+  f: (attempts: Collection) => Promise<T>,
+): Promise<T> {
+  let client = new MongoClient(CONFIG.urls().mongo);
+  try {
+    await client.connect();
+    return await f(client.db("counters").collection("attempts"));
+  } finally {
+    await client.close();
+  }
+}
+
 async function wait_for_settled(
   mid: number,
   acq_alias: string,
   expected: number,
 ): Promise<void> {
-  let client = new MongoClient(CONFIG.urls().mongo);
-  try {
-    await client.connect();
-    let attempts = client.db("counters").collection("attempts");
-
+  await with_attempts(async (attempts) => {
     for (let attempt = 0; attempt < 60; attempt++) {
       let settled = await attempts.countDocuments({
         mid,
@@ -42,9 +50,7 @@ async function wait_for_settled(
     assert.fail(
       `only saw fewer than ${expected} settled transactions for ${acq_alias}`,
     );
-  } finally {
-    await client.close();
-  }
+  });
 }
 
 class DispatchingTester {
@@ -59,6 +65,7 @@ class DispatchingTester {
       cascade?: boolean;
       accepted_only?: boolean;
       rate?: string;
+      min_conversion?: number;
     } = {},
   ) {
     this.gateways = [...Array(n)].map(
@@ -97,6 +104,9 @@ class DispatchingTester {
         rate: this.opts.rate ?? "1d#approved",
         // Off by default: a gate that refuses up front is charged for it
         accepted_only: this.opts.accepted_only ?? false,
+        ...(this.opts.min_conversion === undefined
+          ? {}
+          : { min_conversion: this.opts.min_conversion }),
       },
     };
   }
@@ -231,6 +241,52 @@ class DispatchingTester {
     await approved;
 
     return payment.token;
+  }
+
+  /**
+   * Every alias converts below min_conversion, so the payment is refused before any gate
+   * is called - no handler is queued, the merchant just gets the decline. Returns the token.
+   */
+  async pay_below_min_conversion(): Promise<string> {
+    assert(this.merchant);
+
+    let payment = await this.merchant.create_payment(this.request());
+    await payment.followFirstProcessingUrl().then((r) => r.as_error());
+
+    return payment.token;
+  }
+
+  /**
+   * The refusal is kept against the alias the payment came in on, but out of its
+   * conversion, and stays that way once business reports the payment as declined.
+   */
+  async assert_uncounted_refusal(
+    token: string,
+    gateway_idx: number,
+    min_conversion: number,
+  ): Promise<void> {
+    assert(this.merchant);
+
+    let payment = await this.ctx.get_payment(token);
+    assert.strictEqual(payment.gateway_alias, this.alias(gateway_idx));
+    assert.strictEqual(payment.status, "declined");
+    assert.include(
+      payment.declination_reason ?? "",
+      `below ${min_conversion}%`,
+    );
+
+    // Give the stat of the declined payment time to land on the attempt
+    await delay(3_000);
+    let attempt = await with_attempts((attempts) =>
+      attempts.findOne({
+        mid: this.merchant?.id,
+        tid: token,
+        acq_alias: this.alias(gateway_idx),
+      }),
+    );
+    assert(attempt, `no attempt of ${this.alias(gateway_idx)} on ${token}`);
+    assert.strictEqual(attempt.status, "declined");
+    assert.strictEqual(attempt.counted, false, "refusal is not counted");
   }
 
   async assert_routed_to(
@@ -411,5 +467,49 @@ describe
 
         let forth = await tester.pay_via(1, "declined");
         await tester.assert_routed_to(forth, 1, "declined");
+      }));
+
+    test.concurrent("min_conversion routes around an alias below it", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new DispatchingTester(ctx, 2, { min_conversion: 40 });
+        await tester.init();
+
+        // Both untried at 50%, above the bar, the tie keeps this on gc_0
+        let first = await tester.pay_declined_after_requisite(0);
+        await tester.assert_routed_to(first, 0, "declined");
+        await tester.await_settled(0, 1);
+
+        // gc_0 is 0/1 => 33%, under the bar, gc_1 is still at 50% and takes it
+        let second = await tester.pay_declined_after_requisite(1);
+        await tester.assert_routed_to(second, 1, "declined");
+        await tester.await_settled(1, 1);
+
+        // Both at 33% now, the best alias is under 40%: no gate is called at all
+        let third = await tester.pay_below_min_conversion();
+        await tester.assert_uncounted_refusal(third, 0, 40);
+      }));
+
+    test.concurrent("min_conversion stops a cascade instead of routing below it", ({
+      ctx,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let tester = new DispatchingTester(ctx, 2, {
+          cascade: true,
+          min_conversion: 40,
+        });
+        await tester.init();
+
+        // gc_0 refuses up front and gc_1 pays out: gc_0 0/1 => 33%, gc_1 1/1 => 67%
+        let first = await tester.pay_cascading(0, 1);
+        await tester.assert_routed_to(first, 1, "approved");
+        await tester.await_settled(0, 1);
+        await tester.await_settled(1, 1);
+
+        // gc_1 is the best and gets the payment, but refuses it. The only gate left is
+        // gc_0 at 33%, under the bar, so the decline stands and gc_0 is never called.
+        let second = await tester.pay_via(1, "declined");
+        await tester.assert_routed_to(second, 1, "declined");
       }));
   });
