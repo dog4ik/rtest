@@ -494,6 +494,83 @@ describe
 
         assert.strictEqual(res.card?.bank, "tbank", "tbank trader requisite");
       }));
+
+    test.concurrent("trader reservation cleans up after core declined", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", common.amount / 100);
+        await merchant.set_settings(traderSettings([trader.id]));
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        await ctx.core_change_status(res.token, "declined");
+        let res2 = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        let approved = merchant.queue_notification(() => {}, {
+          expect: { status: 1 },
+        });
+        await trader.finalizeTransaction(res2.token, "approved");
+        await approved;
+      }));
+
+    test.concurrent("trader reservation cleans up after expired", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let trader = await ctx.create_random_trader({
+          usdt: true,
+        });
+        await trader.setup({ card: true, bank: "sberbank" });
+        await trader.cashin("main", "USDT", common.amount / 100);
+        await merchant.set_settings(
+          traderSettings([trader.id], { pay_expired_minutes: 1 }),
+        );
+        await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        let expired = merchant.queue_notification(
+          (n) => {
+            assert.strictEqual(n.status, "expired");
+          },
+          {
+            skip_healthcheck: true,
+          },
+        );
+        await expired;
+        await delay(5_000);
+        let res2 = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("RUB", "card"),
+            amount: common.amount * STATIC_RATE,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        let approved = merchant.queue_notification(() => {}, {
+          expect: { status: 1 },
+        });
+        await trader.finalizeTransaction(res2.token, "approved");
+        await approved;
+      }));
   });
 
 describe

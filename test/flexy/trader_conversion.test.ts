@@ -116,11 +116,7 @@ class TraderDispatchingTester {
       } else {
         await trader.setup({ card: true, bank: BANKS[i] });
       }
-      await trader.cashin(
-        "main",
-        exchange ? "USDT" : CURRENCY,
-        common.amount,
-      );
+      await trader.cashin("main", exchange ? "USDT" : CURRENCY, common.amount);
       this.traders.push(trader);
     }
 
@@ -285,183 +281,179 @@ class TraderDispatchingTester {
     }
     if (counted !== undefined) {
       // Attempts written before the flag existed have no field and count
-      assert.strictEqual(
-        last.counted ?? true,
-        counted,
-        `${acq_alias} counted`,
-      );
+      assert.strictEqual(last.counted ?? true, counted, `${acq_alias} counted`);
     }
   }
 }
 
 function dispatching_tests(exchange: boolean) {
-    test.concurrent("a trader decline is recorded against the trader", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, { exchange });
-        await tester.init();
+  test.concurrent("a trader decline is recorded against the trader", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, { exchange });
+      await tester.init();
 
-        // The decline arrives in a trader callback, long after the gateway answered with
-        // a requisite, and has to replace the pending attempt rather than leave it
-        let declined = await tester.pay_via(0, "declined");
-        await tester.await_attempt(declined, 0, "declined", true);
+      // The decline arrives in a trader callback, long after the gateway answered with
+      // a requisite, and has to replace the pending attempt rather than leave it
+      let declined = await tester.pay_via(0, "declined");
+      await tester.await_attempt(declined, 0, "declined", true);
 
-        let approved = await tester.pay_via(1, "approved");
-        await tester.await_attempt(approved, 1, "approved", true);
-      }));
+      let approved = await tester.pay_via(1, "approved");
+      await tester.await_attempt(approved, 1, "approved", true);
+    }));
 
-    test.concurrent("the requisite comes from the trader the payment was dispatched to", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, { exchange });
-        await tester.init();
+  test.concurrent("the requisite comes from the trader the payment was dispatched to", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, { exchange });
+      await tester.init();
 
-        // Both untried, the tie keeps the payment on trader_0, which loses it
-        let first = await tester.pay_via(0, "declined");
-        await tester.assert_routed_to(first, 0);
-        await tester.await_attempt(first, 0, "declined");
+      // Both untried, the tie keeps the payment on trader_0, which loses it
+      let first = await tester.pay_via(0, "declined");
+      await tester.assert_routed_to(first, 0);
+      await tester.await_attempt(first, 0, "declined");
 
-        // trader_0 is 0/1 => 33%, so the payment moves to trader_1. The payin was created
-        // for trader_0's list, so the requisite and the hold must follow the move.
-        let second = await tester.pay_via(1, "approved");
-        await tester.assert_routed_to(second, 1);
-      }));
+      // trader_0 is 0/1 => 33%, so the payment moves to trader_1. The payin was created
+      // for trader_0's list, so the requisite and the hold must follow the move.
+      let second = await tester.pay_via(1, "approved");
+      await tester.assert_routed_to(second, 1);
+    }));
 
-    test.concurrent("the best converting trader keeps the traffic", ({ ctx }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 3, { exchange });
-        await tester.init();
+  test.concurrent("the best converting trader keeps the traffic", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 3, { exchange });
+      await tester.init();
 
-        let first = await tester.pay_via(0, "declined");
-        await tester.await_attempt(first, 0, "declined");
+      let first = await tester.pay_via(0, "declined");
+      await tester.await_attempt(first, 0, "declined");
 
-        // trader_0 is 0/1 => 33%, trader_1 and trader_2 tie at 50%, the list order wins
-        let second = await tester.pay_via(1, "approved");
-        await tester.await_attempt(second, 1, "approved");
+      // trader_0 is 0/1 => 33%, trader_1 and trader_2 tie at 50%, the list order wins
+      let second = await tester.pay_via(1, "approved");
+      await tester.await_attempt(second, 1, "approved");
 
-        // trader_1 is 1/1 => 67% and keeps it, even after losing one: 1/2 => 50% still
-        // ties with the untried trader_2 and comes first in the list
-        let third = await tester.pay_via(1, "declined");
-        await tester.await_attempt(third, 1, "declined");
+      // trader_1 is 1/1 => 67% and keeps it, even after losing one: 1/2 => 50% still
+      // ties with the untried trader_2 and comes first in the list
+      let third = await tester.pay_via(1, "declined");
+      await tester.await_attempt(third, 1, "declined");
 
-        let fourth = await tester.pay_via(1, "approved");
-        await tester.assert_routed_to(fourth, 1);
-      }));
+      let fourth = await tester.pay_via(1, "approved");
+      await tester.assert_routed_to(fourth, 1);
+    }));
 
-    test.concurrent("dispatches past every trader that lost a payment", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 3, { exchange });
-        await tester.init();
+  test.concurrent("dispatches past every trader that lost a payment", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 3, { exchange });
+      await tester.init();
 
-        let first = await tester.pay_via(0, "declined");
-        await tester.await_attempt(first, 0, "declined");
+      let first = await tester.pay_via(0, "declined");
+      await tester.await_attempt(first, 0, "declined");
 
-        // trader_0 is 0/1 => 33%, the payment moves to trader_1, which loses it too
-        let second = await tester.pay_via(1, "declined");
-        await tester.await_attempt(second, 1, "declined");
+      // trader_0 is 0/1 => 33%, the payment moves to trader_1, which loses it too
+      let second = await tester.pay_via(1, "declined");
+      await tester.await_attempt(second, 1, "declined");
 
-        // Both at 33%, the untried trader_2 at 50% gets the payment although it is last
-        // in the list and the payin was created for trader_0
-        let third = await tester.pay_via(2, "approved");
-        await tester.assert_routed_to(third, 2);
-      }));
+      // Both at 33%, the untried trader_2 at 50% gets the payment although it is last
+      // in the list and the payin was created for trader_0
+      let third = await tester.pay_via(2, "approved");
+      await tester.assert_routed_to(third, 2);
+    }));
 
-    test.concurrent("cascades to the next ranked trader when one has no requisite", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, {
-          exchange,
-          cascade: true,
-          without_requisite: [0],
-        });
-        await tester.init();
+  test.concurrent("cascades to the next ranked trader when one has no requisite", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, {
+        exchange,
+        cascade: true,
+        without_requisite: [0],
+      });
+      await tester.init();
 
-        // trader_0 wins the tie but has nothing to hand out, the payment cascades to
-        // trader_1 and the merchant only ever sees trader_1's requisite
-        let token = await tester.pay_via(1, "approved");
-        await tester.assert_routed_to(token, 1);
+      // trader_0 wins the tie but has nothing to hand out, the payment cascades to
+      // trader_1 and the merchant only ever sees trader_1's requisite
+      let token = await tester.pay_via(1, "approved");
+      await tester.assert_routed_to(token, 1);
 
-        // Both halves of the cascade are recorded, against the trader that earned them
-        await tester.await_attempt(token, 0, "declined", false);
-        await tester.await_attempt(token, 1, "approved", true);
+      // Both halves of the cascade are recorded, against the trader that earned them
+      await tester.await_attempt(token, 0, "declined", false);
+      await tester.await_attempt(token, 1, "approved", true);
 
-        // trader_0 is 0/1 => 33%, so the next payment starts on trader_1 directly
-        let next = await tester.pay_via(1, "approved");
-        await tester.assert_routed_to(next, 1);
-      }));
+      // trader_0 is 0/1 => 33%, so the next payment starts on trader_1 directly
+      let next = await tester.pay_via(1, "approved");
+      await tester.assert_routed_to(next, 1);
+    }));
 
-    test.concurrent("without accepted_only, a trader with no requisite drops out", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, {
-          exchange,
-          without_requisite: [0],
-        });
-        await tester.init();
+  test.concurrent("without accepted_only, a trader with no requisite drops out", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, {
+        exchange,
+        without_requisite: [0],
+      });
+      await tester.init();
 
-        let first = await tester.pay_refused();
-        await tester.assert_routed_to(first, 0);
-        await tester.await_attempt(first, 0, "declined", false);
+      let first = await tester.pay_refused();
+      await tester.assert_routed_to(first, 0);
+      await tester.await_attempt(first, 0, "declined", false);
 
-        // The refusal counts, trader_0 is 0/1 => 33% and trader_1 takes over
-        let second = await tester.pay_via(1, "approved");
-        await tester.assert_routed_to(second, 1);
-      }));
+      // The refusal counts, trader_0 is 0/1 => 33% and trader_1 takes over
+      let second = await tester.pay_via(1, "approved");
+      await tester.assert_routed_to(second, 1);
+    }));
 
-    test.concurrent("with accepted_only, a trader with no requisite stays in rotation", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, {
-          exchange,
-          accepted_only: true,
-          without_requisite: [0],
-        });
-        await tester.init();
+  test.concurrent("with accepted_only, a trader with no requisite stays in rotation", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, {
+        exchange,
+        accepted_only: true,
+        without_requisite: [0],
+      });
+      await tester.init();
 
-        let first = await tester.pay_refused();
-        await tester.assert_routed_to(first, 0);
-        await tester.await_attempt(first, 0, "declined", false);
+      let first = await tester.pay_refused();
+      await tester.assert_routed_to(first, 0);
+      await tester.await_attempt(first, 0, "declined", false);
 
-        // Never issued a requisite, so it is not scored: still tied, still first
-        let second = await tester.pay_refused();
-        await tester.assert_routed_to(second, 0);
-      }));
+      // Never issued a requisite, so it is not scored: still tied, still first
+      let second = await tester.pay_refused();
+      await tester.assert_routed_to(second, 0);
+    }));
 
-    test.concurrent("min_conversion declines when every trader converts below it", ({
-      ctx,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let tester = new TraderDispatchingTester(ctx, 2, {
-          exchange,
-          min_conversion: 40,
-        });
-        await tester.init();
+  test.concurrent("min_conversion declines when every trader converts below it", ({
+    ctx,
+  }) =>
+    ctx.track_bg_rejections(async () => {
+      let tester = new TraderDispatchingTester(ctx, 2, {
+        exchange,
+        min_conversion: 40,
+      });
+      await tester.init();
 
-        // Both untried at 50%, above the bar
-        let first = await tester.pay_via(0, "declined");
-        await tester.await_attempt(first, 0, "declined", true, true);
+      // Both untried at 50%, above the bar
+      let first = await tester.pay_via(0, "declined");
+      await tester.await_attempt(first, 0, "declined", true, true);
 
-        // trader_0 is 0/1 => 33%, under the bar, so trader_1 at 50% gets it
-        let second = await tester.pay_via(1, "declined");
-        await tester.assert_routed_to(second, 1);
-        await tester.await_attempt(second, 1, "declined", true, true);
+      // trader_0 is 0/1 => 33%, under the bar, so trader_1 at 50% gets it
+      let second = await tester.pay_via(1, "declined");
+      await tester.assert_routed_to(second, 1);
+      await tester.await_attempt(second, 1, "declined", true, true);
 
-        // Both at 33%: the payment is refused before any trader is asked for a
-        // requisite, and the refusal is kept out of trader_0's conversion
-        let third = await tester.pay_refused();
-        await tester.assert_routed_to(third, 0);
-        await tester.assert_declined_with(third, "below 40%");
-        await tester.await_attempt(third, 0, "declined", false, false);
-        let feed = await ctx.get_feed(third);
-        assert.isNull(feed.trader_id, "no trader was asked for a requisite");
-      }));
+      // Both at 33%: the payment is refused before any trader is asked for a
+      // requisite, and the refusal is kept out of trader_0's conversion
+      let third = await tester.pay_refused();
+      await tester.assert_routed_to(third, 0);
+      await tester.assert_declined_with(third, "below 40%");
+      await tester.await_attempt(third, 0, "declined", false, false);
+      let feed = await ctx.get_feed(third);
+      assert.isNull(feed.trader_id, "no trader was asked for a requisite");
+    }));
 }
 
 /**
@@ -672,7 +664,11 @@ describe
     async function await_settled_attempt(mid: number, tid: string) {
       return with_attempts(async (attempts) => {
         for (let i = 0; i < 60; i++) {
-          let attempt = await attempts.findOne({ mid, tid, acq_alias: "trader_0" });
+          let attempt = await attempts.findOne({
+            mid,
+            tid,
+            acq_alias: "trader_0",
+          });
           if (attempt && attempt.status !== "pending") {
             return attempt;
           }
@@ -738,7 +734,10 @@ describe
           let request = common.traderPaymentRequest(CURRENCY, REQUISITE_TYPE);
           let payment = await merchant.create_payment({
             ...request,
-            bank_account: { ...request.bank_account, bank_name: bank.system_name },
+            bank_account: {
+              ...request.bank_account,
+              bank_name: bank.system_name,
+            },
           });
           let approved = merchant.queue_notification((n) => {
             assert.strictEqual(n.status, "approved");

@@ -77,6 +77,27 @@ export type RedirectRequest = {
   }[];
 };
 
+type _RedirectRequest =
+  | {
+      type: "post";
+      url: string;
+      params: Record<string, any>;
+    }
+  | {
+      type: "get_with_processing" | "get";
+      url: string;
+    }
+  | {
+      type: "post_iframes";
+      iframes: [
+        {
+          url: string;
+          data: Record<string, any>;
+        },
+      ];
+    }
+  | { type: "redirect_html"; html: string };
+
 export type ConnectPayinResponse = {
   result: boolean;
   logs: InteractionLog[];
