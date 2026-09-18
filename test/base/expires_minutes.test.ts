@@ -1,3 +1,4 @@
+import { delay } from "@std/async";
 import { assert } from "vitest";
 import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
@@ -85,5 +86,50 @@ test
           },
           { skip_healthcheck: true },
         );
+      }),
+  );
+
+// 8pay runs business with EXPIRED_PAYOUT_DISABLED=true
+test
+  .runIf(CONFIG.in_project(["8pay"]))
+  .concurrent(
+    "expires_in setting does not expire payout",
+    { timeout: 180_000 },
+    async ({ merchant, ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        let payment = new GatewayConnectTransaction("manypay", {});
+        let settings = providers(CURRENCY, {
+          ...payment.settings(ctx.uuid),
+          payout_expired_minutes: 1,
+        });
+        await merchant.set_settings(settings);
+        await merchant.cashin(CURRENCY, common.amount / 100);
+        let gw = ctx.mock_server(payment.mock_params(ctx.uuid));
+        gw.queue(payment.basic_payout_handler("pending"));
+        for (let i = 0; i < 5; i++) {
+          gw.queue(payment.status_handler("pending"));
+        }
+
+        let notification = merchant.queue_notification(
+          (callback) => {
+            assert.fail(
+              `payout must not be finalized, got status ${callback.status}`,
+            );
+          },
+          { skip_healthcheck: true },
+        );
+
+        let payout = await merchant.create_payout(
+          common.payoutRequest(CURRENCY),
+        );
+        await payout.followFirstProcessingUrl().then((u) => u.as_raw_json());
+        let token = payout.token;
+
+        // expire worker fires after 1 minute + 30 seconds
+        await Promise.race([notification, delay(120_000)]);
+
+        let business_payment = await ctx.get_payment(token);
+        assert.notStrictEqual(business_payment.status, "expired");
+        assert.strictEqual(business_payment.status, "pending");
       }),
   );
