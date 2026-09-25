@@ -221,6 +221,11 @@ where feeds.reference_token = '${token}'`;
     return await this.fetch_optional(z.object({ id: z.number() }), query);
   }
 
+  async set_profile_locale(profile_id: number, locale: string) {
+    let query = `update profiles set locale = '${locale}' where id = '${profile_id}' returning id`;
+    return await this.fetch_optional(z.object({ id: z.number() }), query);
+  }
+
   async entries(token: string) {
     let entrySelect =
       "SELECT entries.amount, entries.operation_code, entries.debit_wallet_id, entries.credit_wallet_id, entries.created_at FROM feeds \

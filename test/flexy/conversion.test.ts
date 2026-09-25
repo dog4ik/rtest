@@ -87,7 +87,7 @@ class DispatchingTester {
   private makeRule(mid: number, i: number) {
     return {
       header: {
-        mid,
+        mid: CONFIG.in_project("spinpay") ? mid.toString() : mid,
         acq_alias: this.alias(i),
         type: "pay",
       },
@@ -307,7 +307,7 @@ class DispatchingTester {
 }
 
 describe
-  .runIf(CONFIG.in_project("reactivepay"))
+  .runIf(CONFIG.in_project(["reactivepay", "spinpay"]))
   .concurrent("conversion dispatching tests", () => {
     test.concurrent("dispatches to the best converting alias", ({ ctx }) =>
       ctx.track_bg_rejections(async () => {

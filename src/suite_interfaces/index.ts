@@ -336,7 +336,7 @@ export function payformDataFlowTest<T extends PayformDataFlow>(
 
           await page.goto(redirectUrl);
           await page.waitForLoadState("networkidle");
-          await ctx.annotate("Payform screenshot", {
+          await ctx.annotate(`Payform screenshot (${page.url()})`, {
             contentType: "image/png",
             body: await page.screenshot(),
           });

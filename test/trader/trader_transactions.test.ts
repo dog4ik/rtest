@@ -410,43 +410,35 @@ test
 
 test
   .runIf(CONFIG.in_project("reactivepay"))
-  .concurrent(
-    "TRY trader 2 requisites with the same amount",
-    ({ ctx, merchant }) =>
-      ctx.track_bg_rejections(async () => {
-        let trader = await ctx.create_random_trader({
-          usdt: false,
-          currency: "TRY",
-        });
-        await trader.setup({ card: true, bank: "sberbank" });
-        let transactions_amount = 2;
-        let amount = 10000;
-        await trader.cashin(
-          "main",
-          "TRY",
-          transactions_amount * (amount / 100),
-        );
-        await merchant.set_settings(
-          traderNoConvertSettings("TRY", [trader.id]),
-        );
+  // this test no longer relevant, TRY currency no longer an exception
+  .skip("TRY trader 2 requisites with the same amount", ({ ctx, merchant }) =>
+    ctx.track_bg_rejections(async () => {
+      let trader = await ctx.create_random_trader({
+        usdt: false,
+        currency: "TRY",
+      });
+      await trader.setup({ card: true, bank: "sberbank" });
+      let transactions_amount = 2;
+      let amount = 10000;
+      await trader.cashin("main", "TRY", transactions_amount * (amount / 100));
+      await merchant.set_settings(traderNoConvertSettings("TRY", [trader.id]));
 
-        for (let _ of [...new Array(transactions_amount)]) {
-          let res = await merchant
-            .create_payment({
-              ...common.traderPaymentRequest("TRY", "card"),
-              amount,
-            })
-            .then((r) => r.followFirstProcessingUrl())
-            .then((r) => r.as_trader_requisites());
-          if (res) {
-            assert(res.card, "card filed should not be empty");
-            assert.strictEqual(res.card.pan, common.visaCard);
-            assert.strictEqual(res.card.bank, "sberbank");
-            assert.strictEqual(res.card.name, common.fullName);
-          }
+      for (let _ of [...new Array(transactions_amount)]) {
+        let res = await merchant
+          .create_payment({
+            ...common.traderPaymentRequest("TRY", "card"),
+            amount,
+          })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_trader_requisites());
+        if (res) {
+          assert(res.card, "card filed should not be empty");
+          assert.strictEqual(res.card.pan, common.visaCard);
+          assert.strictEqual(res.card.bank, "sberbank");
+          assert.strictEqual(res.card.name, common.fullName);
         }
-      }),
-  );
+      }
+    }));
 
 test
   .runIf(CONFIG.in_project("reactivepay"))

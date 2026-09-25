@@ -33,6 +33,7 @@ const DEFAULT_URLS = {
   trader: "http://localhost:4080",
   trader_sms: "http://localhost:5070",
   pixelwave: "http://localhost:4207",
+  gcgcgen: "http://localhost:64476",
   postgres: {
     core: {
       ...DEFAULT_POSTGRES_CREDS,
@@ -137,6 +138,7 @@ const URLS_SCHEMA = z
     trader: z.string().default(DEFAULT_URLS.trader),
     trader_sms: z.string().default(DEFAULT_URLS.trader_sms),
     pixelwave: z.string().default(DEFAULT_URLS.pixelwave),
+    gcgcgen: z.string().default(DEFAULT_URLS.gcgcgen),
     postgres: z
       .strictObject({
         core: postgresDbSchema(DEFAULT_URLS.postgres.core.database),

@@ -101,7 +101,7 @@ test
 
 test
   .runIf(CONFIG.in_project(["reactivepay", "spinpay", "8pay"]))
-  .only(
+  .concurrent(
     "concurrent approved callback & approved status",
     { timeout: 60_000 },
     async ({ merchant, ctx }) =>

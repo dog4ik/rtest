@@ -1091,7 +1091,7 @@ describe
                 pn: common.fullName,
                 am: expected_amount,
                 cu: "INR",
-                tn: res.token,
+                tn: "test product",
               },
               `${platform}.${app}: payment params`,
             );

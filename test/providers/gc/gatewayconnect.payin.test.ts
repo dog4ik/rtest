@@ -14,6 +14,7 @@ import {
   payinSuite,
   SETTINGS_INTERNAL_SECRET_KEY,
 } from "@/provider_mocks/gateway_connect";
+import { SettingsBuilder } from "@/settings_builder";
 import {
   callbackFinalizationSuite,
   dataFlowTest,
@@ -540,6 +541,33 @@ dataFlowTest("link", {
     }
   },
 });
+
+dataFlowTest(
+  "account",
+  {
+    ...requisitesP2PSuite("account"),
+    request: () => ({
+      ...common.p2pPaymentRequest("RUB", "account"),
+      bank_account: {
+        account_number: common.accountNumber,
+        bank_name: common.bankName,
+        requisite_type: "account",
+      },
+    }),
+    async check_merchant_response(data) {
+      let response = await data.processing_response?.as_trader_requisites();
+      assert.strictEqual(response?.account?.number, common.accountNumber);
+      assert.strictEqual(response?.account?.bank, common.bankName);
+      assert.strictEqual(response?.account?.name, common.fullName);
+      let bank_account = this.gw.payin_request?.params.bank_account;
+      assert(bank_account, "gc integartion should receive bank_account");
+      assert.strictEqual(bank_account?.bank_name, common.bankName);
+      assert.strictEqual(bank_account?.requisite_type, "account");
+      assert.strictEqual(bank_account?.account_number, common.accountNumber);
+    },
+  },
+  { skip_if: CONFIG.in_project("8pay") },
+);
 
 describe
   .runIf(CONFIG.in_project("8pay"))
@@ -1198,6 +1226,70 @@ describe
       },
       { browser_url_target: "selectorUrl", skip_if: true },
     );
+
+    test.only(
+      "ru-RU browser locale shows russian on routed payform",
+      { timeout: 75_000 },
+      ({ ctx, chrome }) =>
+        ctx.track_bg_rejections(async () => {
+          let first = payinSuite(undefined, crypto.randomUUID());
+          let second = payinSuite(undefined, crypto.randomUUID());
+          let third = payinSuite(undefined, crypto.randomUUID());
+
+          let merchant = await ctx.create_random_merchant();
+          await merchant.set_settings(
+            new SettingsBuilder()
+              .addP2P("KZT", "link_0", "link_0")
+              .withGateway({ ...first.settings(ctx.uuid) }, "link_0")
+              .withGateway(second.settings(ctx.uuid), "link_1")
+              .withGateway({ ...third.settings(ctx.uuid) }, "link_2")
+              .build(),
+          );
+
+          let rules = ctx.routing_builder(merchant.id, "link_0");
+          rules.addStatusRoute("link_1");
+          rules.addStatusRoute("link_2");
+          await rules.save();
+
+          let first_mock = ctx.mock_server(first.mock_options(ctx.uuid));
+          let second_mock = ctx.mock_server(second.mock_options(ctx.uuid));
+          let third_mock = ctx.mock_server(third.mock_options(ctx.uuid));
+          let chain = [
+            first_mock.queue(first.gw.basic_payin_handler("declined")),
+            second_mock.queue(second.gw.basic_payin_handler("declined")),
+            third_mock.queue(
+              third.gw.requisites_payin_handler("pending", "card"),
+            ),
+          ];
+
+          let response = await merchant.create_payment({
+            ...common.p2pPaymentRequest("KZT", "card"),
+          });
+          await ctx.annotate(response.selectorUrl ?? "");
+          assert(response.selectorUrl, "selector url is empty");
+
+          let browser_context = await chrome.newContext({ locale: "ru-RU" });
+          let page = await browser_context.newPage();
+          await page.setViewportSize({ width: 1920, height: 1820 });
+          await page.goto(response.selectorUrl);
+          await page.waitForLoadState("networkidle");
+          await ctx.annotate("Routed payform screenshot", {
+            contentType: "image/png",
+            body: await page.screenshot(),
+          });
+
+          let form = new SpinpayRequisitesPage(page);
+          await form.validateLanguage("ru");
+          await form.validateRequisites({
+            type: "card",
+            number: common.visaCard,
+            bank: undefined,
+            amount: common.amount,
+            name: common.fullName,
+          });
+          await Promise.all(chain);
+        }),
+    );
   });
 
 describe.concurrent("providers redirect_request", () => {
@@ -1683,7 +1775,7 @@ describe.concurrent("commission healthcheck payins", () => {
 
 describe
   .runIf(CONFIG.in_project(["reactivepay"]))
-  .only("custom_requisite_fields gc setting", () => {
+  .concurrent("custom_requisite_fields gc setting", () => {
     function testSuite(): P2PSuite<GatewayConnectTransaction> {
       let suite = payinSuite();
       return providersSuite("RUB", {

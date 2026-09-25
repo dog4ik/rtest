@@ -117,8 +117,13 @@ export function commonSettings(alias: string, secret: string) {
         status: {
           params_fields: {
             params: ["gateway_token", "token", "merchant_private_key"],
-            payment: ["gateway_token", "token", "extra_return_param"],
-            refund: ["amount", "gateway_amount", "token"],
+            payment: [
+              "gateway_token",
+              "token",
+              "extra_return_param",
+              "operation_type",
+            ],
+            refund: ["amount", "gateway_amount", "token", "operation_type"],
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
         },
@@ -126,8 +131,14 @@ export function commonSettings(alias: string, secret: string) {
           enable_status_checker: true,
           params_fields: {
             params: ["gateway_token", "token", "merchant_private_key"],
-            payment: ["gateway_token", "token", "currency"],
-            refund: ["amount", "token"],
+            payment: ["gateway_token", "token", "gateway_currency", "currency"],
+            refund: [
+              "gateway_amount",
+              "gateway_currency",
+              "amount",
+              "currency",
+              "merchant_private_key",
+            ],
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },
         },
@@ -203,7 +214,7 @@ export class GatewayConnectTransaction {
       return c.json({
         status,
         amount: common.amount,
-        currency: "RUB",
+        currency: this.payin_request.payment.gateway_currency,
         details: status === "declined" ? "Test error message" : undefined,
         result: true,
         gateway_token: this.gateway_id,
