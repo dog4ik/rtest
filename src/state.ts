@@ -44,6 +44,7 @@ export async function initState(config: Config) {
   let settings_service = new SettingsDriver(
     urls.settings,
     credentials.settings_credentials,
+    config.project,
   );
 
   let commission_service = new FlexyCommission(

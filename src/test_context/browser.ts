@@ -1,13 +1,13 @@
 import * as playwright from "playwright";
-import { CONFIG, DEFAULT_CONFIG } from "@/config";
+import { CONFIG } from "@/config";
 
 export async function createBrowser() {
   let chromium = playwright.chromium;
-  if (CONFIG.browser?.ws_url) {
+  if (CONFIG.browser.ws_url) {
     return await chromium.connect(CONFIG.browser.ws_url);
   } else {
     let server = await chromium.launchServer({
-      headless: CONFIG.browser?.headless ?? DEFAULT_CONFIG.browser.headless,
+      headless: CONFIG.browser.headless,
     });
     return await chromium.connect(server.wsEndpoint());
   }

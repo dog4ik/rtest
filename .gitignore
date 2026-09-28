@@ -3,3 +3,4 @@ node_modules
 configuration.toml
 allure-results
 allure-report
+*.bak

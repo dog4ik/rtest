@@ -13,6 +13,7 @@ export default defineConfig({
     slowTestThreshold: 60_000,
     exclude: ["dist/**/*", "node_modules/**/*"],
     watch: false,
+    globalSetup: ["./test/global_setup.ts"],
     testTimeout: 90_000,
     projects: [
       {
