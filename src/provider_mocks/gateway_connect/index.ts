@@ -138,6 +138,7 @@ export function commonSettings(alias: string, secret: string) {
               "amount",
               "currency",
               "merchant_private_key",
+              "token",
             ],
             settings: [SETTINGS_INTERNAL_SECRET_KEY],
           },

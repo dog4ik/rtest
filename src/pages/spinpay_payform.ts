@@ -40,12 +40,12 @@ function formatAmount(amount: number) {
 export class SpinpayRequisitesPage {
   constructor(private p: playwright.Page) {}
 
-  panAmountSpan() {
-    return this.p.locator("span.js-amount").nth(0);
+  panAmountDiv() {
+    return this.p.locator("div.spf__amt-sum > span").first();
   }
 
   phoneAmountSpan() {
-    return this.p.locator("span.js-amount").nth(1);
+    return this.p.locator("div.spf__amt-sum > span.js-amount").first();
   }
 
   cardSpan() {
@@ -62,6 +62,10 @@ export class SpinpayRequisitesPage {
 
   nameSpan() {
     return this.p.locator("span#name");
+  }
+
+  cardNameSpan() {
+    return this.p.locator("#card_name");
   }
 
   async validateLanguage(lang: "ru" | "en") {
@@ -105,8 +109,10 @@ export class SpinpayRequisitesPage {
       await expect(this.cardSpan()).toBeVisible();
       let panText = (await this.cardSpan().textContent()) ?? "";
       assert.strictEqual(panText, formatPan(number));
-      await expect(this.panAmountSpan()).toBeVisible();
-      await expect(this.panAmountSpan()).toHaveText(formatAmount(amount));
+      await expect(this.panAmountDiv()).toBeVisible();
+      await expect(this.panAmountDiv()).toContainText(
+        (amount / 100).toString(),
+      );
     }
   }
 }

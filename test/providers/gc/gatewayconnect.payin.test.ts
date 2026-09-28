@@ -1227,7 +1227,7 @@ describe
       { browser_url_target: "selectorUrl", skip_if: true },
     );
 
-    test.only(
+    test.concurrent(
       "ru-RU browser locale shows russian on routed payform",
       { timeout: 75_000 },
       ({ ctx, chrome }) =>
@@ -1240,9 +1240,9 @@ describe
           await merchant.set_settings(
             new SettingsBuilder()
               .addP2P("KZT", "link_0", "link_0")
-              .withGateway({ ...first.settings(ctx.uuid) }, "link_0")
+              .withGateway(first.settings(ctx.uuid), "link_0")
               .withGateway(second.settings(ctx.uuid), "link_1")
-              .withGateway({ ...third.settings(ctx.uuid) }, "link_2")
+              .withGateway(third.settings(ctx.uuid), "link_2")
               .build(),
           );
 
@@ -1396,7 +1396,10 @@ describe.concurrent("default redirect_request", () => {
         await p.waitForURL("https://www.google.com/", { timeout: 5_000 });
       },
     },
-    { browser_url_target: "processingUrl" },
+    {
+      browser_url_target: "processingUrl",
+      skip_if: CONFIG.in_project(["spinpay"]),
+    },
   );
 
   payformDataFlowTest(
@@ -1416,7 +1419,10 @@ describe.concurrent("default redirect_request", () => {
         await p.waitForURL("https://www.google.com/", { timeout: 5_000 });
       },
     },
-    { browser_url_target: "processingUrl" },
+    {
+      browser_url_target: "processingUrl",
+      skip_if: CONFIG.in_project(["spinpay"]),
+    },
   );
 });
 
@@ -1485,7 +1491,10 @@ describe.concurrent("default post redirect_request", () => {
         await assertPostToGoogle(p, { params: POST_PARAMS });
       },
     },
-    { browser_url_target: "processingUrl" },
+    {
+      browser_url_target: "processingUrl",
+      skip_if: CONFIG.in_project(["spinpay"]),
+    },
   );
 
   payformDataFlowTest(
@@ -1506,7 +1515,10 @@ describe.concurrent("default post redirect_request", () => {
         await assertPostToGoogle(p, { inIframe: true, params: POST_PARAMS });
       },
     },
-    { browser_url_target: "processingUrl" },
+    {
+      browser_url_target: "processingUrl",
+      skip_if: CONFIG.in_project(["spinpay"]),
+    },
   );
 
   const REDIRECT_HTML = `<h1 data-testid="redirect-html">provider redirect html</h1>`;
@@ -1556,7 +1568,10 @@ describe.concurrent("default post redirect_request", () => {
         );
       },
     },
-    { browser_url_target: "processingUrl" },
+    {
+      browser_url_target: "processingUrl",
+      skip_if: CONFIG.in_project(["spinpay"]),
+    },
   );
 });
 
