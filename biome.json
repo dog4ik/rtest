@@ -23,7 +23,8 @@
         "noExplicitAny": "off"
       },
       "complexity": {
-        "noBannedTypes": "off"
+        "noBannedTypes": "off",
+        "noCommaOperator": "off"
       }
     }
   },

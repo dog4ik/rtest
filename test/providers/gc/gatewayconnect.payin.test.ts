@@ -2019,6 +2019,7 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
       settings: (s) => {
         let settings = suite.settings(s);
         let { full_link, gateway_key } = settings.gateway_settings;
+        settings.payment_method = "card";
         settings.gateway_settings = {
           bypass_processing_url: true,
           callback: true,
@@ -2030,7 +2031,14 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
               enable_status_checker: true,
               final_waiting_seconds: 10,
               params_fields: {
-                params: ["pan", "custom_field", "expires", "holder", "cvv"],
+                params: [
+                  "pan",
+                  "bank_account",
+                  "custom_field",
+                  "expires",
+                  "holder",
+                  "cvv",
+                ],
                 payment: ["gateway_currency", "gateway_amount"],
                 settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
               },
@@ -2135,42 +2143,34 @@ test.skip("test gateway connect payin", ({ ctx }) =>
 
     let provider_request = provider.queue(async (c) =>
       c.json({
-        status: "approved",
+        status: "pending",
         amount: common.amount,
         currency: "RUB",
         details: undefined,
         result: true,
         gateway_token: suite.gw.gateway_id,
+        requisites: {
+          pan: common.visaCard,
+          holder: common.fullName,
+          bank_name: common.bankName,
+        },
         logs: [],
-      }),
-    );
-
-    let status_request = provider.queue(async (c) =>
-      c.json({
-        status: "approved",
-        amount: common.amount,
-        currency: "RUB",
-        details: undefined,
-        logs: [],
-        result: true,
       }),
     );
 
     await merchant
-      .create_payment({ ...suite.request(), custom_field: "foo" })
-      .then((r) => r.followFirstProcessingUrl());
+      .create_payment({
+        ...suite.request(),
+        bank_account: {
+          number: common.accountNumber,
+          requisite_type: "sbp",
+        },
+        custom_field: "foo",
+      })
+      .then((r) => r.followFirstProcessingUrl())
+      .then((r) => r.as_trader_requisites());
 
     await provider_request;
-
-    let notification = merchant.queue_notification(
-      (cb) => {
-        assert.strictEqual(cb.status, "approved");
-      },
-      { skip_interaction_log_card_check: true },
-    );
-
-    await status_request;
-    await notification;
   }));
 
 test.skip("test gateway connect payout", ({ ctx }) =>

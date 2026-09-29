@@ -20,6 +20,7 @@ import { DisputeResponse } from "./payment/dispute_response";
 import { PayinResponse } from "./payment/payin_response";
 import { PayoutResponse } from "./payment/payout_response";
 import { RefundResponse } from "./payment/refund_response";
+import { TransactionStatusResponse } from "./payment/status_response";
 
 export type DisputeRequest = {
   token: string;
@@ -148,6 +149,23 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     } catch {}
 
     return res;
+  }
+
+  async function fetch_status(token: string) {
+    let url = `${business_url}/api/v1/payments/${token}`;
+    let curl = new CurlBuilder(url, "GET")
+      .header("authorization", `Bearer ${merchant.merchant_private_key}`)
+      .build();
+    ctx.story.add_chapter("Fetch payment status", curl);
+    return await fetch(url, {
+      method: "GET",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${merchant.merchant_private_key}`,
+      },
+    })
+      .then(err_bad_status)
+      .then(async (r) => new TransactionStatusResponse(ctx, r, await r.json()));
   }
 
   async function create_refund(request: RefundRequest) {
@@ -363,27 +381,37 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     cashin,
     cashout,
     set_settings,
+
     create_payment_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req),
     create_payment: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_ok()),
     create_payment_err: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payment(req).then((r) => r.as_error().as_common_error()),
+
     create_payout_raw: <T extends MerchantRequest = PaymentRequest>(req: T) =>
       create_payout(req),
     create_payout: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_ok()),
     create_payout_err: <T extends MerchantRequest = PayoutResponse>(req: T) =>
       create_payout(req).then((r) => r.as_error().as_common_error()),
+
     create_refund: (req: RefundRequest) =>
       create_refund(req).then((r) => r.as_ok()),
     create_refund_err: (req: RefundRequest) =>
       create_refund(req).then((r) => r.as_error()),
+
     create_dispute: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_ok()),
     create_dispute_raw: (req: DisputeRequest) => create_dispute(req),
     create_dispute_err: (req: DisputeRequest) =>
       create_dispute(req).then((r) => r.as_error().as_common_error()),
+
+    fetch_status: (token: string) => fetch_status(token).then((r) => r.as_ok()),
+    fetch_status_raw: (token: string) => fetch_status(token),
+    fetch_status_err: (token: string) =>
+      fetch_status(token).then((r) => r.as_error().as_common_error()),
+
     queue_notification,
     queue_refund_or_pay_notification,
     callbackUrl,
