@@ -11,17 +11,6 @@ export class ProjectDir {
   dockerComposePath() {
     return path.resolve(this.path, "docker-compose.yml");
   }
-
-  businessProductionRbPath() {
-    return path.resolve(
-      this.path,
-      "services",
-      "business",
-      "config",
-      "environments",
-      "production.rb",
-    );
-  }
 }
 
 const PROJECT_DIR_MAP: Record<Project | string, string> = {

@@ -19,6 +19,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
   },
-  "include": ["src", "test", "patch", "banking", "scripts"],
+  "include": ["src", "test", "banking", "scripts"],
   "exclude": ["node_modules"]
 }

@@ -15,7 +15,8 @@
   "scripts": {
     "test": "vitest --ui --watch --project default",
     "test:all": "vitest --ui --watch --project all",
-    "patch": "tsx ./patch/index.ts",
+    "start": "tsx ./scripts/start.ts",
+    "compose": "tsx ./scripts/compose.ts",
     "init": "tsx ./scripts/init.ts",
     "healthcheck": "tsx ./scripts/healthcheck.ts",
     "rate": "tsx ./scripts/rate.ts",

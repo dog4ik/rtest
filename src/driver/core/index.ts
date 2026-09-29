@@ -93,11 +93,9 @@ const TimeFormatter = new Intl.DateTimeFormat("en-GB", {
 export class CoreDriver {
   cookies: string | null;
   base_url: string;
-  docker_compose_path: string;
-  constructor(base_url: string, docker_compose_path?: string) {
+  constructor(base_url: string) {
     this.cookies = "";
     this.base_url = `${base_url}/manage`;
-    this.docker_compose_path = docker_compose_path ?? "";
   }
 
   private async action(

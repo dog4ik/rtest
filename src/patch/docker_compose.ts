@@ -43,15 +43,15 @@ function makeDependency(
   return [name, { condition }];
 }
 
-export function patchedDockerCompose(
-  dockerCompose: string,
+/**
+ * Mutates parsed docker compose document so the project is testable.
+ */
+export function patchComposeDoc(
+  doc: Record<string, any>,
   { patch_volumes, mock_rate }: Config,
-): string {
-  console.log("raw document", dockerCompose);
-  const doc = yaml.parse(dockerCompose) as Record<string, any>;
-  console.log("yaml document:", JSON.stringify(doc, null, 2));
-
+) {
   const services = doc.services;
+  doc.volumes ??= {};
   const volumes = doc.volumes;
 
   // Patch postgres
@@ -133,7 +133,6 @@ export function patchedDockerCompose(
   // Patch core
   const core = services.core;
   if (core) {
-    console.log({ core });
     let environment = core.environment;
     let threads = "RAILS_MAX_THREADS=20";
     if (Array.isArray(environment) && !environment.includes(threads)) {
@@ -170,6 +169,12 @@ export function patchedDockerCompose(
       }
     }
   }
+}
 
+export function parseDockerCompose(dockerCompose: string) {
+  return yaml.parse(dockerCompose) as Record<string, any>;
+}
+
+export function stringifyDockerCompose(doc: Record<string, any>) {
   return yaml.stringify(doc);
 }

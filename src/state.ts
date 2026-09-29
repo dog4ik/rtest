@@ -16,7 +16,7 @@ import { FlexyGuardHarness } from "./driver/flexy_guard";
 import { SettingsDriver } from "./driver/settings";
 import { MockServerState } from "./mock_server";
 import { readProductionRb } from "./patch/production_file";
-import { ProjectDir } from "./patch/project_dir";
+import { BUSINESS_PRODUCTION_RB, generatedFilePath } from "./patch/runtime";
 import { GC_MAPPING_KEY, GC_MOCK_PORT } from "./provider_mocks/gateway_connect";
 import {
   RATE_MAPPING_KEY,
@@ -36,8 +36,7 @@ export async function initState(config: Config) {
   let p = config.project;
   let urls = projectUrls(config);
   let business_url = urls.business;
-  let project_dir = new ProjectDir(config);
-  let core_harness = new CoreDriver(urls.core, project_dir.dockerComposePath());
+  let core_harness = new CoreDriver(urls.core);
 
   let credentials = projectCredentials(config);
 
@@ -65,7 +64,13 @@ export async function initState(config: Config) {
       connectPool(postgresConnection(config, "business")),
       connectPool(postgresConnection(config, "settings")),
       fs
-        .readFile(project_dir.businessProductionRbPath())
+        .readFile(generatedFilePath(config, BUSINESS_PRODUCTION_RB))
+        .catch((e) => {
+          throw Error(
+            "Generated production.rb is missing, start the project with `npm run start` first",
+            { cause: e },
+          );
+        })
         .then((b) => b.toString())
         .then(readProductionRb),
       createBrowser(),

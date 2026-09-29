@@ -4,3 +4,4 @@ configuration.toml
 allure-results
 allure-report
 *.bak
+.generated
