@@ -178,8 +178,10 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
     });
   });
 
-  test.concurrent("settings are not set", async ({ ctx, merchant }) => {
+  test.concurrent("settings for currency are not set", async ({ ctx }) => {
     await ctx.track_bg_rejections(async () => {
+      let merchant = await ctx.create_random_merchant();
+      await merchant.set_settings(default_provider.fullSettings("RUB"));
       let err = await merchant.create_payment_err(common.paymentRequest("KRW"));
 
       err.assert_strict_error([
