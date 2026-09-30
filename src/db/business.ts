@@ -142,6 +142,28 @@ where merchant_settings.external_id = '${external_id}';
     );
   }
 
+  async unique_order_number(external_id: number): Promise<boolean | undefined> {
+    let query = `select is_unique_order_number from merchant_settings where external_id = '${external_id}'`;
+    return await this.fetch_optional(
+      z.object({ is_unique_order_number: z.boolean() }),
+      query,
+    ).then((r) => r?.is_unique_order_number);
+  }
+
+  /**
+   * Wait until business applies the unique order number flag.
+   */
+  async wait_for_unique_order_number(external_id: number, expected: boolean) {
+    let deadline = Date.now() + SETTINGS_SYNC_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if ((await this.unique_order_number(external_id)) === expected) return;
+      await delay(SETTINGS_POLL_MS);
+    }
+    throw Error(
+      `Failed to wait until is_unique_order_number=${expected} for ${external_id}`,
+    );
+  }
+
   /**
    * Wait until business applies a settings change.
    */

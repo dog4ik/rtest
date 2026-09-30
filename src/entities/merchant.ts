@@ -5,6 +5,7 @@ import type { PaymentRequest, PayoutRequest, RefundRequest } from "@/common";
 import type { PrimeBusinessStatus } from "@/db/business";
 import type { Merchant } from "@/db/core";
 import type { CreateRuleFormData } from "@/driver/flexy_commission";
+import type { MerchantSettingsOpts } from "@/driver/settings";
 import { err_bad_status } from "@/fetch_utils";
 import { RuleBuilder } from "@/flexy_guard_builder";
 import type { HealthcheckOpts } from "@/healthcheck";
@@ -16,6 +17,7 @@ import {
   NOTIFICATION_SCHEMA,
   type Notification,
 } from "./merchant_notification";
+import { WalletBalanceResponse } from "./payment/balance_response";
 import { DisputeResponse } from "./payment/dispute_response";
 import { PayinResponse } from "./payment/payin_response";
 import { PayoutResponse } from "./payment/payout_response";
@@ -95,15 +97,32 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
    * Changing settings is async operation.
    * Do not expect consistent results when changing settings for the same merchant concurrently!
    */
-  async function set_settings(settings: Record<string, any>) {
+  async function set_settings(
+    settings: Record<string, any>,
+    opts?: MerchantSettingsOpts,
+  ) {
     let business_db = ctx.shared_state().business_db;
     let current = await settings_db.merchant_settings(merchant.id);
     let revision = await business_db.settings_revision(merchant.id);
 
-    await settings_service.edit(current.id, current.external_id, settings);
+    await settings_service.edit(
+      current.id,
+      current.external_id,
+      settings,
+      opts,
+    );
 
-    ctx.story.add_chapter(`Set MID ${merchant.id} settings`, settings);
+    ctx.story.add_chapter(`Set MID ${merchant.id} settings`, {
+      settings,
+      ...opts,
+    });
     await business_db.wait_for_settings_update(merchant.id, revision);
+    if (opts?.unique_order_number !== undefined) {
+      await business_db.wait_for_unique_order_number(
+        merchant.id,
+        opts.unique_order_number,
+      );
+    }
   }
 
   function callbackUrl() {
@@ -152,7 +171,7 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
   }
 
   async function fetch_status(token: string) {
-    let url = `${business_url}/api/v1/payments/${token}`;
+    let url = `${business_url}/api/v1/payments/${encodeURIComponent(token)}`;
     let curl = new CurlBuilder(url, "GET")
       .header("authorization", `Bearer ${merchant.merchant_private_key}`)
       .build();
@@ -166,6 +185,23 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     })
       .then(err_bad_status)
       .then(async (r) => new TransactionStatusResponse(ctx, r, await r.json()));
+  }
+
+  async function fetch_balance(currency: string) {
+    let url = `${business_url}/api/v1/balance?currency=${encodeURIComponent(currency)}`;
+    let curl = new CurlBuilder(url, "GET")
+      .header("authorization", `Bearer ${merchant.merchant_private_key}`)
+      .build();
+    ctx.story.add_chapter("Fetch merchant balance", curl);
+    return await fetch(url, {
+      method: "GET",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${merchant.merchant_private_key}`,
+      },
+    })
+      .then(err_bad_status)
+      .then(async (r) => new WalletBalanceResponse(ctx, r, await r.json()));
   }
 
   async function create_refund(request: RefundRequest) {
@@ -411,6 +447,10 @@ export function extendMerchant(ctx: Context, merchant: Merchant) {
     fetch_status_raw: (token: string) => fetch_status(token),
     fetch_status_err: (token: string) =>
       fetch_status(token).then((r) => r.as_error().as_common_error()),
+
+    fetch_balance: (currency: string) =>
+      fetch_balance(currency).then((r) => r.as_ok()),
+    fetch_balance_raw: (currency: string) => fetch_status(currency),
 
     queue_notification,
     queue_refund_or_pay_notification,

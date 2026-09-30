@@ -2019,7 +2019,7 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
       settings: (s) => {
         let settings = suite.settings(s);
         let { full_link, gateway_key } = settings.gateway_settings;
-        settings.payment_method = "card";
+        settings.requisite_type = "card";
         settings.gateway_settings = {
           bypass_processing_url: true,
           callback: true,
@@ -2040,7 +2040,11 @@ function h2hSuite(): P2PSuite<GatewayConnectTransaction> {
                   "cvv",
                 ],
                 payment: ["gateway_currency", "gateway_amount"],
-                settings: [SETTINGS_INTERNAL_SECRET_KEY, "api_key"],
+                settings: [
+                  SETTINGS_INTERNAL_SECRET_KEY,
+                  "api_key",
+                  "requisite_type",
+                ],
               },
             },
             payout: {
@@ -2139,7 +2143,6 @@ test.skip("test gateway connect payin", ({ ctx }) =>
     let merchant = await ctx.create_random_merchant();
     await merchant.set_settings(suite.settings(ctx.uuid));
     let provider = ctx.mock_server(suite.mock_options(ctx.uuid));
-    await merchant.set_commission({ self_rate: "10", provider_rate: "5" });
 
     let provider_request = provider.queue(async (c) =>
       c.json({
@@ -2161,11 +2164,7 @@ test.skip("test gateway connect payin", ({ ctx }) =>
     await merchant
       .create_payment({
         ...suite.request(),
-        bank_account: {
-          number: common.accountNumber,
-          requisite_type: "sbp",
-        },
-        custom_field: "foo",
+        card: undefined,
       })
       .then((r) => r.followFirstProcessingUrl())
       .then((r) => r.as_trader_requisites());

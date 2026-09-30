@@ -13,6 +13,10 @@ const ASSET_SCHEMA = z.object({
 
 export type Asset = z.infer<typeof ASSET_SCHEMA>;
 
+export type MerchantSettingsOpts = {
+  unique_order_number?: boolean;
+};
+
 export class SettingsDriver {
   private base_url: string;
   private cookies: string | null;
@@ -59,7 +63,12 @@ export class SettingsDriver {
     }
   }
 
-  async edit(user_id: number, external_id: number, settings: {}) {
+  async edit(
+    user_id: number,
+    external_id: number,
+    settings: {},
+    opts?: MerchantSettingsOpts,
+  ) {
     let path = `/user/${user_id}/edit`;
 
     let params = {
@@ -71,7 +80,7 @@ export class SettingsDriver {
       "user[use_direct_pay]": "0",
       "user[direct_payment_state]": "0",
       "user[check_origin_domain]": "0",
-      "user[is_unique_order_number]": "0",
+      "user[is_unique_order_number]": opts?.unique_order_number ? "1" : "0",
       "user[split_cny_from_direct_traffic_percent]": "0",
       "user[show_last_charge_request]": "0",
       "user[settings]": JSON.stringify(settings),

@@ -1,5 +1,6 @@
 import { assert } from "vitest";
 import type { PrimeBusinessStatus } from "@/db/business";
+import type { MerchantSettingsOpts } from "@/driver/settings";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Notification } from "@/entities/merchant_notification";
 import type { HttpContext } from "@/mock_server/api";
@@ -31,10 +32,11 @@ export class ProviderAdapter<G = unknown> {
     ctx: Context,
     suite: P2PSuite<G>,
     secret?: string,
+    settings_opts?: MerchantSettingsOpts,
   ): Promise<ProviderAdapter<G>> {
     let merchant = await ctx.create_random_merchant();
     let adapter = new ProviderAdapter(ctx, suite, merchant, secret);
-    await merchant.set_settings(suite.settings(adapter.secret));
+    await merchant.set_settings(suite.settings(adapter.secret), settings_opts);
     return adapter;
   }
 
