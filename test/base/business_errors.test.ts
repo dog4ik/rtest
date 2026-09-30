@@ -6,6 +6,7 @@ import * as default_provider from "@/provider_mocks/default";
 import * as flintpays from "@/provider_mocks/flintpays";
 import * as gc from "@/provider_mocks/gateway_connect";
 import * as millennium from "@/provider_mocks/millennium";
+import { CurlBuilder } from "@/story/curl";
 import {
   defaultSuite,
   type P2PSuite,
@@ -24,15 +25,19 @@ function payoutRequest(currency?: string) {
 
 async function merchantGet(ctx: Context, path: string, private_key?: string) {
   let headers: Record<string, string> = { "content-type": "application/json" };
+  let url = `${ctx.shared_state().business_url}${path}`;
   if (private_key !== undefined) {
     headers.authorization = `Bearer ${private_key}`;
   }
-  let res = await fetch(`${ctx.shared_state().business_url}${path}`, {
+  let curl = new CurlBuilder(url, "GET")
+    .set_headers(new Headers(headers))
+    .build();
+  let res = await fetch(url, {
     method: "GET",
     headers,
   });
   let json = (await res.json()) as Record<string, any>;
-  ctx.story.add_chapter(`GET ${path}`, json);
+  ctx.story.add_chapter(`GET ${path}`, curl);
   return new ErrorResponse(res, json).as_common_error();
 }
 
