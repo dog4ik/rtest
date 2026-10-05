@@ -1,3 +1,4 @@
+import { assert, describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG } from "@/config";
 import { JusanPayment } from "@/provider_mocks/jusan";
@@ -68,3 +69,76 @@ test
       await provider_request;
     }),
   );
+
+import * as brusnika from "@/provider_mocks/brusnika";
+import * as gc from "@/provider_mocks/gateway_connect";
+import { SettingsBuilder } from "@/settings_builder";
+
+describe
+  .runIf(CONFIG.in_project(["8pay"]))
+  .concurrent("8pay providers settings", () => {
+    test.concurrent("payout provider selects correct gateway", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let brusnika_suite = brusnika.payoutSuite("RUB");
+        let gc_suite = gc.payoutSuite("RUB");
+        let gc_mock = ctx.mock_server(gc_suite.mock_options(ctx.uuid));
+        let brusnika_mock = ctx.mock_server(
+          brusnika_suite.mock_options(ctx.uuid),
+        );
+
+        gc_mock.queue(gc_suite.gw.basic_payout_handler("pending"));
+
+        brusnika_mock.queue(() => {
+          assert.fail("brusnika should not be rearched");
+        });
+
+        let settings = new SettingsBuilder()
+          .addP2P("RUB", "manypay", "manypay")
+          .addP2P("RUB", "brusnika", "brusnika")
+          .withGateway(gc_suite.settings(ctx.uuid), "manypay")
+          .withGateway(brusnika_suite.settings(ctx.uuid), "brusnika")
+          .build();
+        await merchant.set_settings(settings);
+        await merchant.cashin("RUB", common.amount / 100);
+
+        let res = await merchant.create_payout({ ...gc_suite.request() });
+        await res
+          .followFirstProcessingUrl()
+          .then((r) => r.as_payout_response());
+      }));
+
+    test.concurrent("payin provider selects correct gateway", ({
+      ctx,
+      merchant,
+    }) =>
+      ctx.track_bg_rejections(async () => {
+        let brusnika_suite = brusnika.payoutSuite("RUB");
+        let gc_suite = gc.payinSuite("RUB");
+        let gc_mock = ctx.mock_server(gc_suite.mock_options(ctx.uuid));
+        let brusnika_mock = ctx.mock_server(
+          brusnika_suite.mock_options(ctx.uuid),
+        );
+
+        gc_mock.queue(gc_suite.gw.requisites_payin_handler("pending", "card"));
+
+        brusnika_mock.queue(() => {
+          assert.fail("brusnika should not be rearched");
+        });
+
+        let settings = new SettingsBuilder()
+          .addP2P("RUB", "manypay", "manypay")
+          .addP2P("RUB", "brusnika", "brusnika")
+          .withGateway(gc_suite.settings(ctx.uuid), "manypay")
+          .withGateway(brusnika_suite.settings(ctx.uuid), "brusnika")
+          .build();
+        await merchant.set_settings(settings);
+
+        await merchant
+          .create_payment({ ...gc_suite.request() })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_8pay_requisite());
+      }));
+  });

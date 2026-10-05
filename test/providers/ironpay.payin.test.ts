@@ -77,6 +77,15 @@ describe
           err.assert_message(
             "There are currently no payment details available. Your request has been rejected, please try again later.",
           );
+        } else if (PROJECT === "8pay") {
+          err.assert_strict_error([
+            {
+              code: "gateway_response_error",
+              kind: "gateway_error",
+              message:
+                "There are currently no payment details available. Your request has been rejected, please try again later.",
+            },
+          ]);
         } else {
           err.assert_message(
             "gateway response error: There are currently no payment details available. Your request has been rejected, please try again later.",

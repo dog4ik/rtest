@@ -235,10 +235,10 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         description: "test dispute description",
       });
 
-      err.assert_error([
+      err.assert_strict_error([
         {
           code: "invalid_payment_status",
-          kind: "processing_error",
+          kind: "dispute_processing_error",
         },
       ]);
     }));
@@ -270,8 +270,11 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         file_path: assets.PngImgPath,
         description: "test dispute description",
       });
-      secondRes.assert_error([
-        { code: "payment_already_has_pending_dispute", kind: "" },
+      secondRes.assert_strict_error([
+        {
+          code: "payment_already_has_pending_dispute",
+          kind: "dispute_processing_error",
+        },
       ]);
 
       await dispute_creation;
@@ -309,8 +312,11 @@ describe.runIf(PROJECT === "8pay").concurrent("madsolution disputes", () => {
         description: "test dispute description",
       });
 
-      secondRes.assert_error([
-        { code: "payment_already_has_accepted_dispute", kind: "" },
+      secondRes.assert_strict_error([
+        {
+          code: "payment_already_has_accepted_dispute",
+          kind: "dispute_processing_error",
+        },
       ]);
     }));
 

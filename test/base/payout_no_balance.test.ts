@@ -3,8 +3,10 @@ import * as common from "@/common";
 import { CONFIG } from "@/config";
 import type { ExtendedMerchant } from "@/entities/merchant";
 import type { Project } from "@/project";
+import * as brusnika from "@/provider_mocks/brusnika";
 import * as default_provider from "@/provider_mocks/default";
 import { payoutSuite } from "@/provider_mocks/gateway_connect";
+import { SettingsBuilder } from "@/settings_builder";
 import { defaultSuite, providersSuite } from "@/suite_interfaces";
 import { test } from "@/test_context";
 import type { Context } from "@/test_context/context";
@@ -171,4 +173,49 @@ describe.concurrent("payout no balance", () => {
         await ctx.healthcheck(token);
       }
     }));
+
+  test
+    .runIf(CONFIG.in_project(["8pay"]))
+    // Test goal is to violate available balance assumption where system assumes
+    // what commission will be picked without giving merchant an opportunity to select right provider.
+    .todo("no balance for commission (p2p)", ({ ctx }) =>
+      ctx.track_bg_rejections(async () => {
+        const AMOUNT = 10_000;
+        let brusnika_suite = brusnika.payoutSuite("RUB");
+        let gc_suite = payoutSuite("RUB");
+        let gc_mock = ctx.mock_server(gc_suite.mock_options(ctx.uuid));
+        let brusnika_mock = ctx.mock_server(
+          brusnika_suite.mock_options(ctx.uuid),
+        );
+
+        gc_mock.queue(() => {
+          assert.fail("GC should not be rearched");
+        });
+
+        brusnika_mock.queue(() => {
+          assert.fail("brusnika should not be rearched");
+        });
+
+        let settings = new SettingsBuilder()
+          .addP2P("RUB", "manypay", "manypay")
+          .addP2P("RUB", "brusnika", "brusnika")
+          .withGateway(gc_suite.settings(ctx.uuid), "manypay")
+          .withGateway(brusnika_suite.settings(ctx.uuid), "brusnika")
+          .build();
+        let merchant = await ctx.create_random_merchant();
+        await merchant.set_settings(settings);
+        await merchant.set_commission({
+          self_rate: "10",
+          source: "manypay",
+          operation: "PayoutRequest",
+        });
+        // Balance == payout amount exactly: nothing left to cover the 10% commission.
+        await merchant.cashin(CURRENCY, AMOUNT / 100);
+
+        await merchant
+          .create_payout({ ...gc_suite.request(), amount: AMOUNT })
+          .then((r) => r.followFirstProcessingUrl())
+          .then((r) => r.as_error());
+      }),
+    );
 });

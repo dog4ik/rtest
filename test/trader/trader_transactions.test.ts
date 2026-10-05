@@ -438,7 +438,8 @@ test
           assert.strictEqual(res.card.name, common.fullName);
         }
       }
-    }));
+    }),
+  );
 
 test
   .runIf(CONFIG.in_project("reactivepay"))

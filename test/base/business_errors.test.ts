@@ -1,7 +1,10 @@
-import { assert, describe } from "vitest";
+import { describe } from "vitest";
 import * as common from "@/common";
 import { CONFIG, PROJECT } from "@/config";
-import { ErrorResponse } from "@/entities/payment/error_response";
+import {
+  ErrorResponse,
+  type StrictError,
+} from "@/entities/payment/error_response";
 import * as default_provider from "@/provider_mocks/default";
 import * as flintpays from "@/provider_mocks/flintpays";
 import * as gc from "@/provider_mocks/gateway_connect";
@@ -190,7 +193,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         new ErrorResponse(r, await r.json()).as_common_error(),
       );
       res.assert_strict_error([
-        { code: "invalid_json", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message: "Request body is not valid JSON",
+        },
       ]);
     }));
 
@@ -212,7 +219,12 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       });
 
       res.assert_strict_error([
-        { code: "invalid_param", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/' did not contain a required property of 'currency' in schema file:///business/schema/balances_show.json",
+        },
       ]);
     }));
 
@@ -245,7 +257,7 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         new ErrorResponse(r, await r.json()).as_common_error(),
       );
       err.assert_strict_error([
-        { code: "incorrect_private_key", kind: "authentication_error" },
+        { code: "auth_header_not_found", kind: "authentication_error" },
       ]);
     }));
 
@@ -294,8 +306,61 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         },
       });
       err.assert_strict_error([
-        // TODO: assert message when implemented
-        { code: "invalid_param", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/' did not contain a required property of 'amount' in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+        },
+      ]);
+    }));
+
+  test.concurrent("fields validation missing email", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
+      let err = await adapter.merchant.create_payout_err({
+        product: "Tests",
+        order_number: "993463668022",
+        currency: "RUB",
+        amount: common.amount,
+        card: {
+          pan: common.visaCard,
+        },
+        customer: {
+          ip: common.ip,
+        },
+      });
+      err.assert_strict_error([
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message: "customer.email is required",
+        },
+      ]);
+    }));
+
+  test.concurrent("fields validation missing ip", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
+      let err = await adapter.merchant.create_payout_err({
+        product: "Tests",
+        order_number: "993463668022",
+        currency: "RUB",
+        amount: common.amount,
+        card: {
+          pan: common.visaCard,
+        },
+        customer: {
+          email: common.email,
+        },
+      });
+      err.assert_strict_error([
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/customer' did not contain a required property of 'ip' in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+        },
       ]);
     }));
 
@@ -314,9 +379,18 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         },
       });
       err.assert_strict_error([
-        // TODO: assert messages when implemented
-        { code: "invalid_param", kind: "invalid_request_error" },
-        { code: "invalid_param", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/' did not contain a required property of 'amount' in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+        },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/' did not contain a required property of 'currency' in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+        },
       ]);
     }));
 
@@ -331,7 +405,7 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       err.assert_strict_error([
         // TODO: need to find better code
         {
-          code: "fetch_processing_url_error",
+          code: "antifraud_rule_violation",
           kind: "api_fraud_error",
           message: "antifraud: mid:card:amount:value=>[100, 200]=>123456",
         },
@@ -414,8 +488,7 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
 
       err.assert_strict_error([
         {
-          // TODO: proper error code for blocked traffic
-          code: "internal_error",
+          code: "traffic_blocked",
           kind: "processing_error",
         },
       ]);
@@ -436,7 +509,6 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
 
       err.assert_strict_error([
         {
-          // TODO: proper error code for blocked traffic
           message: `error: ${message}`,
           code: "gateway_response_error",
           kind: "gateway_error",
@@ -514,18 +586,32 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       });
 
       err.assert_strict_error([
-        { code: "incorrect_amount", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message: "amount must be at least 1",
+        },
       ]);
     }));
 
-  const invalidAmounts = [
-    ["negative", -100],
-    ["string", "abc"],
-    ["float", 12.5],
-  ] as const;
-
   describe.concurrent("payin invalid amount", () => {
-    for (let [name, amount] of invalidAmounts) {
+    for (let [name, amount, message] of [
+      [
+        "negative",
+        -100,
+        "The property '#/amount' did not have a minimum value of 0, inclusively in schema file:///business/schema/payments_create.json",
+      ],
+      [
+        "string",
+        "abc",
+        "The property '#/amount' of type string did not match the following type: integer in schema file:///business/schema/payments_create.json",
+      ],
+      [
+        "float",
+        12.5,
+        "The property '#/amount' of type number did not match the following type: integer in schema file:///business/schema/payments_create.json",
+      ],
+    ] as const) {
       test.concurrent(name, ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let adapter = await ProviderAdapter.create(ctx, payinSuite("RUB"));
@@ -535,7 +621,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
           });
 
           err.assert_strict_error([
-            { code: "invalid_param", kind: "invalid_request_error" },
+            {
+              code: "wrong_field_in_request",
+              kind: "invalid_request_error",
+              message,
+            },
           ]);
         }),
       );
@@ -543,7 +633,23 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
   });
 
   describe.concurrent("payout invalid amount", () => {
-    for (let [name, amount] of invalidAmounts) {
+    for (let [name, amount, message] of [
+      [
+        "negative",
+        -100,
+        "The property '#/amount' did not have a minimum value of 0, inclusively in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+      ],
+      [
+        "string",
+        "abc",
+        "The property '#/amount' of type string did not match the following type: integer in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+      ],
+      [
+        "float",
+        12.5,
+        "The property '#/amount' of type number did not match the following type: integer in schema fc558a47-2448-57d7-95d3-dc1ad7b45f18",
+      ],
+    ] as const) {
       test.concurrent(name, ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let adapter = await ProviderAdapter.create(ctx, payoutSuite("RUB"));
@@ -554,7 +660,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
           });
 
           err.assert_strict_error([
-            { code: "invalid_param", kind: "invalid_request_error" },
+            {
+              code: "wrong_field_in_request",
+              kind: "invalid_request_error",
+              message,
+            },
           ]);
         }),
       );
@@ -571,7 +681,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       });
 
       err.assert_strict_error([
-        { code: "amount_less_than_minimum", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message: "amount must be at least 100",
+        },
       ]);
     }));
 
@@ -585,7 +699,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       );
 
       err.assert_strict_error([
-        { code: "payment_not_found", kind: "processing_error" },
+        {
+          code: "payment_not_found",
+          kind: "processing_error",
+          message: "order_number: does not exist",
+        },
       ]);
     }));
 
@@ -623,11 +741,19 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
     }));
 
   describe.concurrent("payments list invalid params", () => {
-    for (let [name, query] of [
-      ["zero page", "page=0"],
-      ["date_from after date_to", "date_from=2026-02-01&date_to=2026-01-01"],
-      ["unknown operation_type", "operation_type=foo"],
-    ] as const) {
+    for (let [name, query, message] of [
+      ["zero page", "page=0", "page: must be greater than 0"],
+      [
+        "date_from after date_to",
+        "date_from=2026-02-01&date_to=2026-01-01",
+        "date_to: must be after or equal to date_from",
+      ],
+      [
+        "unknown operation_type",
+        "operation_type=foo",
+        "operation_type: must be one of: pays, payouts, refunds, all",
+      ],
+    ] as [string, string, string | undefined][]) {
       test.concurrent(name, ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let adapter = await ProviderAdapter.create(ctx, payinSuite("RUB"));
@@ -638,7 +764,11 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
           );
 
           err.assert_strict_error([
-            { code: "invalid_param", kind: "invalid_request_error" },
+            {
+              code: "wrong_field_in_request",
+              kind: "invalid_request_error",
+              message,
+            },
           ]);
         }),
       );
@@ -686,7 +816,7 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
       );
 
       err.assert_strict_error([
-        { code: "incorrect_currency", kind: "invalid_request_error" },
+        { code: "wrong_field_in_request", kind: "invalid_request_error" },
       ]);
     }));
 
@@ -717,15 +847,46 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
             async (m) => (await m.set_settings(suite.settings(ctx.uuid)), m),
           ),
       ]);
+      let s = ctx.mock_server(suite.mock_options(ctx.uuid));
+      let gw = suite.gw as millennium.MillenniumTransaction;
+      s.queue(gw.payin_create_handler("pending"));
       let payment = await merchant1.create_payment(
-        common.paymentRequest("RUB"),
+        common.p2pPaymentRequest("RUB", "card"),
       );
+      await payment.followFirstProcessingUrl();
+      await ctx.core_change_status(payment.token, "approved");
+
       let err = await merchant2
         .create_refund_err({ token: payment.token })
         .then((e) => e.as_common_error());
 
       err.assert_strict_error([
         { code: "payment_not_found", kind: "processing_error" },
+      ]);
+    }));
+
+  test.concurrent("refund amount is more than payment amount", ({ ctx }) =>
+    ctx.track_bg_rejections(async () => {
+      let suite = payinSuite("RUB");
+      let merchant = await ctx
+        .create_random_merchant()
+        .then(async (m) => (await m.set_settings(suite.settings(ctx.uuid)), m));
+      await merchant.cashin("RUB", common.amount);
+      let s = ctx.mock_server(suite.mock_options(ctx.uuid));
+      let gw = suite.gw as millennium.MillenniumTransaction;
+      s.queue(gw.payin_create_handler("pending"));
+      let payment = await merchant.create_payment(
+        common.p2pPaymentRequest("RUB", "card"),
+      );
+      await payment.followFirstProcessingUrl();
+      await ctx.core_change_status(payment.token, "approved");
+
+      let err = await merchant
+        .create_refund_err({ token: payment.token, amount: common.amount + 1 })
+        .then((e) => e.as_common_error());
+
+      err.assert_strict_error([
+        { code: "no_money_available_on_refund", kind: "processing_error" },
       ]);
     }));
 
@@ -739,11 +900,9 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         .create_refund_err({ token: payment.token })
         .then((e) => e.as_common_error());
 
-      // TODO: assert exact code once engine documents one for "payment is not approved"
-      assert.lengthOf(err.errors, 1);
-      let [error] = err.errors as { code: string; kind: string }[];
-      assert.notStrictEqual(error.code, "internal_error");
-      assert.strictEqual(error.kind, "processing_error");
+      err.assert_strict_error([
+        { code: "invalid_payment_status", kind: "processing_error" },
+      ]);
     }));
 
   test.concurrent("refund: string amount", ({ ctx }) =>
@@ -757,17 +916,65 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
         .then((e) => e.as_common_error());
 
       err.assert_strict_error([
-        { code: "invalid_param", kind: "invalid_request_error" },
+        {
+          code: "wrong_field_in_request",
+          kind: "invalid_request_error",
+          message:
+            "The property '#/amount' of type string did not match the following type: integer in schema file:///business/schema/refunds_create.json",
+        },
       ]);
     }));
 
   describe.concurrent("refund invalid token", () => {
-    for (let [name, token] of [
-      ["short token", "bad-token!!"],
-      ["long token", "a".repeat(40)],
+    for (let [name, token, error] of [
+      [
+        "short token",
+        "bad-token!!",
+        [
+          {
+            code: "wrong_field_in_request",
+            kind: "invalid_request_error",
+            message:
+              "The property '#/token' was not of a minimum string length of 32 in schema file:///business/schema/refunds_create.json",
+          },
+          {
+            code: "wrong_field_in_request",
+            kind: "invalid_request_error",
+            message:
+              "The property '#/token' value \"bad-token!!\" did not match the regex '[0-9a-zA-Z]$' in schema file:///business/schema/refunds_create.json",
+          },
+        ],
+      ],
+      [
+        "long token",
+        "a".repeat(40),
+        [
+          {
+            code: "wrong_field_in_request",
+            kind: "invalid_request_error",
+            message:
+              "The property '#/token' was not of a maximum string length of 32 in schema file:///business/schema/refunds_create.json",
+          },
+        ],
+      ],
       // passes json schema (32 chars, ends with alnum), rejected by use case
-      ["token with unsupported characters", `${"!".repeat(31)}a`],
-    ] as const) {
+      [
+        "token with unsupported characters",
+        `${"!".repeat(31)}a`,
+        [
+          {
+            code: "wrong_field_in_request",
+            kind: "invalid_request_error",
+            message:
+              "token_contains_unsupported_characters_or_longer_than_32_characters",
+          },
+          {
+            code: "payment_not_found",
+            kind: "processing_error",
+          },
+        ],
+      ],
+    ] as [string, string, StrictError[]][]) {
       test.concurrent(name, ({ ctx }) =>
         ctx.track_bg_rejections(async () => {
           let adapter = await ProviderAdapter.create(ctx, payinSuite("RUB"));
@@ -775,9 +982,7 @@ describe.runIf(CONFIG.in_project(["8pay"])).concurrent("strict errors", () => {
             .create_refund_err({ token })
             .then((e) => e.as_common_error());
 
-          err.assert_strict_error([
-            { code: "invalid_param", kind: "invalid_request_error" },
-          ]);
+          err.assert_strict_error(error);
         }),
       );
     }

@@ -1,7 +1,6 @@
 import { assert, describe } from "vitest";
-import { z } from "zod";
 import * as common from "@/common";
-import { CONFIG, PROJECT } from "@/config";
+import { CONFIG } from "@/config";
 import { err_bad_status } from "@/fetch_utils";
 import { EightpayRequisitesPage } from "@/pages/8pay_payform";
 import { EightpayTpayQrForm, type Platform } from "@/pages/8pay_tpayform";
@@ -29,7 +28,7 @@ function fortaSuite() {
   };
 }
 
-describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
+describe.runIf(CONFIG.in_project(["8pay"])).concurrent("forta 8pay", () => {
   callbackFinalizationSuite(fortaSuite);
 
   test.concurrent("forta no requisities decline", async ({ ctx }) => {
@@ -56,21 +55,14 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
           extra_return_param: "ANY",
         })
         .then((p) => p.followFirstProcessingUrl());
-      let json = await response.as_raw_json();
-
-      if (CONFIG.project === "8pay") {
-        z.object({
-          declination_reason: z.literal(
-            "gateway response error: Произошла непредвиденная ошибка, обратитесь в службу поддержки",
-          ),
-        }).parse(json);
-      } else {
-        z.object({
-          declination_reason: z.literal(
-            "Произошла непредвиденная ошибка, обратитесь в службу поддержки",
-          ),
-        }).parse(json);
-      }
+      let err = await response.as_error();
+      err.assert_strict_error([
+        {
+          code: "gateway_response_error",
+          kind: "gateway_error",
+          message: "Not found available payment details",
+        },
+      ]);
 
       assert.strictEqual(response.status(), 200);
       await notification;
@@ -153,117 +145,119 @@ describe.runIf(PROJECT === "8pay").concurrent("forta 8pay", () => {
   });
 });
 
-describe.runIf(PROJECT === "8pay").concurrent("forta 8pay form", () => {
-  payformDataFlowTest("card", {
-    ...payinSuite(CURRENCY),
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...FortaPayment.settings(secret),
-        wrapped_to_json_response: false,
-      }),
-    request() {
-      return {
-        ...common.paymentRequest(CURRENCY),
-        extra_return_param: "ANY",
-      };
-    },
-    async check_pf_page(page) {
-      let form = new EightpayRequisitesPage(page);
-      await form.validateRequisites({
-        type: "card",
-        amount: common.amount,
-        number: common.visaCard,
-        name: common.fullName,
-        bank: common.bankName,
-      });
-    },
-  });
+describe
+  .runIf(CONFIG.in_project(["8pay"]))
+  .concurrent("forta 8pay form", () => {
+    payformDataFlowTest("card", {
+      ...payinSuite(CURRENCY),
+      settings: (secret) =>
+        providers(CURRENCY, {
+          ...FortaPayment.settings(secret),
+          wrapped_to_json_response: false,
+        }),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "ANY",
+        };
+      },
+      async check_pf_page(page) {
+        let form = new EightpayRequisitesPage(page);
+        await form.validateRequisites({
+          type: "card",
+          amount: common.amount,
+          number: common.visaCard,
+          name: common.fullName,
+          bank: common.bankName,
+        });
+      },
+    });
 
-  payformDataFlowTest("sbp", {
-    ...payinSuite(CURRENCY),
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...FortaPayment.settings(secret),
-        wrapped_to_json_response: false,
-        masked_provider: true,
-      }),
-    request() {
-      return {
-        ...common.paymentRequest(CURRENCY),
-        extra_return_param: "SBP",
-        locale: "en",
-      };
-    },
-    // FIX: phone requisite is not formatted properly on the payform
-    async check_pf_page(page) {
-      let form = new EightpayRequisitesPage(page);
-      await form.validateRequisites({
-        type: "sbp",
-        amount: common.amount,
-        number: `+${common.phoneNumber}`,
-        name: common.fullName,
-        bank: common.bankName,
-      });
-    },
-  });
+    payformDataFlowTest("sbp", {
+      ...payinSuite(CURRENCY),
+      settings: (secret) =>
+        providers(CURRENCY, {
+          ...FortaPayment.settings(secret),
+          wrapped_to_json_response: false,
+          masked_provider: true,
+        }),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "SBP",
+          locale: "en",
+        };
+      },
+      // FIX: phone requisite is not formatted properly on the payform
+      async check_pf_page(page) {
+        let form = new EightpayRequisitesPage(page);
+        await form.validateRequisites({
+          type: "sbp",
+          amount: common.amount,
+          number: `+${common.phoneNumber}`,
+          name: common.fullName,
+          bank: common.bankName,
+        });
+      },
+    });
 
-  const tpaySuite = (platform: Platform): PayformDataFlow => ({
-    ...payinSuite(CURRENCY),
-    settings: (secret) =>
-      providers(CURRENCY, {
-        ...FortaPayment.settings(secret),
-        wrapped_to_json_response: false,
-        masked_provider: true,
-      }),
-    request() {
-      return {
-        ...common.paymentRequest(CURRENCY),
-        extra_return_param: "tpay",
-      };
-    },
-    async check_pf_page(page) {
-      let form = new EightpayTpayQrForm(page, platform);
-      await form.validateRequisites({
-        amount: common.amount,
-        bank: common.bankName,
-        name: common.fullName,
-        number: common.phoneNumber,
-      });
-    },
-  });
+    const tpaySuite = (platform: Platform): PayformDataFlow => ({
+      ...payinSuite(CURRENCY),
+      settings: (secret) =>
+        providers(CURRENCY, {
+          ...FortaPayment.settings(secret),
+          wrapped_to_json_response: false,
+          masked_provider: true,
+        }),
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "tpay",
+        };
+      },
+      async check_pf_page(page) {
+        let form = new EightpayTpayQrForm(page, platform);
+        await form.validateRequisites({
+          amount: common.amount,
+          bank: common.bankName,
+          name: common.fullName,
+          number: common.phoneNumber,
+        });
+      },
+    });
 
-  payformDataFlowTest("tpay android", {
-    ...tpaySuite("android"),
-    browser_context(browser) {
-      return browser.newContext({ userAgent: common.androidUserAgent });
-    },
-  });
+    payformDataFlowTest("tpay android", {
+      ...tpaySuite("android"),
+      browser_context(browser) {
+        return browser.newContext({ userAgent: common.androidUserAgent });
+      },
+    });
 
-  payformDataFlowTest("tpay ios", {
-    ...tpaySuite("ios"),
-    browser_context(browser) {
-      return browser.newContext({ userAgent: common.iosUserAgent });
-    },
-  });
+    payformDataFlowTest("tpay ios", {
+      ...tpaySuite("ios"),
+      browser_context(browser) {
+        return browser.newContext({ userAgent: common.iosUserAgent });
+      },
+    });
 
-  payformDataFlowTest("tpay desktop", {
-    ...tpaySuite("android"),
-    browser_context(browser) {
-      return browser.newContext({ userAgent: common.desktopUserAgent });
-    },
-  });
+    payformDataFlowTest("tpay desktop", {
+      ...tpaySuite("android"),
+      browser_context(browser) {
+        return browser.newContext({ userAgent: common.desktopUserAgent });
+      },
+    });
 
-  payformDataFlowTest("tpay en locale", {
-    ...tpaySuite("android"),
-    browser_context(browser) {
-      return browser.newContext({ userAgent: common.desktopUserAgent });
-    },
-    request() {
-      return {
-        ...common.paymentRequest(CURRENCY),
-        extra_return_param: "tpay",
-        locale: "en",
-      };
-    },
+    payformDataFlowTest("tpay en locale", {
+      ...tpaySuite("android"),
+      browser_context(browser) {
+        return browser.newContext({ userAgent: common.desktopUserAgent });
+      },
+      request() {
+        return {
+          ...common.paymentRequest(CURRENCY),
+          extra_return_param: "tpay",
+          locale: "en",
+        };
+      },
+    });
   });
-});

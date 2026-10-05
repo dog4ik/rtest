@@ -42,9 +42,19 @@ test.concurrent("brusnika no requisities decline", async ({ ctx }) => {
       .create_payment(common.paymentRequest("RUB"))
       .then((p) => p.followFirstProcessingUrl());
     let err = await response.as_error();
-    err.assert_message(
-      "gateway response error: Not found available payment details",
-    );
+    if (CONFIG.in_project(["8pay"])) {
+      err.assert_strict_error([
+        {
+          code: "gateway_response_error",
+          kind: "gateway_error",
+          message: "Not found available payment details",
+        },
+      ]);
+    } else {
+      err.assert_message(
+        "gateway response error: Not found available payment details",
+      );
+    }
     await notification;
   });
 });

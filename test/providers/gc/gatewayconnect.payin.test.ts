@@ -619,6 +619,25 @@ describe
         assert.strictEqual(requisites.payment_form_url, common.redirectPayUrl);
       },
     });
+
+    dataFlowTest("no requisites p2p decline", {
+      ...requisitesP2PSuite("card"),
+      create_handler() {
+        let gw = this.gw as GatewayConnectTransaction;
+        return gw.error_handler("requisites are not found");
+      },
+      async check_merchant_response({ processing_response }) {
+        await processing_response?.as_error().then((r) =>
+          r.assert_strict_error([
+            {
+              code: "gateway_response_error",
+              kind: "gateway_error",
+              message: "error: requisites are not found",
+            },
+          ]),
+        );
+      },
+    });
   });
 
 describe.runIf(CONFIG.in_project("8pay")).concurrent("8pay form", () => {
