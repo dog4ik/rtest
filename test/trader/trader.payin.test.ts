@@ -528,49 +528,50 @@ describe
         await approved;
       }));
 
-    test.concurrent("trader reservation cleans up after expired", ({
-      ctx,
-      merchant,
-    }) =>
-      ctx.track_bg_rejections(async () => {
-        let trader = await ctx.create_random_trader({
-          usdt: true,
-        });
-        await trader.setup({ card: true, bank: "sberbank" });
-        await trader.cashin("main", "USDT", common.amount / 100);
-        await merchant.set_settings(
-          traderSettings([trader.id], { pay_expired_minutes: 1 }),
-        );
-        await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("RUB", "card"),
-            amount: common.amount * STATIC_RATE,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        let expired = merchant.queue_notification(
-          (n) => {
-            assert.strictEqual(n.status, "expired");
-          },
-          {
-            skip_healthcheck: true,
-          },
-        );
-        await expired;
-        await delay(5_000);
-        let res2 = await merchant
-          .create_payment({
-            ...common.traderPaymentRequest("RUB", "card"),
-            amount: common.amount * STATIC_RATE,
-          })
-          .then((r) => r.followFirstProcessingUrl())
-          .then((r) => r.as_trader_requisites());
-        let approved = merchant.queue_notification(() => {}, {
-          expect: { status: 1 },
-        });
-        await trader.finalizeTransaction(res2.token, "approved");
-        await approved;
-      }));
+    test.concurrent(
+      "trader reservation cleans up after expired",
+      { timeout: 120_000 },
+      ({ ctx, merchant }) =>
+        ctx.track_bg_rejections(async () => {
+          let trader = await ctx.create_random_trader({
+            usdt: true,
+          });
+          await trader.setup({ card: true, bank: "sberbank" });
+          await trader.cashin("main", "USDT", common.amount / 100);
+          await merchant.set_settings(
+            traderSettings([trader.id], { pay_expired_minutes: 1 }),
+          );
+          await merchant
+            .create_payment({
+              ...common.traderPaymentRequest("RUB", "card"),
+              amount: common.amount * STATIC_RATE,
+            })
+            .then((r) => r.followFirstProcessingUrl())
+            .then((r) => r.as_trader_requisites());
+          let expired = merchant.queue_notification(
+            (n) => {
+              assert.strictEqual(n.status, "expired");
+            },
+            {
+              skip_healthcheck: true,
+            },
+          );
+          await expired;
+          await delay(5_000);
+          let res2 = await merchant
+            .create_payment({
+              ...common.traderPaymentRequest("RUB", "card"),
+              amount: common.amount * STATIC_RATE,
+            })
+            .then((r) => r.followFirstProcessingUrl())
+            .then((r) => r.as_trader_requisites());
+          let approved = merchant.queue_notification(() => {}, {
+            expect: { status: 1 },
+          });
+          await trader.finalizeTransaction(res2.token, "approved");
+          await approved;
+        }),
+    );
   });
 
 describe
@@ -1077,6 +1078,8 @@ describe
           );
 
           for (let [app, link] of Object.entries(links)) {
+            // android phonepe carries its params as base64 json, checked below
+            if (platform === "android" && app === "phonepe") continue;
             let query = linkQuery(link);
             assert.deepEqual(
               {
@@ -1099,14 +1102,55 @@ describe
         }
 
         assert.deepEqual(
-          res.deeplink.android,
-          res.deeplink.ios,
-          "every app link is platform independent",
+          {
+            upi: res.deeplink.android.upi,
+            paytm: res.deeplink.android.paytm,
+          },
+          {
+            upi: res.deeplink.ios.upi,
+            paytm: res.deeplink.ios.paytm,
+          },
+          "upi and paytm links are platform independent",
         );
 
-        assert.match(
-          res.deeplink.ios.upi,
-          /^upi:\/\/pay\?/,
+        assert.strictEqual(
+          res.deeplink.android.phonepe.split("?")[0],
+          "phonepe://native",
+          "android phonepe native scheme",
+        );
+        let phonepe_query = linkQuery(res.deeplink.android.phonepe);
+        assert.strictEqual(
+          phonepe_query.get("id"),
+          "p2ppayment",
+          "android phonepe link is a p2p payment",
+        );
+        let phonepe_data = phonepe_query.get("data");
+        assert(phonepe_data, "android phonepe link carries base64 data");
+        let phonepe_payload = JSON.parse(
+          // URLSearchParams turns base64 `+` into spaces
+          Buffer.from(phonepe_data.replaceAll(" ", "+"), "base64").toString(
+            "utf8",
+          ),
+        );
+        assert.deepInclude(
+          phonepe_payload.contact,
+          { nickName: common.fullName, vpa: UPI_VPA, type: "VPA" },
+          "android phonepe contact",
+        );
+        assert.deepInclude(
+          phonepe_payload.p2pPaymentCheckoutParams,
+          {
+            note: "test product",
+            initialAmount: res.payment.amount,
+            currency: "INR",
+            allowAmountEdit: false,
+          },
+          "android phonepe checkout params",
+        );
+
+        assert.strictEqual(
+          res.deeplink.ios.upi.split("?")[0],
+          "upi://pay",
           "generic upi scheme",
         );
         assert.include(
@@ -1114,14 +1158,14 @@ describe
           encodeURIComponent(UPI_VPA),
           "the vpa @ is percent encoded in the deeplink",
         );
-        assert.match(
-          res.deeplink.ios.phonepe,
-          /^phonepe:\/\/pay\?/,
+        assert.strictEqual(
+          res.deeplink.ios.phonepe.split("?")[0],
+          "phonepe://pay",
           "phonepe app scheme",
         );
-        assert.match(
-          res.deeplink.ios.paytm,
-          /^paytmmp:\/\/cash_wallet\?/,
+        assert.strictEqual(
+          res.deeplink.ios.paytm.split("?")[0],
+          "paytmmp://cash_wallet",
           "paytm wallet scheme",
         );
         assert.strictEqual(
