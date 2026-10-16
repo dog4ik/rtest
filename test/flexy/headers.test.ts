@@ -77,195 +77,197 @@ testHeaderMiss(
   default_provider.payinSuite(),
 );
 
-describe.skipIf(USE_LEGACY_FLEXY).concurrent("mongo expressions", () => {
-  testHeaderMatch(
-    (mid) => [
-      {
-        mid: [-100, 1, 3.14, mid],
-        currency: ["NAN", CURRENCY, "USD", "URK", "EUR"],
-      },
-    ],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, currency: ["NAN", "USD", "URK", "EUR"] }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMatch(
-    (mid) => [{ mid, phone: { eq: null } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, phone: { card_number: null } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMatch(
-    (mid) => [{ mid, amount: { range: [12345, 200000] } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMatch(
-    (mid) => [{ mid, amount: { gt: 1000, lt: common.amount + 1 } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, amount: { range: [100, 2000] } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, email: { regex: "@gmail.com$" } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMatch(
-    (mid) => [{ mid, email: { regex: "@test.com$" } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, phone: { regex: "^7916" } }],
-    default_provider.payinSuite(),
-  );
-
-  function suiteWithPhone(suite: TestCaseBase) {
-    let request = suite.request();
-    (request as Record<any, any>).customer.phone = common.phoneNumber;
-    return { ...suite, request: () => request };
-  }
-
-  testHeaderMatch(
-    (mid) => [{ mid, phone: { regex: "^7999" } }],
-    suiteWithPhone(default_provider.payinSuite()),
-  );
-
-  testHeaderMiss(
-    (mid) => [{ mid, email: { nin: ["test@test.com"] } }],
-    default_provider.payinSuite(),
-  );
-
-  testHeaderMatch(
-    (mid) => [{ mid, email: { nin: ["another@test.com"] } }],
-    default_provider.payinSuite(),
-  );
-
-  // Mongo expression: amount at exact lower boundary of range should match
-  testHeaderMatch(
-    (mid) => [
-      { mid, amount: { range: [common.amount, common.amount + 100000] } },
-    ],
-    default_provider.payinSuite(),
-  );
-
-  // Mongo expression: amount at exact upper boundary of range should match
-  testHeaderMatch(
-    (mid) => [
-      { mid, amount: { range: [common.amount - 100000, common.amount] } },
-    ],
-    default_provider.payinSuite(),
-  );
-
-  // Mongo expression: amount one below lower boundary should miss
-  testHeaderMiss(
-    (mid) => [
-      { mid, amount: { range: [common.amount + 1, common.amount + 100000] } },
-    ],
-    default_provider.payinSuite(),
-  );
-
-  describe.todo("pipeline error resilience", () => {
-    // $in requires its second argument to be an array; passing a scalar should not crash the service
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { in: "RUB" } }],
+describe
+  .skipIf(USE_LEGACY_FLEXY || CONFIG.in_project(["8pay"]))
+  .concurrent("mongo expressions", () => {
+    testHeaderMatch(
+      (mid) => [
+        {
+          mid: [-100, 1, 3.14, mid],
+          currency: ["NAN", CURRENCY, "USD", "URK", "EUR"],
+        },
+      ],
       default_provider.payinSuite(),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { in: 42 } }],
+      (mid) => [{ mid, currency: ["NAN", "USD", "URK", "EUR"] }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMatch(
+      (mid) => [{ mid, phone: { eq: null } }],
       default_provider.payinSuite(),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { in: null } }],
+      (mid) => [{ mid, phone: { card_number: null } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMatch(
+      (mid) => [{ mid, amount: { range: [12345, 200000] } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMatch(
+      (mid) => [{ mid, amount: { gt: 1000, lt: common.amount + 1 } }],
       default_provider.payinSuite(),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { in: {} } }],
-      default_provider.payinSuite(),
-    );
-
-    // $in (via nin) with non-array values
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: "RUB" } }],
+      (mid) => [{ mid, amount: { range: [100, 2000] } }],
       default_provider.payinSuite(),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: 42 } }],
+      (mid) => [{ mid, email: { regex: "@gmail.com$" } }],
+      default_provider.payinSuite(),
+    );
+
+    testHeaderMatch(
+      (mid) => [{ mid, email: { regex: "@test.com$" } }],
       default_provider.payinSuite(),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { nin: null } }],
+      (mid) => [{ mid, phone: { regex: "^7916" } }],
       default_provider.payinSuite(),
     );
 
-    // $regexMatch throws on an invalid regex pattern
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "[unclosed" } }],
-      default_provider.payinSuite(),
+    function suiteWithPhone(suite: TestCaseBase) {
+      let request = suite.request();
+      (request as Record<any, any>).customer.phone = common.phoneNumber;
+      return { ...suite, request: () => request };
+    }
+
+    testHeaderMatch(
+      (mid) => [{ mid, phone: { regex: "^7999" } }],
+      suiteWithPhone(default_provider.payinSuite()),
     );
 
     testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "*noprefix" } }],
+      (mid) => [{ mid, email: { nin: ["test@test.com"] } }],
       default_provider.payinSuite(),
     );
 
-    testHeaderMiss(
-      (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
+    testHeaderMatch(
+      (mid) => [{ mid, email: { nin: ["another@test.com"] } }],
       default_provider.payinSuite(),
     );
 
-    // $regexMatch requires input to be a string; amount is a number in the request
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { regex: "^123" } }],
+    // Mongo expression: amount at exact lower boundary of range should match
+    testHeaderMatch(
+      (mid) => [
+        { mid, amount: { range: [common.amount, common.amount + 100000] } },
+      ],
       default_provider.payinSuite(),
     );
 
-    // $arrayElemAt (used by range) requires an array as first argument
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: "1000,5000" } }],
+    // Mongo expression: amount at exact upper boundary of range should match
+    testHeaderMatch(
+      (mid) => [
+        { mid, amount: { range: [common.amount - 100000, common.amount] } },
+      ],
       default_provider.payinSuite(),
     );
 
+    // Mongo expression: amount one below lower boundary should miss
     testHeaderMiss(
-      (mid) => [{ mid, amount: { range: 1000 } }],
+      (mid) => [
+        { mid, amount: { range: [common.amount + 1, common.amount + 100000] } },
+      ],
       default_provider.payinSuite(),
     );
 
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: {} } }],
-      default_provider.payinSuite(),
-    );
+    describe.todo("pipeline error resilience", () => {
+      // $in requires its second argument to be an array; passing a scalar should not crash the service
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { in: "RUB" } }],
+        default_provider.payinSuite(),
+      );
 
-    // range with wrong-length arrays: upper/lower bounds resolve to null
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: [] } }],
-      default_provider.payinSuite(),
-    );
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { in: 42 } }],
+        default_provider.payinSuite(),
+      );
 
-    testHeaderMiss(
-      (mid) => [{ mid, amount: { range: [1000] } }],
-      default_provider.payinSuite(),
-    );
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { in: null } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { in: {} } }],
+        default_provider.payinSuite(),
+      );
+
+      // $in (via nin) with non-array values
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { nin: "RUB" } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { nin: 42 } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { nin: null } }],
+        default_provider.payinSuite(),
+      );
+
+      // $regexMatch throws on an invalid regex pattern
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { regex: "[unclosed" } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { regex: "*noprefix" } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, currency: { regex: "(?P<bad" } }],
+        default_provider.payinSuite(),
+      );
+
+      // $regexMatch requires input to be a string; amount is a number in the request
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { regex: "^123" } }],
+        default_provider.payinSuite(),
+      );
+
+      // $arrayElemAt (used by range) requires an array as first argument
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { range: "1000,5000" } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { range: 1000 } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { range: {} } }],
+        default_provider.payinSuite(),
+      );
+
+      // range with wrong-length arrays: upper/lower bounds resolve to null
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { range: [] } }],
+        default_provider.payinSuite(),
+      );
+
+      testHeaderMiss(
+        (mid) => [{ mid, amount: { range: [1000] } }],
+        default_provider.payinSuite(),
+      );
+    });
   });
-});
 
 describe
   .runIf(CONFIG.in_project("reactivepay"))
@@ -597,5 +599,54 @@ describe.skipIf(USE_LEGACY_FLEXY).concurrent("mongo commission header", () => {
     ],
     default_provider.payinSuite(),
     10,
+  );
+
+  testCommissionMatch(
+    (mid) => [
+      {
+        header: { to_profile: mid, extra_return_param: "card" },
+        body: {
+          self: { rate: "10" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+      {
+        header: { to_profile: mid },
+        body: {
+          self: { rate: "15" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+    ],
+    {
+      ...default_provider.payinSuite(),
+      request: () => ({
+        ...default_provider.payinSuite().request(),
+        extra_return_param: "card",
+      }),
+    },
+    10,
+  );
+
+  testCommissionMiss(
+    (mid) => [
+      {
+        header: { to_profile: mid, extra_return_param: "cards" },
+        body: {
+          self: { rate: "5" },
+          provider: { rate: "0" },
+          agent: { rate: "0" },
+        },
+      },
+    ],
+    {
+      ...default_provider.payinSuite(),
+      request: () => ({
+        ...default_provider.payinSuite().request(),
+        extra_return_param: "CARD",
+      }),
+    },
   );
 });

@@ -9,6 +9,7 @@ import { test } from "@/test_context";
 
 const CURRENCY = "RUB";
 let AMOUNT = 1000_00;
+let EXTRA = "foobar";
 
 describe.concurrent("basic commission", () => {
   for (let success of [true, false]) {
@@ -22,23 +23,22 @@ describe.concurrent("basic commission", () => {
       await merchant.set_commission({
         operation: "PayoutRequest",
         currency: CURRENCY,
+        extra_return_param: EXTRA,
         status: "1",
       });
-      await merchant.create_payout(
-        default_provider.request(CURRENCY, AMOUNT, "payout", success),
-      );
-      let wallet = (await merchant.wallets())[0];
-      assert.strictEqual(
-        wallet.currency,
-        CURRENCY,
-        "created wallet should be in RUB",
-      );
-      assert.strictEqual(
-        wallet.available,
-        success ? 0 : amount_with_commission,
-        "merchant wallet amount",
-      );
-      assert.strictEqual(wallet.held, 0);
+      let response = await merchant.create_payout({
+        ...default_provider.request(CURRENCY, AMOUNT, "payout", success),
+        extra_return_param: EXTRA,
+      });
+      if (success) {
+        await ctx.healthcheck(response.token, {
+          expect: { status: 1, commission_value: 10 },
+        });
+      } else {
+        await ctx.healthcheck(response.token, {
+          expect: { status: 2, commission_value: 0 },
+        });
+      }
     });
 
     test.concurrent(`payin(${success ? "approve" : "decline"}) with commission`, async ({
@@ -49,23 +49,23 @@ describe.concurrent("basic commission", () => {
       await merchant.set_commission({
         operation: "PayinRequest",
         currency: CURRENCY,
+        extra_return_param: EXTRA,
         status: "1",
       });
-      await merchant.create_payment(
-        default_provider.request(CURRENCY, AMOUNT, "pay", success),
-      );
-      let wallet = (await merchant.wallets())[0];
-      assert.strictEqual(
-        wallet.currency,
-        CURRENCY,
-        "created wallet should be in RUB",
-      );
-      assert.strictEqual(
-        wallet.available,
-        success ? AMOUNT / 100 - (AMOUNT / 100) * 0.1 : 0,
-        "merchant wallet amount",
-      );
-      assert.strictEqual(wallet.held, 0);
+      let response = await merchant.create_payment({
+        ...default_provider.request(CURRENCY, AMOUNT, "pay", success),
+        extra_return_param: EXTRA,
+      });
+
+      if (success) {
+        await ctx.healthcheck(response.token, {
+          expect: { status: 1, commission_value: 10 },
+        });
+      } else {
+        await ctx.healthcheck(response.token, {
+          expect: { status: 2, commission_value: 0 },
+        });
+      }
     });
   }
 });

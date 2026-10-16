@@ -39,7 +39,9 @@ export const PayoutResponseSchema = z.object({
   success: z.literal(true),
   // Trader (source=trader) response makes these 2 fields optional :=D
   token: z.string().length(32),
-  processingUrl: z.url(),
+  // 8pay has snake_case, everyone else camelCase 8===D~
+  processing_url: z.url().optional(),
+  processingUrl: z.url().optional(),
   payment: z.object({
     amount: z.number().min(1),
     currency: z.string().nonempty(),

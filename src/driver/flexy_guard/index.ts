@@ -7,6 +7,7 @@ export const USE_LEGACY_FLEXY = !CONFIG.in_project([
   "a2",
   "reactivepay",
   "kotulapay",
+  "8pay",
 ]);
 
 export class FlexyGuardHarness {

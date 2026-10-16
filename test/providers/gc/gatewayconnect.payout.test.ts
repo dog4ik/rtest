@@ -90,6 +90,7 @@ describe.concurrent("commission healthcheck payouts", () => {
   const AMOUNT_RUB = AMOUNT / 100; // 1000 RUB
   const SELF_RATE = 0.1; // 10%
   const COMMISSION_RUB = AMOUNT_RUB * SELF_RATE; // 100 RUB
+  const EXTRA = "foobar";
 
   function commissionPayoutSuite() {
     let suite = payoutSuite();
@@ -98,6 +99,7 @@ describe.concurrent("commission healthcheck payouts", () => {
       request: () => ({
         ...suite.request(),
         amount: AMOUNT,
+        extra_return_param: EXTRA,
       }),
     });
   }
@@ -118,7 +120,10 @@ describe.concurrent("commission healthcheck payouts", () => {
     ctx.track_bg_rejections(async () => {
       let suite = commissionPayoutSuite();
       let merchant = await ctx.create_random_merchant();
-      await merchant.set_commission({ operation: "PayoutRequest" });
+      await merchant.set_commission({
+        operation: "PayoutRequest",
+        extra_return_param: EXTRA,
+      });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
       assert.deepEqual(
         await rubWallet(merchant),
@@ -150,7 +155,10 @@ describe.concurrent("commission healthcheck payouts", () => {
     ctx.track_bg_rejections(async () => {
       let suite = commissionPayoutSuite();
       let merchant = await ctx.create_random_merchant();
-      await merchant.set_commission({ operation: "PayoutRequest" });
+      await merchant.set_commission({
+        operation: "PayoutRequest",
+        extra_return_param: EXTRA,
+      });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
       assert.deepEqual(
         await rubWallet(merchant),
@@ -205,7 +213,10 @@ describe.concurrent("commission healthcheck payouts", () => {
     ctx.track_bg_rejections(async () => {
       let suite = commissionPayoutSuite();
       let merchant = await ctx.create_random_merchant();
-      await merchant.set_commission({ operation: "PayoutRequest" });
+      await merchant.set_commission({
+        operation: "PayoutRequest",
+        extra_return_param: EXTRA,
+      });
       await merchant.cashin("RUB", AMOUNT_RUB + COMMISSION_RUB);
       assert.deepEqual(
         await rubWallet(merchant),
