@@ -170,15 +170,33 @@ export async function basic_healthcheck(
   );
 
   assert.isNotNull(core.target_amount, "target amount should not be null");
-  // assert(core.target_amount > 0, "target amount should be > 0");
-  // if (core.target_currency_rate !== null) {
-  //   assert.approximately(
-  //     core.target_amount,
-  //     core.amount / core.target_currency_rate,
-  //     0.01,
-  //     "target amount should be equal to amount / rate",
-  //   );
-  // }
+  assert(core.target_amount > 0, "target amount should be > 0");
+  if (core.target_currency_rate !== null) {
+    assert.approximately(
+      core.target_amount,
+      core.amount / core.target_currency_rate,
+      0.01,
+      "target amount should be equal to amount / rate",
+    );
+  }
+
+  if (core.commission_amount !== null) {
+    let expected_value =
+      ((core.commission_amount - (core.commission_fee ?? 0)) /
+        core.target_amount) *
+      100;
+    assert.isNotNull(
+      core.commission_value ?? core.commission_fee,
+      "commission value can't be null if commission_amount is defined",
+    );
+    assert(
+      Math.abs(expected_value - (core.commission_value ?? 0)) < 0.01,
+      `commission value and amount ratio mismatch:\
+ commission_amount: ${core.commission_amount},\
+ commission_value: ${core.commission_value},\
+ expected: ${expected_value}`,
+    );
+  }
 
   if (opts?.expect) {
     for (let [key, val] of Object.entries(opts.expect)) {
